@@ -1,0 +1,13 @@
+                                                                                                                                                                                                                                                                
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+CREATE   PROCEDURE [PROJ].[sp_UpdateOwnerCompany]
+    @CompanyName NVARCHAR(200),
+    @CompanyCode NVARCHAR(50),
+    @TRN         NVARCHAR(50),
+    @Phone       NVARCHAR(50),
+    @Fax         NVARCHAR(50),
+    @Email       NVARCHAR(200),
+    @Website     
+
+(1 rows affected)

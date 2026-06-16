@@ -1,0 +1,415 @@
+/* ── Invoice Print Format 2 — Modern Flat ──────────────────────
+   Class prefix: ip2-
+   Reuses .po-print-overlay / .po-print-toolbar / .po-print-btn-*
+   from PoPrint.css (already loaded by InvoicePrintModal).
+   ──────────────────────────────────────────────────────────── */
+
+/* ── Document shell ──────────────────────────────────────────── */
+.ip2-doc {
+    width: 794px;
+    min-height: 1123px;
+    background: #fff;
+    border-radius: 4px;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    font-size: 12px;
+    color: #1e293b;
+    box-shadow: 0 8px 40px rgba(0,0,0,.3);
+    overflow: hidden;          /* so the banner bleeds edge-to-edge */
+}
+
+/* ── Full-width banner ───────────────────────────────────────── */
+.ip2-banner {
+    background: #0f4c75;
+    color: #fff;
+    padding: 22px 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.ip2-banner-left {}
+
+.ip2-banner-company {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: .02em;
+    margin-bottom: 3px;
+}
+
+.ip2-banner-addr {
+    font-size: 11px;
+    color: rgba(255,255,255,.7);
+    line-height: 1.6;
+}
+
+.ip2-banner-right {
+    text-align: right;
+}
+
+.ip2-banner-doctype {
+    font-size: 26px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: #7dd3fc;
+    margin-bottom: 4px;
+}
+
+.ip2-banner-docno {
+    font-size: 15px;
+    font-weight: 700;
+    font-family: 'Courier New', monospace;
+    color: #fff;
+    margin-bottom: 3px;
+}
+
+.ip2-banner-status {
+    display: inline-block;
+    padding: 2px 12px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    background: rgba(255,255,255,.15);
+    color: #e0f2fe;
+    border: 1px solid rgba(255,255,255,.25);
+}
+
+/* ── Body padding wrapper ────────────────────────────────────── */
+.ip2-body {
+    padding: 28px 40px 36px;
+}
+
+/* ── Customer + Meta row ─────────────────────────────────────── */
+.ip2-top-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 24px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid #0f4c75;
+}
+
+.ip2-section-label {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .09em;
+    color: #0f4c75;
+    margin-bottom: 8px;
+}
+
+.ip2-customer-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 4px;
+}
+
+.ip2-detail-row {
+    display: flex;
+    gap: 6px;
+    font-size: 11px;
+    margin-bottom: 3px;
+}
+
+.ip2-detail-label {
+    color: #64748b;
+    min-width: 96px;
+    flex-shrink: 0;
+}
+
+.ip2-detail-val {
+    color: #1e293b;
+    font-weight: 500;
+}
+
+.ip2-address-block {
+    margin-top: 8px;
+    font-size: 11px;
+    color: #475569;
+    line-height: 1.6;
+    white-space: pre-line;
+}
+
+/* ── Line items table ────────────────────────────────────────── */
+.ip2-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+    font-size: 11.5px;
+}
+
+.ip2-table thead tr {
+    background: #0f4c75;
+    color: #fff;
+}
+
+.ip2-table thead th {
+    padding: 9px 10px;
+    text-align: left;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    white-space: nowrap;
+}
+
+.ip2-table thead th.r { text-align: right; }
+.ip2-table thead th.c { text-align: center; }
+
+.ip2-table tbody tr {
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.ip2-table tbody tr:nth-child(even) {
+    background: #f0f9ff;
+}
+
+.ip2-table tbody td {
+    padding: 8px 10px;
+    vertical-align: top;
+}
+
+.ip2-table tbody td.r {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+}
+
+.ip2-table tbody td.c { text-align: center; }
+.ip2-table tbody td.muted { color: #64748b; }
+.ip2-table tbody td.bold  { font-weight: 700; }
+
+/* ── Totals ──────────────────────────────────────────────────── */
+.ip2-totals-wrap {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 20px;
+}
+
+.ip2-totals {
+    width: 300px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.ip2-totals-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 7px 16px;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 12px;
+}
+
+.ip2-totals-row:last-child { border-bottom: none; }
+
+.ip2-totals-row .lbl { color: #64748b; }
+.ip2-totals-row .val { font-weight: 600; font-family: 'Courier New', monospace; font-size: 11.5px; }
+
+.ip2-totals-row.grand {
+    background: #0f4c75;
+    color: #fff;
+}
+
+.ip2-totals-row.grand .lbl { color: #7dd3fc; font-weight: 700; font-size: 13px; }
+.ip2-totals-row.grand .val { color: #fff; font-weight: 800; font-size: 14px; }
+
+/* ── Amount in words ─────────────────────────────────────────── */
+.ip2-words {
+    border-left: 4px solid #0f4c75;
+    background: #f0f9ff;
+    padding: 10px 16px;
+    font-size: 12px;
+    color: #1e293b;
+    margin-bottom: 20px;
+    border-radius: 0 6px 6px 0;
+}
+
+.ip2-words-label {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    color: #0f4c75;
+    margin-bottom: 3px;
+}
+
+/* ── Notes ───────────────────────────────────────────────────── */
+.ip2-notes {
+    border: 1px solid #fed7aa;
+    background: #fff7ed;
+    border-left: 4px solid #f97316;
+    border-radius: 0 6px 6px 0;
+    padding: 10px 16px;
+    font-size: 11.5px;
+    line-height: 1.6;
+    color: #1e293b;
+    margin-bottom: 20px;
+}
+
+.ip2-notes-label {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    color: #c2410c;
+    margin-bottom: 4px;
+}
+
+/* ── Bank / payment info ─────────────────────────────────────── */
+.ip2-bank {
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 12px 16px;
+    background: #f8fafc;
+    margin-bottom: 24px;
+    font-size: 11px;
+    color: #475569;
+}
+
+.ip2-bank-label {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    color: #0f4c75;
+    margin-bottom: 6px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+/* ── Signature footer ────────────────────────────────────────── */
+.ip2-footer {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    padding-top: 16px;
+    border-top: 2px solid #0f4c75;
+    margin-top: 8px;
+}
+
+.ip2-sig-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: #0f4c75;
+    margin-bottom: 32px;
+}
+
+.ip2-sig-line {
+    border-bottom: 1px solid #94a3b8;
+    margin-bottom: 6px;
+}
+
+.ip2-sig-sub {
+    font-size: 10px;
+    color: #94a3b8;
+}
+
+/* ── Footer note ─────────────────────────────────────────────── */
+.ip2-print-note {
+    text-align: center;
+    font-size: 10px;
+    color: #94a3b8;
+    margin-top: 18px;
+    /* Capture this element's text into a paged-media named string so
+       @page rules below can render it as a per-page footer band. */
+    string-set: docfooter content();
+}
+
+/* ── Accent strip at very bottom ─────────────────────────────── */
+.ip2-accent-strip {
+    background: #0f4c75;
+    height: 6px;
+}
+
+/* ── @media print ────────────────────────────────────────────── */
+@media print {
+    @page {
+        size: A4 portrait;
+        margin: 14mm 14mm 22mm;
+
+        @bottom-center {
+            content: string(docfooter);   /* "This is a computer-generated…" text */
+            font-size: 8.5pt;
+            color: #94a3b8;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            border-top: 0.4pt solid #cbd5e1;
+            padding-top: 4pt;
+            vertical-align: top;
+        }
+
+        @bottom-right {
+            content: "Page " counter(page) " of " counter(pages);
+            font-size: 8.5pt;
+            color: #94a3b8;
+            font-family: 'Segoe UI', Arial, sans-serif;
+        }
+    }
+
+    /* Hide the inline note on print — it now lives in the per-page footer band */
+    .ip2-print-note { display: none !important; }
+
+    body * { visibility: hidden !important; }
+
+    .ip2-doc,
+    .ip2-doc * { visibility: visible !important; }
+
+    .po-print-toolbar { display: none !important; }
+
+    /* ── Document shell: flow across pages (not fixed) ── */
+    .ip2-doc {
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        max-width: none !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        overflow: visible !important;   /* remove clip so content flows */
+    }
+
+    /* ── Full-width banner: normal flow (page 1 only) ── */
+    .ip2-banner {
+        margin-bottom: 0 !important;
+    }
+
+    /* ── Accent strip: always at the bottom, don't float ── */
+    .ip2-accent-strip {
+        position: fixed !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+    }
+
+    /* ── Table column headers repeat on every page ── */
+    .ip2-table thead {
+        display: table-header-group !important;
+    }
+
+    /* ── Avoid splitting a data row across pages ── */
+    .ip2-table tbody tr {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    /* ── Keep these blocks together on a single page ── */
+    .ip2-totals-wrap,
+    .ip2-footer,
+    .ip2-words,
+    .ip2-notes {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    /* ── Avoid a page break immediately after the top row ── */
+    .ip2-top-row {
+        break-after: avoid;
+        page-break-after: avoid;
+    }
+}

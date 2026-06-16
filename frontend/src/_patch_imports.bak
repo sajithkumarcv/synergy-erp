@@ -1,0 +1,6 @@
+// ── Add this import at top of Customer.js (line 2 area)
+// Replace the existing import block with:
+import React, { useState, useEffect, useCallback } from 'react';
+import { variables, authHeaders } from './Variable.js';
+import { useLookup } from './LookupContext';
+import './Customer.css';

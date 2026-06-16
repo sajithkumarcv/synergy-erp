@@ -1,0 +1,3 @@
+/* App.css – global resets only. Layout styles live in Layout.css */
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; padding: 0; }

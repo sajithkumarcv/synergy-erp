@@ -1,0 +1,10 @@
+                <div className="cust-table-wrap">
+                    {loading && (
+                        <div className="grid-loading-overlay">
+                            <div className="grid-spinner">
+                                <div className="spinner-ring" />
+                                <span className="spinner-text">Loading…</span>
+                            </div>
+                        </div>
+                    )}
+                    <table className={`cust-table ${loading ? 'tbl-loading' : ''}`}>

@@ -1,0 +1,228 @@
+/* ── JobReport.css ────────────────────────────────────────────
+   Content styles for the Job Report print modal.
+   Overlay / toolbar / document shell print rules live in
+   PoPrint.css (already imported) — this file handles jr-* only.
+   ─────────────────────────────────────────────────────────── */
+
+/* ── Section label ───────────────────────────────────────── */
+.jr-section {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: #1e3a5f;
+    border-bottom: 2px solid #1e3a5f;
+    padding-bottom: 4px;
+    margin: 18px 0 10px;
+}
+
+/* ── 2-col identity grid ──────────────────────────────────── */
+.jr-identity {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 28px;
+}
+
+.jr-field {
+    display: flex;
+    flex-direction: column;
+    padding: 4px 0;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.jr-field-label {
+    font-size: 9.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: #64748b;
+    margin-bottom: 2px;
+}
+
+.jr-field-val      { font-size: 12px; color: #1e293b; }
+.jr-field-val.mono { font-family: 'Courier New', monospace; font-weight: 600; }
+
+/* ── KPI boxes ────────────────────────────────────────────── */
+.jr-kpis {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 8px;
+    margin: 12px 0 0;
+}
+
+.jr-kpi {
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 8px 10px;
+    background: #f8fafc;
+}
+
+.jr-kpi-label {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: #64748b;
+    margin-bottom: 4px;
+}
+
+.jr-kpi-val {
+    font-size: 13px;
+    font-weight: 700;
+    font-family: 'Courier New', monospace;
+    color: #1e293b;
+}
+
+.jr-kpi-val.blue   { color: #1e40af; }
+.jr-kpi-val.green  { color: #15803d; }
+.jr-kpi-val.red    { color: #dc2626; }
+.jr-kpi-val.amber  { color: #b45309; }
+.jr-kpi-val.purple { color: #7c3aed; }
+
+.jr-kpi-ccy {
+    font-size: 9px;
+    font-weight: 700;
+    opacity: .7;
+    letter-spacing: .03em;
+}
+
+/* Base-currency equivalent line shown when job currency ≠ base */
+.jr-kpi-base {
+    font-size: 9px;
+    color: #94a3b8;
+    font-family: 'Courier New', monospace;
+    margin-top: 2px;
+    white-space: nowrap;
+}
+
+/* ── Tables ───────────────────────────────────────────────── */
+.jr-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11.5px;
+    margin-bottom: 4px;
+}
+
+.jr-table thead tr   { background: #1e3a5f; color: #fff; }
+.jr-table thead th   {
+    padding: 7px 10px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    text-align: left;
+    white-space: nowrap;
+}
+.jr-table thead th.r { text-align: right; }
+
+.jr-table tbody tr   { border-bottom: 1px solid #f1f5f9; }
+.jr-table tbody tr:nth-child(even) { background: #fafbfc; }
+.jr-table tbody td   { padding: 6px 10px; vertical-align: middle; }
+.jr-table tbody td.r    { text-align: right; font-family: 'Courier New', monospace; font-weight: 600; }
+.jr-table tbody td.mono { font-family: 'Courier New', monospace; font-weight: 600; }
+
+.jr-table tfoot tr   { background: #1e3a5f; color: #fff; }
+.jr-table tfoot td   { padding: 6px 10px; font-weight: 700; }
+.jr-table tfoot td.r { text-align: right; font-family: 'Courier New', monospace; }
+
+.jr-empty-cell {
+    text-align: center;
+    padding: 14px 0 !important;
+    color: #94a3b8;
+    font-style: italic;
+}
+
+/* ── Variance colours ─────────────────────────────────────── */
+.jr-pos { color: #15803d; font-weight: 700; }
+.jr-neg { color: #dc2626; font-weight: 700; }
+
+/* ── Spend bar ────────────────────────────────────────────── */
+.jr-spend-bar-track { height: 4px; background: #e2e8f0; border-radius: 3px; margin-top: 3px; }
+.jr-spend-bar-fill  { height: 100%; border-radius: 3px; }
+
+/* ── Status badge ─────────────────────────────────────────── */
+.jr-badge {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-size: 9.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+
+/* ── Table note ───────────────────────────────────────────── */
+.jr-table-note {
+    font-size: 9.5px;
+    color: #94a3b8;
+    margin: 3px 0 0;
+}
+
+.jr-empty-msg {
+    font-size: 11.5px;
+    color: #94a3b8;
+    font-style: italic;
+    padding: 4px 0;
+}
+
+/* ── Signature block ──────────────────────────────────────── */
+.jr-sigs {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 24px;
+    padding-top: 22px;
+    border-top: 2px solid #1e3a5f;
+    margin-top: 28px;
+}
+
+.jr-sig-label { font-size: 10px; font-weight: 700; text-transform: uppercase;
+                letter-spacing: .05em; color: #475569; margin-bottom: 28px; }
+.jr-sig-line  { border-bottom: 1px solid #1e3a5f; margin-bottom: 4px; }
+.jr-sig-sub   { font-size: 9.5px; color: #64748b; }
+
+/* ── Print overrides for jr-* elements ───────────────────── */
+/* po-print-doc shell + CompanyHeaderBand print rules are
+   already handled by PoPrint.css — nothing to repeat here.  */
+@media print {
+    /* Identity grid: tighter rows */
+    .jr-identity { gap: 0 16px !important; }
+    .jr-field     { padding: 2px 0 !important; }
+    .jr-field-label { font-size: 8.5px !important; }
+    .jr-field-val   { font-size: 10.5px !important; }
+
+    /* Section labels */
+    .jr-section { margin: 10px 0 5px !important; font-size: 8.5px !important; }
+
+    /* KPI grid */
+    .jr-kpis {
+        gap: 5px !important;
+        margin: 6px 0 0 !important;
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+    .jr-kpi        { padding: 5px 7px !important; }
+    .jr-kpi-label  { font-size: 7.5px !important; }
+    .jr-kpi-val    { font-size: 11px  !important; }
+    .jr-kpi-ccy    { font-size: 8px   !important; }
+    .jr-kpi-base   { font-size: 8px   !important; }
+
+    /* Tables */
+    .jr-table { font-size: 10px !important; }
+    .jr-table thead { display: table-header-group !important; }
+    .jr-table thead th { padding: 4px 7px !important; font-size: 8px !important; }
+    .jr-table tbody td { padding: 4px 7px !important; }
+    .jr-table tbody tr {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    /* Signature block: keep together */
+    .jr-sigs {
+        break-inside: avoid;
+        page-break-inside: avoid;
+        margin-top: 14px !important;
+        padding-top: 10px !important;
+    }
+    .jr-sig-label { margin-bottom: 14px !important; font-size: 9px !important; }
+    .jr-sig-sub   { font-size: 9px !important; }
+}

@@ -1,0 +1,151 @@
+// ─────────────────────────────────────────────────────────────
+// CUSTOMER FORM  (add / edit)
+// ─────────────────────────────────────────────────────────────
+const CustomerForm = ({ title, cust, onClose, onSaved }) => {
+    const currentUser = useCurrentUser();
+    const { lookups, getVList } = useLookup();
+    const { countries, currencies, paymentTerms, customerCategories } = lookups;
+    const customerTypes = getVList('Customer', 'CustomerType');
+
+    // ── Normalise IDs to strings on init ──────────────────────
+    // HTML <select> compares value as string. DB returns integers.
+    // Converting here ensures form.currencyId === option.value always.
+    const normalise = (c) => ({
+        ...c,
+        currencyId:         c.currencyId         != null ? String(c.currencyId)         : '',
+        paymentTermsId:     c.paymentTermsId     != null ? String(c.paymentTermsId)     : '',
+        customerCategoryId: c.customerCategoryId != null ? String(c.customerCategoryId) : '',
+        countryId:          c.countryId          != null ? String(c.countryId)          : '',
+        customerType:       c.customerType       ?? '',
+    });
+
+    const [form, setForm] = useState(() => normalise(cust));
+    const [saving, setSaving] = useState(false);
+
+    const handle = (e) => {
+        const { name, value, type, checked } = e.target;
+        setForm(p => ({ ...p, [name]: type === 'checkbox' ? checked : value }));
+    };
+
+    const save = () => {
+        if (!form.customerCode || !form.customerName) { alert('Customer Code and Name are required.'); return; }
+        setSaving(true);
+        const isNew = form.customerId === 0;
+        const payload = { ...form, createdBy: isNew ? currentUser : form.createdBy, modifiedBy: isNew ? null : currentUser };
+        fetch(variables.API_URL + 'customer/save', { method: 'POST', headers: authHeaders(), body: JSON.stringify(payload) })
+            .then(r => r.json()).then(() => { onSaved(); onClose(); })
+            .catch(console.error).finally(() => setSaving(false));
+    };
+
+    return (
+        <div className="cf-panel">
+            <div className="cf-header">
+                <span className="cf-title">{title}</span>
+                <button className="cf-close" onClick={onClose}>&#10005;</button>
+            </div>
+            <div className="cf-body">
+                <FormSection label="Identity" />
+                <div className="cf-row">
+                    <div className="cf-field" style={{ flex: '0 0 150px' }}>
+                        <label>Customer Code <span className="req">*</span></label>
+                        <input name="customerCode" className="cf-input" value={form.customerCode || ''} onChange={handle} placeholder="CUST-0001" />
+                    </div>
+                    <div className="cf-field cf-f2">
+                        <label>Customer Name <span className="req">*</span></label>
+                        <input name="customerName" className="cf-input" value={form.customerName || ''} onChange={handle} placeholder="Full legal company name" />
+                    </div>
+                    <div className="cf-field">
+                        <label>Short Name</label>
+                        <input name="customerShortName" className="cf-input" value={form.customerShortName || ''} onChange={handle} placeholder="Display / short name" />
+                    </div>
+                    <div className="cf-field" style={{ flex: '0 0 130px' }}>
+                        <label>Reference</label>
+                        <input name="customerRef" className="cf-input" value={form.customerRef || ''} onChange={handle} placeholder="External ref" />
+                    </div>
+                    <div className="cf-field cf-fcheck">
+                        <label>&nbsp;</label>
+                        <label className="cf-check">
+                            <input type="checkbox" name="isActive" checked={!!form.isActive} onChange={handle} /><span>Active</span>
+                        </label>
+                    </div>
+                </div>
+
+                <FormSection label="Classification" />
+                <div className="cf-row">
+                    <div className="cf-field">
+                        <label>Category</label>
+                        <select name="customerCategoryId" className="cf-input" value={form.customerCategoryId} onChange={handle}>
+                            <option value="">-- Select Category --</option>
+                            {customerCategories.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
+                        </select>
+                    </div>
+                    <div className="cf-field">
+                        <label>Customer Type</label>
+                        <select name="customerType" className="cf-input" value={form.customerType} onChange={handle}>
+                            <option value="">-- Select Type --</option>
+                            {customerTypes.map(t => <option key={t.id} value={t.value}>{t.label}</option>)}
+                        </select>
+                    </div>
+                    <div className="cf-field">
+                        <label>Sales Person</label>
+                        <input name="salesPerson" className="cf-input" value={form.salesPerson || ''} onChange={handle} placeholder="Assigned sales person" />
+                    </div>
+                </div>
+
+                <FormSection label="Contact" />
+                <div className="cf-row">
+                    <div className="cf-field"><label>Email</label><input name="email" type="email" className="cf-input" value={form.email || ''} onChange={handle} placeholder="info@company.com" /></div>
+                    <div className="cf-field"><label>Mobile</label><input name="mobile" className="cf-input" value={form.mobile || ''} onChange={handle} placeholder="+971 50 000 0000" /></div>
+                    <div className="cf-field"><label>Phone</label><input name="phone" className="cf-input" value={form.phone || ''} onChange={handle} placeholder="+971 4 000 0000" /></div>
+                    <div className="cf-field"><label>Website</label><input name="web" className="cf-input" value={form.web || ''} onChange={handle} placeholder="www.company.com" /></div>
+                </div>
+
+                <FormSection label="Financial" />
+                <div className="cf-row">
+                    <div className="cf-field">
+                        <label>Currency <span className="req">*</span></label>
+                        <select name="currencyId" className="cf-input" value={form.currencyId} onChange={handle}>
+                            <option value="">-- Select --</option>
+                            {currencies.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
+                        </select>
+                    </div>
+                    <div className="cf-field">
+                        <label>Payment Terms <span className="req">*</span></label>
+                        <select name="paymentTermsId" className="cf-input" value={form.paymentTermsId} onChange={handle}>
+                            <option value="">-- Select --</option>
+                            {paymentTerms.map(p => <option key={p.id} value={String(p.id)}>{p.name}</option>)}
+                        </select>
+                    </div>
+                    <div className="cf-field">
+                        <label>Country</label>
+                        <select name="countryId" className="cf-input" value={form.countryId} onChange={handle}>
+                            <option value="">-- Select --</option>
+                            {countries.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
+                        </select>
+                    </div>
+                    <div className="cf-field" style={{ flex: '0 0 140px' }}>
+                        <label>Credit Limit (AED)</label>
+                        <input name="creditLimit" type="number" className="cf-input" value={form.creditLimit || ''} onChange={handle} placeholder="0.00" />
+                    </div>
+                    <div className="cf-field" style={{ flex: '0 0 110px' }}>
+                        <label>Credit Days</label>
+                        <input name="creditDays" type="number" className="cf-input" value={form.creditDays || ''} onChange={handle} placeholder="0" />
+                    </div>
+                </div>
+
+                <FormSection label="Tax & Other" />
+                <div className="cf-row">
+                    <div className="cf-field"><label>VAT Number</label><input name="vatNumber" className="cf-input" value={form.vatNumber || ''} onChange={handle} placeholder="VAT / TRN number" /></div>
+                    <div className="cf-field"><label>Tax Number</label><input name="taxNumber" className="cf-input" value={form.taxNumber || ''} onChange={handle} placeholder="Tax registration no." /></div>
+                    <div className="cf-field cf-f2"><label>Remarks</label><input name="remarks" className="cf-input" value={form.remarks || ''} onChange={handle} placeholder="Internal notes" /></div>
+                </div>
+            </div>
+            <div className="cf-footer">
+                <button className="btn-sec" onClick={onClose}>Cancel</button>
+                <button className="btn-pri" onClick={save} disabled={saving}>
+                    {saving ? 'Saving…' : (form.customerId === 0 ? 'Save Customer' : 'Update Customer')}
+                </button>
+            </div>
+        </div>
+    );
+};

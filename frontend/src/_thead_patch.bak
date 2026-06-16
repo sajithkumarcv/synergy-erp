@@ -1,0 +1,11 @@
+                    <table className="cust-table">
+                        <thead><tr>
+                            <Th col="CustomerCode">Code</Th><Th col="CustomerName">Customer Name</Th>
+                            <Th col="CustomerShortName">Short Name</Th><Th col="CustomerType">Type</Th>
+                            <Th col="CustomerCategoryName">Category</Th><Th col="Mobile">Mobile</Th>
+                            <Th col="Email">Email</Th>
+                            <Th col="CreditLimit" style={{ textAlign: 'right' }}>Credit Limit</Th>
+                            <Th col="CreditDays"  style={{ textAlign: 'right' }}>Days</Th>
+                            <Th col="SalesPerson">Sales Person</Th><Th col="StatusLabel">Status</Th>
+                            <Th col="CreditFlag">Credit Flag</Th><th>Actions</th>
+                        </tr></thead>

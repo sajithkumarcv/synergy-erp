@@ -1,0 +1,10 @@
+/* SupplierDetail.css — Supplier-specific overrides only.
+   All layout (jd-*, tab-*, ov-*, jf-*) comes from jobs/JobDetail.css */
+
+/* ── Status badge ────────────────────────────────────── */
+.sd-status-badge {
+  padding: 3px 10px; border-radius: 10px;
+  font-size: 11px; font-weight: 600; white-space: nowrap;
+}
+.sd-status-active   { background: #dcfce7; color: #166534; }
+.sd-status-inactive { background: #fee2e2; color: #991b1b; }

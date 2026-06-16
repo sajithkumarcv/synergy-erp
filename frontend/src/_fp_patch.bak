@@ -1,0 +1,114 @@
+// ── Vertical Filter Panel ──────────────────────────────────────────────────────
+const FilterPanel = () => {
+  const {
+    activePage, filterDefs, filterValues,
+    setFilter, applyFilters, clearFilters, activeCount
+  } = useFilters();
+
+  // ✅ useState MUST be called before any early return (Rules of Hooks)
+  // We initialise with an empty object; it gets populated when defs are available.
+  const [openGroups, setOpenGroups] = useState({});
+
+  const page   = activePage;
+  const defs   = page ? (filterDefs[page] || {}) : {};
+  const values = page ? (filterValues[page] || {}) : {};
+  const count  = page ? activeCount(page) : 0;
+
+  // Sync openGroups when the page / defs change (new page registers)
+  useEffect(() => {
+    if (page && filterDefs[page]) {
+      setOpenGroups(
+        Object.fromEntries(Object.keys(filterDefs[page]).map(k => [k, true]))
+      );
+    }
+  }, [page, filterDefs]);
+
+  // No page registered — render nothing but keep the panel out of the DOM
+  if (!page || !filterDefs[page]) return null;
+
+  const toggleGroup = (key) =>
+    setOpenGroups(prev => ({ ...prev, [key]: !prev[key] }));
+
+  return (
+    <div className="erp-filterpanel">
+      {/* Header */}
+      <div className="fp-header">
+        <span className="fp-title">
+          <Icon name="filter" />
+          Filters
+          {count > 0 && <span className="fp-count-badge">{count}</span>}
+        </span>
+        {count > 0 && (
+          <span className="fp-clear" onClick={() => clearFilters(page)}>Clear</span>
+        )}
+      </div>
+
+      {/* Groups */}
+      <div className="fp-body">
+        {Object.entries(defs).map(([key, def]) => {
+          const isOpen = openGroups[key] !== false;
+          return (
+            <div className="fp-group" key={key}>
+              <div className="fp-group-header" onClick={() => toggleGroup(key)}>
+                <span>{def.label}</span>
+                <span className={`fp-chevron ${isOpen ? 'open' : ''}`}>
+                  <Icon name="chevron" />
+                </span>
+              </div>
+
+              {isOpen && (
+                <div className="fp-group-body">
+                  {def.type === 'text' && (
+                    <input
+                      className="fp-input"
+                      type="text"
+                      placeholder={def.placeholder || ''}
+                      value={values[key] || ''}
+                      onChange={e => setFilter(page, key, e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && applyFilters(page)}
+                    />
+                  )}
+                  {def.type === 'select' && (
+                    <select
+                      className="fp-select"
+                      value={values[key] || ''}
+                      onChange={e => setFilter(page, key, e.target.value)}
+                    >
+                      <option value="">{def.placeholder || `All ${def.label}`}</option>
+                      {(def.options || []).map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                  )}
+                  {def.type === 'radio' && (
+                    <div className="fp-radio-group">
+                      {(def.options || []).map(opt => (
+                        <label className="fp-radio-item" key={opt.value}>
+                          <input
+                            type="radio"
+                            name={`fp-radio-${key}`}
+                            value={opt.value}
+                            checked={(values[key] ?? '') === opt.value}
+                            onChange={() => setFilter(page, key, opt.value)}
+                          />
+                          <span>{opt.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Footer */}
+      <div className="fp-footer">
+        <button className="fp-apply" onClick={() => applyFilters(page)}>
+          Apply Filters
+        </button>
+      </div>
+    </div>
+  );
+};

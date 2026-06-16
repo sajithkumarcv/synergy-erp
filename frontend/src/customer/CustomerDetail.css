@@ -1,0 +1,68 @@
+/* CustomerDetail.css — Customer-specific overrides only.
+   All layout (jd-*, tab-*, ov-*, jf-*) comes from jobs/JobDetail.css */
+
+/* ── Credit Hold Modal ───────────────────────────────── */
+.cd-modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,.5);
+  z-index: 600; display: flex; align-items: center; justify-content: center;
+}
+.cd-modal-box {
+  background: #fff; border-radius: 10px; width: 440px; max-width: 95vw;
+  box-shadow: 0 20px 60px rgba(0,0,0,.25); overflow: hidden;
+}
+.cd-modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px; font-size: 14px; font-weight: 600; color: #fff;
+}
+.cd-modal-black { background: #1c1c1c; }
+.cd-modal-green { background: #0f766e; }
+.cd-modal-body  { padding: 18px 20px; }
+.cd-modal-name  { font-size: 15px; font-weight: 700; color: #1e3a5f; }
+.cd-modal-code  { font-size: 12px; color: #64748b; font-family: monospace; margin-top: 2px; }
+.cd-modal-note  { background: #fef9c3; border: 1px solid #fde047; border-radius: 6px; padding: 8px 12px; font-size: 12.5px; color: #713f12; margin-top: 10px; }
+.cd-modal-label { display: block; font-size: 11px; font-weight: 600; color: #475569; text-transform: uppercase; letter-spacing: .4px; margin: 14px 0 6px; }
+.cd-modal-release { font-size: 13px; color: #0f766e; margin: 12px 0 0; }
+
+/* ── Status & credit-flag badges ─────────────────────── */
+.cd-status-badge {
+  padding: 3px 10px; border-radius: 10px;
+  font-size: 11px; font-weight: 600; white-space: nowrap;
+}
+.cd-status-active   { background: #dcfce7; color: #166534; }
+.cd-status-inactive { background: #fee2e2; color: #991b1b; }
+
+.cd-flag-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px; border-radius: 10px;
+  font-size: 11px; font-weight: 600; white-space: nowrap;
+}
+.cd-flag-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── Hold flag icon on customer name ─────────────────── */
+.cd-hold-tag {
+  font-size: 14px; color: #dc2626; cursor: help; margin-left: 4px;
+}
+
+/* ── Credit hold button states ───────────────────────── */
+.cd-hold-active {
+  background: #fff7ed !important;
+  border-color: #f97316 !important;
+  color: #c2410c !important;
+}
+
+/* ── Credit hold modal action buttons ───────────────── */
+.cd-btn-teal {
+  background: #0f766e; color: #fff; border: none;
+  padding: 8px 22px; border-radius: 6px; font-size: 13px;
+  font-weight: 500; cursor: pointer; transition: background .15s;
+}
+.cd-btn-teal:hover:not(:disabled) { background: #0d6660; }
+.cd-btn-teal:disabled { opacity: .6; cursor: not-allowed; }
+
+.cd-btn-black {
+  background: #1c1c1c; color: #fff; border: none;
+  padding: 8px 22px; border-radius: 6px; font-size: 13px;
+  font-weight: 500; cursor: pointer; transition: background .15s;
+}
+.cd-btn-black:hover:not(:disabled) { background: #333; }
+.cd-btn-black:disabled { opacity: .6; cursor: not-allowed; }

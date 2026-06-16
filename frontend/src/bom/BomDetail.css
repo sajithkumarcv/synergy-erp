@@ -1,0 +1,57 @@
+/* ═══════════════════════════════════════════════════════════
+   BomDetail.css  —  BOM detail page specific styles
+   Shared tab styles come from ItemDetail.css
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Status bar (overview tab) ── */
+.bds-status-bar { display:flex; align-items:center; gap:10px; background:#fff; border:1px solid var(--side-border,#e2e8f0); border-radius:8px; padding:10px 16px; margin-bottom:4px; flex-wrap:wrap; }
+.bds-status-label { font-size:11px; font-weight:600; color:var(--side-text,#64748b); text-transform:uppercase; letter-spacing:.4px; }
+.bds-status-pill { display:inline-block; padding:3px 12px; border-radius:8px; font-size:12px; font-weight:700; }
+.bds-status-actions { display:flex; gap:8px; margin-left:8px; flex-wrap:wrap; }
+.bds-act-activate { background:#16a34a; color:#fff; border:none; padding:5px 14px; border-radius:5px; font-size:12px; font-weight:500; cursor:pointer; }
+.bds-act-activate:hover:not(:disabled) { background:#15803d; }
+.bds-act-obsolete { background:#dc2626; color:#fff; border:none; padding:5px 14px; border-radius:5px; font-size:12px; font-weight:500; cursor:pointer; }
+.bds-act-obsolete:hover:not(:disabled) { background:#b91c1c; }
+.bds-act-draft    { background:#d97706; color:#fff; border:none; padding:5px 14px; border-radius:5px; font-size:12px; font-weight:500; cursor:pointer; }
+.bds-act-draft:hover:not(:disabled)    { background:#b45309; }
+.bds-act-activate:disabled, .bds-act-obsolete:disabled, .bds-act-draft:disabled { opacity:.5; cursor:not-allowed; }
+
+/* ── Component cell ── */
+.bds-comp-item  { display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
+.bds-comp-code  { font-family:'Courier New',monospace; font-size:10.5px; font-weight:700; color:var(--primary,#2e5fa3); background:var(--primary-light,#dbeafe); padding:1px 5px; border-radius:3px; white-space:nowrap; }
+.bds-comp-name  { font-size:12.5px; color:var(--main-text,#334155); font-weight:500; }
+.bds-comp-ar    { font-size:10.5px; color:var(--side-text,#94a3b8); direction:rtl; }
+.bds-comp-type  { display:inline-block; padding:1px 7px; background:var(--fp-group-bg,#f1f5f9); color:var(--side-text,#475569); border-radius:8px; font-size:10.5px; font-weight:600; }
+.bds-sub-bom-badge { display:inline-block; padding:1px 6px; background:#fef3c7; color:#92400e; border-radius:6px; font-size:9.5px; font-weight:700; letter-spacing:.2px; }
+
+/* ── Effective quantity ── */
+.bds-eff-qty { font-weight:700; color:var(--primary,#2e5fa3); }
+
+/* ── Component flags ── */
+.bds-flag { display:inline-block; padding:1px 6px; border-radius:6px; font-size:9.5px; font-weight:700; letter-spacing:.2px; margin-right:3px; white-space:nowrap; }
+.bds-flag-phantom  { background:#fef3c7; color:#92400e; }
+.bds-flag-critical { background:#fee2e2; color:#991b1b; }
+.bds-flag-sub      { background:#dcfce7; color:#166534; }
+
+/* ── Product type badges ── */
+.bds-prod-type { display:inline-block; padding:2px 8px; border-radius:8px; font-size:10.5px; font-weight:600; }
+.bds-pt-coproduct { background:#dbeafe; color:#1e40af; }
+.bds-pt-byproduct { background:#fef9c3; color:#854d0e; }
+.bds-pt-scrap     { background:#fee2e2; color:#991b1b; }
+
+/* ── Operations: total time highlight ── */
+.bds-total-time { font-weight:700; color:var(--primary,#2e5fa3); }
+
+/* ── BOM Tree ── */
+.bds-tree-table td { padding:7px 12px; }
+.bds-tree-item  { display:flex; align-items:center; gap:5px; }
+.bds-tree-indent { font-family:'Courier New',monospace; font-size:10px; color:var(--side-border,#c8d4e4); margin-right:2px; flex-shrink:0; }
+.bds-tree-phantom td { opacity:.7; font-style:italic; }
+
+/* ── Item search dropdown (inside detail page) ── */
+.bds-is-spinner { position:absolute; right:9px; top:50%; transform:translateY(-50%); width:13px; height:13px; border:2px solid #e2e8f0; border-top-color:var(--primary,#2e5fa3); border-radius:50%; animation:itd-spin .6s linear infinite; display:block; }
+.bds-is-dropdown { position:absolute; top:calc(100% + 3px); left:0; right:0; background:#fff; border:1px solid var(--side-border,#cbd5e1); border-radius:6px; box-shadow:0 4px 16px rgba(0,0,0,.12); z-index:700; max-height:220px; overflow-y:auto; }
+.bds-is-option { display:flex; align-items:center; gap:8px; padding:7px 10px; cursor:pointer; font-size:12.5px; }
+.bds-is-option:hover { background:var(--fp-bg,#f5f8fd); }
+.bds-is-code { font-family:'Courier New',monospace; font-size:11px; font-weight:700; color:var(--primary,#2e5fa3); background:var(--primary-light,#dbeafe); padding:1px 5px; border-radius:3px; white-space:nowrap; }
+.bds-is-name { color:var(--main-text,#334155); }

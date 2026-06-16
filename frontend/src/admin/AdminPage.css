@@ -1,0 +1,239 @@
+/* ── Admin page layout ─────────────────────────────────────────────────────── */
+.adm-page {
+    display: flex;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* ── Left sidebar nav ─────────────────────────────────────────────────────── */
+.adm-nav {
+    width: 220px;
+    flex-shrink: 0;
+    border-right: 1.5px solid var(--side-border, #e2e8f0);
+    background: var(--fp-bg, #f8fafc);
+    overflow-y: auto;
+    padding: 12px 0 24px;
+}
+
+.adm-nav-group {
+    margin-bottom: 6px;
+}
+
+.adm-nav-group-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-muted, #94a3b8);
+    text-transform: uppercase;
+    letter-spacing: .7px;
+    padding: 10px 16px 4px;
+}
+
+.adm-nav-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    padding: 6px 16px 6px 22px;
+    font-size: 13px;
+    color: var(--side-text, #475569);
+    cursor: pointer;
+    border-radius: 0;
+    transition: background .1s, color .1s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.adm-nav-item:hover {
+    background: var(--side-hover-bg, #e8eef6);
+    color: var(--primary, #2e5fa3);
+}
+
+.adm-nav-active {
+    background: var(--side-active-bg, #dde8f5) !important;
+    color: var(--primary, #2e5fa3) !important;
+    font-weight: 600;
+    border-left: 3px solid var(--primary, #2e5fa3);
+    padding-left: 19px;
+}
+
+/* ── Main content area ──────────────────────────────────────────────────────── */
+.adm-content {
+    flex: 1;
+    min-width: 0;
+    overflow-y: auto;
+    padding: 24px 28px;
+}
+
+.adm-content-header {
+    margin-bottom: 20px;
+}
+
+.adm-content-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary, #0f172a);
+}
+
+.adm-content-sub {
+    font-size: 12px;
+    color: var(--text-muted, #64748b);
+    margin-top: 2px;
+}
+
+/* ── Table section ──────────────────────────────────────────────────────────── */
+.adm-table-section {
+    background: #fff;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.adm-table-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid #f1f5f9;
+    background: #fafbfc;
+}
+
+.adm-table-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.adm-add-btn {
+    background: var(--primary, #2e5fa3);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s;
+}
+
+.adm-add-btn:hover { background: var(--primary-hover, #245090); }
+
+.adm-loading, .adm-empty {
+    padding: 32px;
+    text-align: center;
+    color: #94a3b8;
+    font-size: 13px;
+}
+
+/* ── Table ──────────────────────────────────────────────────────────────────── */
+.adm-grid {
+    overflow-x: auto;
+}
+
+.adm-tbl {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.adm-tbl th {
+    background: #f8fafc;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    padding: 9px 14px;
+    text-align: left;
+    border-bottom: 1px solid #e2e8f0;
+    white-space: nowrap;
+}
+
+.adm-tbl td {
+    padding: 9px 14px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #334155;
+    vertical-align: middle;
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.adm-tbl tr:last-child td { border-bottom: none; }
+.adm-tbl tr:hover td { background: #f8fafc; }
+.adm-row-inactive td { opacity: .55; }
+
+/* ── Action buttons ─────────────────────────────────────────────────────────── */
+.adm-del-btn {
+    background: none;
+    border: 1px solid #fca5a5;
+    border-radius: 5px;
+    font-size: 11px;
+    color: #dc2626;
+    padding: 2px 8px;
+    cursor: pointer;
+    transition: all .12s;
+}
+
+.adm-del-btn:hover { background: #fee2e2; border-color: #f87171; }
+
+/* ── Status badges ──────────────────────────────────────────────────────────── */
+.adm-badge-active {
+    display: inline-block;
+    background: #dcfce7;
+    color: #15803d;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+}
+
+.adm-badge-inactive {
+    display: inline-block;
+    background: #fee2e2;
+    color: #991b1b;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+}
+
+.adm-chip-yes {
+    display: inline-block;
+    background: #dbeafe;
+    color: #1d4ed8;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 20px;
+}
+
+.adm-chip-no {
+    display: inline-block;
+    background: #f1f5f9;
+    color: #94a3b8;
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 20px;
+}
+
+/* ── Pagination ──────────────────────────────────────────────────────────── */
+.adm-pagination     { display:flex; align-items:center; justify-content:space-between;
+                      padding:10px 14px; border-top:1px solid var(--side-border,#e2e8f0);
+                      background:var(--fp-group-bg,#f8fafc); flex-wrap:wrap; gap:8px; }
+.adm-page-info      { font-size:12px; color:var(--side-text,#64748b); min-width:120px; }
+.adm-page-controls  { display:flex; align-items:center; gap:3px; }
+.adm-page-btn       { min-width:28px; height:26px; padding:0 6px; border:1px solid var(--side-border,#d4dce9);
+                      border-radius:5px; background:#fff; color:var(--side-text,#475569);
+                      font-size:12px; cursor:pointer; transition:all .12s; }
+.adm-page-btn:hover:not(:disabled) { background:var(--primary-light,#e8f0fb);
+                                      border-color:var(--primary,#2e5fa3); color:var(--primary,#2e5fa3); }
+.adm-page-btn:disabled  { opacity:.4; cursor:not-allowed; }
+.adm-page-btn-active    { background:var(--primary,#2e5fa3) !important; color:#fff !important;
+                           border-color:var(--primary,#2e5fa3) !important; font-weight:600; }
+.adm-page-size      { padding:4px 8px; border:1px solid var(--side-border,#d4dce9); border-radius:5px;
+                      font-size:11.5px; color:var(--main-text,#334155); background:#fff;
+                      outline:none; cursor:pointer; }

@@ -1,0 +1,4 @@
+.cust-table-wrap {
+  overflow: visible;
+  position: relative;
+}

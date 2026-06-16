@@ -1,0 +1,51 @@
+                    <table className="cust-table">
+                        <thead><tr>
+                            <Th col="CustomerCode">Code</Th><Th col="CustomerName">Customer Name</Th>
+                            <Th col="CustomerShortName">Short Name</Th><Th col="CustomerType">Type</Th>
+                            <Th col="CustomerCategoryName">Category</Th><Th col="Mobile">Mobile</Th>
+                            <Th col="Email">Email</Th>
+                            <Th col="CreditLimit" style={{ textAlign: 'right' }}>Credit Limit</Th>
+                            <Th col="CreditDays"  style={{ textAlign: 'right' }}>Days</Th>
+                            <Th col="SalesPerson">Sales Person</Th><Th col="StatusLabel">Status</Th>
+                            <Th col="CreditFlag">Credit Flag</Th><th>Actions</th>
+                        </tr></thead>
+                        <tbody>
+                            {rows.length === 0 && !loading
+                                ? <tr><td colSpan="13" className="sub-empty">No customers found. Use the filters on the left to search.</td></tr>
+                                : rows.map(cust => {
+                                    const drawerOpen = drawerCust?.customerId === cust.customerId;
+                                    const activeTab  = drawerCust?.startTab;
+                                    const flag       = cust.creditFlag || 'GREEN';
+                                    return (
+                                        <React.Fragment key={cust.customerId}>
+                                            <tr className={`${drawerOpen ? 'row-selected' : ''} ${flag === 'BLACK' ? 'row-on-hold' : ''}`}>
+                                                <td className="td-code">{cust.customerCode}</td>
+                                                <td className="td-name">{cust.customerName}{cust.creditHold && <span className="hold-tag" title={cust.creditHoldNote}>⚑</span>}</td>
+                                                <td>{cust.customerShortName || '—'}</td><td>{cust.customerType || '—'}</td>
+                                                <td>{cust.customerCategoryName || '—'}</td><td>{cust.mobile || '—'}</td>
+                                                <td className="td-email">{cust.email || '—'}</td>
+                                                <td className="td-num">{cust.creditLimit != null ? fmt(cust.creditLimit) : '—'}</td>
+                                                <td className="td-num">{cust.creditDays  != null ? cust.creditDays : '—'}</td>
+                                                <td>{cust.salesPerson || '—'}</td>
+                                                <td><span className={`pill ${cust.isActive ? 'pill-green' : 'pill-red'}`}>{cust.statusLabel || (cust.isActive ? 'Active' : 'Inactive')}</span></td>
+                                                <td><CreditFlagBadge flag={flag} label={cust.creditFlagLabel} /></td>
+                                                <td className="td-actions">
+                                                    <button className="act-btn act-edit" onClick={() => editClick(cust)}>Edit</button>
+                                                    <span className="act-btn-group">
+                                                        <button className={`act-grp-l ${drawerOpen && activeTab === 'contacts' ? 'act-grp-active-blue' : ''}`} onClick={() => openDrawer(cust, 'contacts')} title="Contacts">
+                                                            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6" strokeLinecap="round"/></svg>Contacts
+                                                        </button>
+                                                        <button className={`act-grp-r ${drawerOpen && activeTab === 'addresses' ? 'act-grp-active-teal' : ''}`} onClick={() => openDrawer(cust, 'addresses')} title="Addresses">
+                                                            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M8 1a5 5 0 0 1 5 5c0 3.5-5 9-5 9S3 9.5 3 6a5 5 0 0 1 5-5z"/><circle cx="8" cy="6" r="1.5" fill="currentColor" stroke="none"/></svg>Addresses
+                                                        </button>
+                                                    </span>
+                                                    <button className={`act-btn ${cust.creditHold ? 'act-release' : 'act-hold'}`} onClick={() => setHoldCust(cust)}>{cust.creditHold ? '🔓' : '🔒'}</button>
+                                                    <button className="act-btn act-del" onClick={() => deleteClick(cust.customerId)}>Delete</button>
+                                                </td>
+                                            </tr>
+                                            {drawerOpen && <tr className="drawer-row"><td colSpan="13" style={{ padding: 0 }}><SubDrawer customer={cust} startTab={activeTab} onClose={() => setDrawerCust(null)} /></td></tr>}
+                                        </React.Fragment>
+                                    );
+                                })}
+                        </tbody>
+                    </table>

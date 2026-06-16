@@ -1,0 +1,233 @@
+// ─────────────────────────────────────────────────────────────
+// MAIN CUSTOMER PAGE
+// ─────────────────────────────────────────────────────────────
+export const Customer = () => {
+    const { lookups, getVList } = useLookup();
+    const { currencies, paymentTerms, customerCategories } = lookups;
+    const customerTypes = getVList('Customer', 'CustomerType');
+    const { registerFilters, unregisterFilters } = useFilters();
+
+    const [rows, setRows]             = useState([]);
+    const [totalRows, setTotalRows]   = useState(0);
+    const [totalPages, setTotalPages] = useState(1);
+    const [page, setPage]             = useState(1);
+    const [pageSize, setPageSize]     = useState(20);
+    const [sortCol, setSortCol]       = useState('CustomerName');
+    const [sortDir, setSortDir]       = useState('ASC');
+    const [loading, setLoading]       = useState(false);
+    const [applied, setApplied]       = useState({ ...DEFAULT_FILTERS });
+    const [formView, setFormView]     = useState(null);
+    const [selectedCust, setSelected] = useState(null);
+    const [drawerCust, setDrawerCust] = useState(null);
+    const [holdCust, setHoldCust]     = useState(null);
+
+    // ── Keep a ref of current grid state so callbacks always
+    // read the latest values without stale closure issues ─────
+    const gridRef = React.useRef({ page: 1, pageSize: 20, sortCol: 'CustomerName', sortDir: 'ASC', applied: DEFAULT_FILTERS });
+
+    // Sync ref whenever state changes
+    useEffect(() => { gridRef.current = { page, pageSize, sortCol, sortDir, applied }; }, [page, pageSize, sortCol, sortDir, applied]);
+
+    // ── Core load function — always pass all params explicitly ─
+    const load = useCallback((pg, ps, sc, sd, af) => {
+        setLoading(true);
+        const q = new URLSearchParams({ page: pg, pageSize: ps, sortCol: sc, sortDir: sd });
+        if (af.searchText)        q.set('searchText',    af.searchText);
+        if (af.categoryId)        q.set('categoryId',    af.categoryId);
+        if (af.customerType)      q.set('customerType',  af.customerType);
+        if (af.currencyId)        q.set('currencyId',    af.currencyId);
+        if (af.paymentTermsId)    q.set('paymentTermsId',af.paymentTermsId);
+        if (af.isActive   !== '') q.set('isActive',      af.isActive);
+        if (af.creditHold !== '') q.set('creditHold',    af.creditHold);
+        if (af.creditFlag)        q.set('creditFlag',    af.creditFlag);
+        fetch(`${variables.API_URL}customer/search?${q}`, { headers: authHeaders() })
+            .then(r => r.json())
+            .then(res => {
+                setRows(res.data || []);
+                setTotalRows(res.totalRows || 0);
+                setTotalPages(res.totalPages || 1);
+            })
+            .catch(console.error)
+            .finally(() => setLoading(false));
+    }, []);
+
+    // ── Initial load — uses pageSize state (not hardcoded 20) ─
+    useEffect(() => {
+        load(1, pageSize, sortCol, sortDir, DEFAULT_FILTERS);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [load]); // runs once on mount; load is stable
+
+    // ── Register left-panel filters ───────────────────────────
+    useEffect(() => {
+        const defs = {
+            searchText:    { label: 'Search',        type: 'text',   placeholder: 'Name, code, mobile, VAT…' },
+            isActive:      { label: 'Status',        type: 'radio',  options: [{ value: '', label: 'All' }, { value: 'true', label: 'Active' }, { value: 'false', label: 'Inactive' }] },
+            creditFlag:    { label: 'Credit Flag',   type: 'radio',  options: [{ value: '', label: 'All' }, { value: 'GREEN', label: '🟢 Good Standing' }, { value: 'YELLOW', label: '🟡 Warning' }, { value: 'RED', label: '🔴 Overdue' }, { value: 'BLACK', label: '⚫ Credit Hold' }] },
+            creditHold:    { label: 'Hold Status',   type: 'radio',  options: [{ value: '', label: 'All' }, { value: 'true', label: 'On Hold' }, { value: 'false', label: 'Not on Hold' }] },
+            categoryId:    { label: 'Category',      type: 'select', placeholder: 'All Categories', options: customerCategories.map(c => ({ value: String(c.id), label: c.name })) },
+            customerType:  { label: 'Customer Type', type: 'select', placeholder: 'All Types',      options: customerTypes.map(t => ({ value: t.value, label: t.label })) },
+            currencyId:    { label: 'Currency',      type: 'select', placeholder: 'All Currencies', options: currencies.map(c => ({ value: String(c.id), label: c.name })) },
+            paymentTermsId:{ label: 'Payment Terms', type: 'select', placeholder: 'All Terms',      options: paymentTerms.map(p => ({ value: String(p.id), label: p.name })) },
+        };
+        // Use gridRef so onApply always reads current sort/page state (no stale closure)
+        const onApply = (vals) => {
+            const { pageSize: ps, sortCol: sc, sortDir: sd } = gridRef.current;
+            setApplied({ ...vals });
+            setPage(1);
+            load(1, ps, sc, sd, vals);
+        };
+        registerFilters('customer', defs, DEFAULT_FILTERS, onApply);
+        return () => unregisterFilters('customer');
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [customerCategories, customerTypes, currencies, paymentTerms]);
+
+    // ── Column sort ───────────────────────────────────────────
+    const handleSort = (col) => {
+        const dir = sortCol === col && sortDir === 'ASC' ? 'DESC' : 'ASC';
+        setSortCol(col); setSortDir(dir); setPage(1);
+        load(1, pageSize, col, dir, applied);
+    };
+
+    // ── Paging ────────────────────────────────────────────────
+    const goPage = (p) => {
+        const pg = Math.max(1, Math.min(p, totalPages));
+        setPage(pg);
+        load(pg, pageSize, sortCol, sortDir, applied);
+    };
+
+    const changePageSize = (ps) => {
+        setPageSize(ps);
+        setPage(1);
+        load(1, ps, sortCol, sortDir, applied);
+    };
+
+    // ── CRUD ──────────────────────────────────────────────────
+    const addClick   = () => { setSelected({ customerId: 0, customerCode: '', customerName: '', isActive: true }); setDrawerCust(null); setFormView('add'); };
+    const editClick  = (c) => { setSelected(c); setDrawerCust(null); setFormView('edit'); };
+    const openDrawer = (c, tab) => { setFormView(null); if (drawerCust?.customerId === c.customerId && drawerCust?.startTab === tab) setDrawerCust(null); else setDrawerCust({ ...c, startTab: tab }); };
+    const deleteClick = (id) => {
+        if (!window.confirm('Delete this customer?')) return;
+        fetch(variables.API_URL + 'customer/' + id, { method: 'DELETE', headers: authHeaders() })
+            .then(() => {
+                if (drawerCust?.customerId === id) setDrawerCust(null);
+                load(page, pageSize, sortCol, sortDir, applied);
+            }).catch(console.error);
+    };
+    const onSaved = () => { setFormView(null); load(page, pageSize, sortCol, sortDir, applied); };
+
+    const Th = ({ col, children, style }) => (
+        <th className="th-sortable" style={style} onClick={() => handleSort(col)}>
+            <span className="th-inner">{children} <SortIcon col={col} sortCol={sortCol} sortDir={sortDir} /></span>
+        </th>
+    );
+
+    const pageNums = () => {
+        const total = totalPages, cur = page, range = 5;
+        let start = Math.max(1, cur - Math.floor(range / 2));
+        let end   = Math.min(total, start + range - 1);
+        if (end - start < range - 1) start = Math.max(1, end - range + 1);
+        return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+    };
+
+    return (
+        <div className="cust-page">
+            {holdCust && <CreditHoldModal customer={holdCust} onClose={() => setHoldCust(null)} onSaved={() => { load(page, pageSize, sortCol, sortDir, applied); setHoldCust(null); }} />}
+            {formView && <CustomerForm title={formView === 'add' ? 'Add Customer' : 'Edit Customer'} cust={selectedCust} onClose={() => setFormView(null)} onSaved={onSaved} />}
+
+            <div className="cust-grid-wrap">
+                <div className="cust-grid-header">
+                    <div className="cust-title-row">
+                        <h2 className="cust-page-title">Customer Management</h2>
+                        <div className="cust-toolbar">
+                            <span className="filter-info">{totalRows} record{totalRows !== 1 ? 's' : ''}</span>
+                            <select className="filter-select" style={{ width: 110 }} value={pageSize} onChange={e => changePageSize(Number(e.target.value))}>
+                                {PAGE_SIZES.map(n => <option key={n} value={n}>{n} / page</option>)}
+                            </select>
+                            <button className="btn-pri" onClick={addClick}>+ Add Customer</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="cust-table-wrap">
+                    {loading && (
+                        <div className="grid-loading-overlay">
+                            <div className="grid-spinner">
+                                <div className="spinner-ring" />
+                                <span className="spinner-text">Loading…</span>
+                            </div>
+                        </div>
+                    )}
+                    <table className={`cust-table${loading ? ' tbl-loading' : ''}`}>
+                        <thead><tr>
+                            <Th col="CustomerCode">Code</Th>
+                            <Th col="CustomerName">Customer Name</Th>
+                            <Th col="CustomerShortName">Short Name</Th>
+                            <Th col="CustomerType">Type</Th>
+                            <Th col="CustomerCategoryName">Category</Th>
+                            <Th col="Mobile">Mobile</Th>
+                            <Th col="Email">Email</Th>
+                            <Th col="CreditLimit" style={{ textAlign: 'right' }}>Credit Limit</Th>
+                            <Th col="SalesPerson">Sales Person</Th>
+                            <Th col="StatusLabel">Status</Th>
+                            <Th col="CreditFlag">Credit Flag</Th>
+                            <th>Actions</th>
+                        </tr></thead>
+                        <tbody>
+                            {rows.length === 0 && !loading
+                                ? <tr><td colSpan="12" className="sub-empty">No customers found. Use the filters on the left to search.</td></tr>
+                                : rows.map(cust => {
+                                    const drawerOpen = drawerCust?.customerId === cust.customerId;
+                                    const activeTab  = drawerCust?.startTab;
+                                    const flag       = cust.creditFlag || 'GREEN';
+                                    return (
+                                        <React.Fragment key={cust.customerId}>
+                                            <tr className={`${drawerOpen ? 'row-selected' : ''} ${flag === 'BLACK' ? 'row-on-hold' : ''}`}>
+                                                <td className="td-code">{cust.customerCode}</td>
+                                                <td className="td-name">{cust.customerName}{cust.creditHold && <span className="hold-tag" title={cust.creditHoldNote}>⚑</span>}</td>
+                                                <td>{cust.customerShortName || '—'}</td>
+                                                <td>{cust.customerType      || '—'}</td>
+                                                <td>{cust.customerCategoryName || '—'}</td>
+                                                <td>{cust.mobile || '—'}</td>
+                                                <td className="td-email">{cust.email || '—'}</td>
+                                                <td className="td-num">{cust.creditLimit != null ? fmt(cust.creditLimit) : '—'}</td>
+                                                <td>{cust.salesPerson || '—'}</td>
+                                                <td><span className={`pill ${cust.isActive ? 'pill-green' : 'pill-red'}`}>{cust.statusLabel || (cust.isActive ? 'Active' : 'Inactive')}</span></td>
+                                                <td><CreditFlagBadge flag={flag} label={cust.creditFlagLabel} /></td>
+                                                <td className="td-actions">
+                                                    <button className="act-btn act-edit" onClick={() => editClick(cust)}>Edit</button>
+                                                    <span className="act-btn-group">
+                                                        <button className={`act-grp-l ${drawerOpen && activeTab === 'contacts' ? 'act-grp-active-blue' : ''}`} onClick={() => openDrawer(cust, 'contacts')} title="Contacts">
+                                                            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6" strokeLinecap="round"/></svg>Contacts
+                                                        </button>
+                                                        <button className={`act-grp-r ${drawerOpen && activeTab === 'addresses' ? 'act-grp-active-teal' : ''}`} onClick={() => openDrawer(cust, 'addresses')} title="Addresses">
+                                                            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M8 1a5 5 0 0 1 5 5c0 3.5-5 9-5 9S3 9.5 3 6a5 5 0 0 1 5-5z"/><circle cx="8" cy="6" r="1.5" fill="currentColor" stroke="none"/></svg>Addresses
+                                                        </button>
+                                                    </span>
+                                                    <button className={`act-btn ${cust.creditHold ? 'act-release' : 'act-hold'}`} onClick={() => setHoldCust(cust)}>{cust.creditHold ? '🔓' : '🔒'}</button>
+                                                    <button className="act-btn act-del" onClick={() => deleteClick(cust.customerId)}>Delete</button>
+                                                </td>
+                                            </tr>
+                                            {drawerOpen && <tr className="drawer-row"><td colSpan="12" style={{ padding: 0 }}><SubDrawer customer={cust} startTab={activeTab} onClose={() => setDrawerCust(null)} /></td></tr>}
+                                        </React.Fragment>
+                                    );
+                                })}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div className="pagination-bar">
+                    <div className="page-info">Page <strong>{page}</strong> of <strong>{totalPages}</strong> &nbsp;·&nbsp;{totalRows} total record{totalRows !== 1 ? 's' : ''}</div>
+                    <div className="page-controls">
+                        <button className="page-btn" onClick={() => goPage(1)}        disabled={page === 1}>«</button>
+                        <button className="page-btn" onClick={() => goPage(page - 1)} disabled={page === 1}>‹</button>
+                        {pageNums().map(n => <button key={n} className={`page-btn ${n === page ? 'page-btn-active' : ''}`} onClick={() => goPage(n)}>{n}</button>)}
+                        <button className="page-btn" onClick={() => goPage(page + 1)} disabled={page >= totalPages}>›</button>
+                        <button className="page-btn" onClick={() => goPage(totalPages)} disabled={page >= totalPages}>»</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default Customer;
