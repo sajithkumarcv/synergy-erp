@@ -1,62 +1,105 @@
-# ERP Web System - Claude Code Context
+# WebERP - Claude Code Context
 
 ## Project Overview
 Full ERP system built with .NET Web API (backend) and React (frontend).
 Business domain: Construction/Project-based company in UAE.
+Multi-client product — each client gets isolated database and deployment.
 
-## Repository Structure
-- Backend API: D:\Projects\ERPWEB\ (.NET Web API)
-- Frontend: D:\Projects\React\weberp\ (React)
+## Repository Structure (Monorepo)
+- Root: D:\Projects\WebERP\
+- Backend API: D:\Projects\WebERP\backend\ (.NET Web API)
+- Frontend: D:\Projects\WebERP\frontend\ (React - Create React App)
+- GitHub: https://github.com/sajithkumarcv/weberp (Private)
+
+## Git Branching Strategy
+- main → production-ready releases only
+- develop → daily integration branch (work here)
+- feature/xxx → one branch per feature/module
+- hotfix/xxx → urgent fixes off main
+- Tags: v1.0-clientA, v1.0-clientB per client release
+
+## Multi-Client Architecture
+- Each client gets own database: ERPDB_ClientA, ERPDB_ClientB
+- Backend config: appsettings.{ClientName}.json per client
+- Frontend config: .env.{clientName} per client
+- Same codebase, same schema, isolated data per client
+- ASPNETCORE_ENVIRONMENT controls which appsettings loads on server
 
 ## Tech Stack
 ### Backend
 - .NET Web API (C#)
-- SQL Server
+- SQL Server (Database: ERPDB, Schema: proj)
 - Dapper only — all DB access via stored procedures (sp_* naming)
--Add proj schema for all tables
--Add ERPDB as database name
--Add JWT auth details
--Add sessionStorage for token storage
+- JWT authentication (sessionStorage for token on frontend)
+- Controllers → Services → Repository pattern
+- Async/await throughout
+- FluentValidation for request validation
+- Separate request/response DTOs
 
 ### Frontend
-- React
+- React (Create React App)
 - Axios for API calls
+- Functional components with hooks
+- Component per module/entity
+- Environment variables prefixed with REACT_APP_
+- Three themes: Ocean Blue, Midnight Dark, Forest Green (via ThemeContext)
+
+## Dev Environment
+- Backend runs on: http://localhost:7151
+- Frontend runs on: http://localhost:3000
+- Database: ERPDB on SP-SCS-SAJITH\SQLEXPRESS01
+- Start backend: F5 in Visual Studio
+- Start frontend: npm start in D:\Projects\WebERP\frontend\
 
 ## Database Conventions
-- All tables use IDENTITY/AUTO_INCREMENT surrogate primary keys (Id)
-- Human-readable codes stored in separate column (e.g. CUST-00001, PO-00001)
-- DocumentCounter table handles scoped auto-numbering for all transactional documents
+- Schema: proj (all tables under proj schema)
+- All tables use IDENTITY surrogate primary keys (Id)
+- Human-readable codes in separate column (CUST-00001, PO-00001)
+- DocumentCounter table for all transactional document numbering
 - DocumentCounter columns: Module, Prefix, LastNumber
 
 ## ERP Modules & Status
+### 1. Customer Master (Completed)
+- B2B customers, multiple contact persons per customer
+- Fields: name, email, phone, mobile, designation
+- Credit limit, payment terms, customer segmentation
+- Code format: CUST-00001
 
-### 1. Procurement
+### 2. Job Module (Completed)
+- Document-centric detail page pattern (/jobs list, /jobs/:jobId detail)
+- jobConstants.js = single source of truth for status maps, transitions, tab configs
+- Live Job ID preview using sp_PreviewJobId
+- Role-based tab access
+
+### 3. Procurement
 - Purchase Request (PR)
 - Purchase Order (PO)
 - Goods Receipt Note (GRN)
-- PO replenishes GENERAL inventory (not job-specific)
-- Job cost allocation happens at MATERIAL ISSUE stage, not PO stage
+- GRN reversal: LIFO cascading, prerequisite checks required
 
-### 2. Inventory & BOM
+### 4. Inventory & BOM
 - Stock management
 - Bill of Materials
 - Material Issue to Job (triggers job cost allocation)
 
-### 3. Job Costing
-- Cost allocated when material is ISSUED to a Job No.
-- Not at PO or GRN stage
+### 5. Job Costing
+- Cost allocated when material ISSUED to Job No. — NOT at PO or GRN stage
 - Jobs track material, labour, overhead costs
 
-### 4. Finance & Accounting
+### 6. Finance & Accounting
 - General Ledger
 - Accounts Payable/Receivable
 - Cost reporting
 
-### 5. Customer Master (Completed)
-- B2B customers
-- Multiple contact persons per customer (name, email, phone, mobile, designation)
-- Credit limit, payment terms, customer segmentation
-- Human-readable code: CUST-00001 format
+## Business Rules (Critical)
+1. PO → GRN → Stock (general inventory increases)
+2. Material Issue → Job No. (job cost allocated HERE, not at PO stage)
+3. All document codes auto-generated via DocumentCounter table
+4. UAE-based business, default currency: AED
+5. Multi-currency support required across all modules
+6. All modules require: Approval Workflow, Audit Trail, Attachments,
+   Comments, Status Tracking, Role-Based Security, Exchange Rates,
+   Job/Project linkage
 
 ## API Conventions
 - RESTful endpoints
@@ -64,24 +107,17 @@ Business domain: Construction/Project-based company in UAE.
 - Response wrapper: { success, data, message }
 - All DTOs separated from domain models
 
-## Business Rules (Critical)
-1. PO → GRN → Stock (general inventory increases)
-2. Material Issue → Job No. (job cost allocated HERE)
-3. Customer codes auto-generated via DocumentCounter table
-4. All transactional documents use DocumentCounter for numbering
-5. UAE-based business (currency: AED)
-
 ## Coding Conventions
 ### Backend (C#)
+- Stored procedures named: sp_* 
+- Never write inline SQL — always stored procedures
 - Controllers → Services → Repository pattern
-- Async/await throughout
-- FluentValidation for request validation
-- Separate request/response DTOs
 
 ### Frontend (React)
-- Functional components with hooks
-- Axios for all API calls
-- Component per module/entity
+- No inline styles — use CSS classes
+- CSS changes: always use str_replace, never rewrite full CSS files
+- jobConstants.js pattern for all module constants
 
 ## Current Focus
-Building module by module — Procurement first (PR → PO → GRN), then Inventory, Job Costing, Finance.
+Active development on develop branch. Building module by module:
+Procurement (PR → PO → GRN) → Inventory → Job Costing → Finance → Sales
