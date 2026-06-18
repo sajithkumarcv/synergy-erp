@@ -166,6 +166,29 @@ export const Adjustment = () => {
         finally { setCreating(false); }
     };
 
+    // One-click opening-stock load: creates a Draft adjustment pre-tagged with the
+    // Opening Balance reason and lands straight on the Lines tab with the Excel
+    // importer open.
+    const createOpeningStock = async () => {
+        setCreating(true); setError('');
+        try {
+            const res = await fetch(`${variables.API_URL}stockadjustment/save`, {
+                method: 'POST', headers: authHeaders(),
+                body: JSON.stringify({
+                    adjustmentId:   0,
+                    adjustmentDate: new Date().toISOString().slice(0, 10),
+                    reason:         'OPENING_BALANCE',
+                    notes:          'Opening stock load',
+                    createdBy:      currentUser,
+                }),
+            });
+            const d = await res.json();
+            if (!res.ok) { setError(d.message || 'Error creating adjustment.'); return; }
+            navigate(`/inventory-adjustment/${d.adjustmentId}?tab=lines&import=1`);
+        } catch { setError('Network error.'); }
+        finally { setCreating(false); }
+    };
+
     const Th = ({ col, children, right }) => (
         <th className="po-th-sortable" onClick={() => handleSort(col)} style={right ? { textAlign: 'right' } : {}}>
             <div className="po-th-inner" style={right ? { justifyContent: 'flex-end' } : {}}>
@@ -196,6 +219,13 @@ export const Adjustment = () => {
                             <select className="po-select" value={pageSize} onChange={e => changePageSize(Number(e.target.value))}>
                                 {PAGE_SIZES.map(n => <option key={n} value={n}>{n} / page</option>)}
                             </select>
+                            {canAdd && (
+                                <button className="po-btn-pri" onClick={createOpeningStock} disabled={creating}
+                                    style={{ background: '#0f766e', borderColor: '#0f766e' }}
+                                    title="Create an Opening Balance adjustment and import opening stock from Excel">
+                                    📦 Opening Stock
+                                </button>
+                            )}
                             {canAdd && (
                                 <button className="po-btn-pri" onClick={openNewModal}
                                     style={{ background: '#7c3aed', borderColor: '#7c3aed' }}>

@@ -133,7 +133,10 @@ const PoDetailPage = () => {
     const statusCfg  = statusBadgeCfg(statusData);
     const priCfg     = PRIORITY_CONFIG[po.priority] || {};
     const canRevise  = canDo('/purchase-orders', 'REVISE');
-    const canPrint   = (statusData?.canPrint ?? (po.status !== 'Draft')) && canDo('/purchase-orders', 'PRINT');
+    // Draft POs can be printed as a preview (without company logo); other statuses
+    // follow the status config / default rule.
+    const isDraft    = po.status === 'Draft';
+    const canPrint   = ((statusData?.canPrint ?? (po.status !== 'Draft')) || isDraft) && canDo('/purchase-orders', 'PRINT');
 
     const handleMarkSent = async () => {
         setMarkingSent(true); setActionError('');
@@ -226,9 +229,9 @@ const PoDetailPage = () => {
 
     return (
         <div className="jd-page">
-            {showPrint === 1 && <PoPrintModal  po={po} onClose={() => setShowPrint(false)} />}
-            {showPrint === 2 && <PoPrintModal2 po={po} onClose={() => setShowPrint(false)} />}
-            {showPrint === 3 && <PoPrintModal3 po={po} onClose={() => setShowPrint(false)} />}
+            {showPrint === 1 && <PoPrintModal  po={po} preview={isDraft} onClose={() => setShowPrint(false)} />}
+            {showPrint === 2 && <PoPrintModal2 po={po} preview={isDraft} onClose={() => setShowPrint(false)} />}
+            {showPrint === 3 && <PoPrintModal3 po={po} preview={isDraft} onClose={() => setShowPrint(false)} />}
             {showRevise && (
                 <RevisePoModal
                     po={po}

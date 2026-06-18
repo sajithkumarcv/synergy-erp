@@ -220,7 +220,7 @@ const ExpensesTab = ({ job, onRefresh }) => {
                                 className="tab-input" placeholder="0.00"
                                 style={{ textAlign: 'right' }}
                                 value={form.expenseAmount}
-                                onChange={e => setForm(p => ({ ...p, expenseAmount: e.target.value.replace(/[^0-9.\-]/g, '') }))}
+                                onChange={e => setForm(p => ({ ...p, expenseAmount: e.target.value.replace(/[^0-9.-]/g, '') }))}
                                 onBlur={e => {
                                     const n = parseFloat(e.target.value);
                                     if (!isNaN(n)) setForm(p => ({ ...p, expenseAmount: n.toFixed(2) }));

@@ -4,6 +4,7 @@ import { useCurrentUser } from '../../AuthContext';
 import { useLookup } from '../../LookupContext';
 import { fmt } from '../supplierConstants';
 import ValidationModal from '../../common/ValidationModal';
+import AmountInput from '../../common/AmountInput';
 
 const PAYMENT_MODES = ['Bank Transfer', 'Cheque', 'Cash', 'Letter of Credit (LC)', 'Online Transfer'];
 
@@ -196,7 +197,7 @@ const OverviewTab = ({ supplier, onRefresh, canEdit = true }) => {
                         </div>
                     </div>
                     <div className="jf-row">
-                        <div className="jf-field" style={{ flex: '0 0 140px' }}><label>Credit Limit {baseCurrencyCode && <span style={{ fontWeight: 400, color: '#64748b' }}>({baseCurrencyCode})</span>}</label><input name="creditLimit" type="number" className="jf-input" value={form.creditLimit ?? 0} onChange={handle} /></div>
+                        <div className="jf-field" style={{ flex: '0 0 140px' }}><label>Credit Limit {baseCurrencyCode && <span style={{ fontWeight: 400, color: '#64748b' }}>({baseCurrencyCode})</span>}</label><AmountInput name="creditLimit" className="jf-input" value={form.creditLimit ?? 0} onChange={v => handle({ target: { name: 'creditLimit', value: v } })} /></div>
                         <div className="jf-field" style={{ flex: '0 0 110px' }}><label>Credit Days</label><input name="creditDays" type="number" className="jf-input" value={form.creditDays ?? 0} onChange={handle} /></div>
                         <div className="jf-field jf-f2"><label>Remarks</label><input name="remarks" className="jf-input" value={form.remarks || ''} onChange={handle} /></div>
                     </div>

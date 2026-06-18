@@ -5,6 +5,7 @@ import { useLookup } from '../../../LookupContext';
 import { usePermission } from '../../../PermissionContext';
 import { fmt } from '../../inventoryConstants';
 import { useFieldConfig } from '../../../FieldConfigContext';
+import AmountInput from '../../../common/AmountInput';
 
 // ── Issue line picker ─────────────────────────────────────────
 // Fetches returnable lines from the source issue and lets the user pick one
@@ -321,8 +322,8 @@ const IssueReturnLinesTab = ({ issueReturn, lines, onRefresh }) => {
                             </div>
                             <div className="prd-lf-field">
                                 <label>Unit Cost {isReq('unitCost') && <span className="req">*</span>}</label>
-                                <input className="prd-lf-input" type="number" name="unitCost"
-                                    value={form.unitCost} onChange={handle} min="0" step="0.01" />
+                                <AmountInput className="prd-lf-input"
+                                    value={form.unitCost} onChange={v => handle({ target: { name: 'unitCost', value: v } })} />
                             </div>
                             <div className="prd-lf-field">
                                 <label>Line Total</label>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { variables, authHeaders } from '../../Variable';
 import { ADJ_TABS, fmt, fmtDate, statusBadgeCfg } from '../inventoryConstants';
 import { useLookup } from '../../LookupContext';
@@ -15,14 +15,18 @@ import '../../procurement/Procurement.css';
 const AdjustmentDetailPage = () => {
     const { id }               = useParams();
     const navigate             = useNavigate();
+    const [searchParams]       = useSearchParams();
     const { getVList, getStatusConfig } = useLookup();
     const { canDo }            = usePermission();
 
+    // Deep-link support: ?tab=lines opens the Lines tab, ?import=1 auto-opens the
+    // Excel importer (used by the one-click "Opening Stock" flow).
     const [header,     setHeader]     = useState(null);
     const [lines,      setLines]      = useState([]);
     const [loading,    setLoading]    = useState(true);
     const [error,      setError]      = useState(null);
-    const [activeTab,  setActiveTab]  = useState('overview');
+    const [activeTab,  setActiveTab]  = useState(searchParams.get('tab') === 'lines' ? 'lines' : 'overview');
+    const [autoImport] = useState(searchParams.get('import') === '1');
     const [approvalTx, setApprovalTx] = useState(null);
 
     const reasons  = getVList('Inventory', 'AdjustmentReason');
@@ -81,6 +85,7 @@ const AdjustmentDetailPage = () => {
                         lines={lines}
                         editable={editable}
                         adjustmentId={id}
+                        autoImport={autoImport}
                         onRefresh={load}
                     />
                 );

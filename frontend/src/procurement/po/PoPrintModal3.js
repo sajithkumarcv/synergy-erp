@@ -4,6 +4,7 @@ import { fmt, fmtDate } from '../procurementConstants';
 import useOwnerCompany from '../../hooks/useOwnerCompany';
 import consolidatePoLinesForPrint from './consolidatePoLinesForPrint';
 import { openPrintWindow } from '../../utils/printWindow';
+import { DraftWatermark, PreviewBanner } from '../../components/print/PrintCompanyHeader';
 import './PoPrint.css';
 
 // ── Helpers ───────────────────────────────────────────────────
@@ -14,17 +15,6 @@ const fmtAuthorizedDate = (d) => {
     const dt = new Date(d);
     if (isNaN(dt)) return null;
     return dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-');
-};
-
-const statusColor = (s) => {
-    switch (s) {
-        case 'Approved':  return { bg: '#dcfce7', color: '#16a34a' };
-        case 'Confirmed': return { bg: '#dbeafe', color: '#1e40af' };
-        case 'Closed':    return { bg: '#ede9fe', color: '#7c3aed' };
-        case 'Cancelled': return { bg: '#fee2e2', color: '#dc2626' };
-        case 'On Hold':   return { bg: '#ffedd5', color: '#ea580c' };
-        default:          return { bg: '#f1f5f9', color: '#64748b' };
-    }
 };
 
 // ── Reusable label:value row ──────────────────────────────────
@@ -38,7 +28,7 @@ const KV = ({ label, value, mono }) => !value ? null : (
 );
 
 // ═════════════════════════════════════════════════════════════
-const PoPrintModal3 = ({ po, onClose }) => {
+const PoPrintModal3 = ({ po, onClose, preview }) => {
     const { company, loading: coLoading } = useOwnerCompany();
     const [lines,   setLines]   = useState([]);
     const [terms,   setTerms]   = useState([]);
@@ -56,7 +46,7 @@ const PoPrintModal3 = ({ po, onClose }) => {
 
     const handleBackdrop = (e) => { if (e.target === e.currentTarget) onClose(); };
 
-    const handlePrint = () => openPrintWindow('.po3-doc', `Purchase Order - ${po.poNumber}`);
+    const handlePrint = () => openPrintWindow('.po3-doc', `Purchase Order${preview ? ' (DRAFT)' : ''} - ${po.poNumber}`);
     const printLines = useMemo(() => consolidatePoLinesForPrint(lines), [lines]);
 
     // ── Totals ────────────────────────────────────────────────
@@ -91,8 +81,6 @@ const PoPrintModal3 = ({ po, onClose }) => {
     // ── T&C term text substitution ────────────────────────────
     const resolveTerm = (text) => text.replace(/\{CompanyName\}/g, company?.companyName || '');
 
-    // ── Status badge config ───────────────────────────────────
-    const sc = statusColor(po.status);
 
     return (
         <div className="po-print-overlay" onClick={handleBackdrop}>
@@ -112,7 +100,10 @@ const PoPrintModal3 = ({ po, onClose }) => {
             </div>
 
             {/* ══ A4 Document ══ */}
-            <div className="po3-doc">
+            <div className="po3-doc" style={{ position: 'relative' }}>
+
+                {preview && <DraftWatermark />}
+                {preview && <PreviewBanner />}
 
                 {/* ── 1. Company header ── */}
                 <div style={{ display: 'flex', justifyContent: 'space-between',
@@ -122,16 +113,18 @@ const PoPrintModal3 = ({ po, onClose }) => {
                         <div style={{ fontSize: 16, fontWeight: 800, color: '#1e3a5f', marginBottom: 3 }}>
                             {coLoading ? '…' : (company?.companyName || '—')}
                         </div>
-                        {addrLine && (
+                        {!preview && addrLine && (
                             <div style={{ fontSize: 10.5, color: '#475569', marginBottom: 2 }}>{addrLine}</div>
                         )}
-                        <div style={{ fontSize: 10.5, color: '#475569', lineHeight: 1.6 }}>
-                            {company?.phone && <>Tel: {company.phone}</>}
-                            {company?.fax   && <>{company.phone ? '  |  ' : ''}Fax: {company.fax}</>}
-                            {company?.trn   && <>{(company.phone || company.fax) ? '  |  ' : ''}TRN: {company.trn}</>}
-                        </div>
+                        {!preview && (
+                            <div style={{ fontSize: 10.5, color: '#475569', lineHeight: 1.6 }}>
+                                {company?.phone && <>Tel: {company.phone}</>}
+                                {company?.fax   && <>{company.phone ? '  |  ' : ''}Fax: {company.fax}</>}
+                                {company?.trn   && <>{(company.phone || company.fax) ? '  |  ' : ''}TRN: {company.trn}</>}
+                            </div>
+                        )}
                     </div>
-                    {logoSrc ? (
+                    {preview ? null : logoSrc ? (
                         <img src={logoSrc} alt="Logo"
                              style={{ maxHeight: 56, maxWidth: 110, objectFit: 'contain' }}
                              onError={e => e.target.style.display = 'none'} />
@@ -156,13 +149,6 @@ const PoPrintModal3 = ({ po, onClose }) => {
                         </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <span style={{
-                            background: sc.bg, color: sc.color,
-                            padding: '3px 10px', borderRadius: 20,
-                            fontSize: 10, fontWeight: 700, letterSpacing: '.04em',
-                        }}>
-                            {po.status}
-                        </span>
                         {po.revision > 0 && (
                             <span style={{ fontSize: 10, color: '#dc2626', fontWeight: 700 }}>
                                 Rev.{po.revision}
@@ -235,13 +221,14 @@ const PoPrintModal3 = ({ po, onClose }) => {
                             Order Details
                         </div>
                         <KV label="Quote Date"       value={fmtDate(po.vendorQuoteDate)} />
-                        <KV label="Currency"      value={currency
-                            + (po.exchangeRate && po.exchangeRate !== 1 ? ` (@ ${po.exchangeRate})` : '')} />
+                        <KV label="Currency"      value={currency} />
                         <KV label="Payment Terms" value={po.paymentTermName} />
                         <KV label="Del. Terms"    value={po.deliveryTerms} />
-                        <KV label="Deliver To"    value={po.deliveryAddr || company?.companyName} />
+                        <KV label="Deliver To"    value={po.deliveryAddr} />
                     </div>
                 </div>
+
+                <hr style={{ border: 0, borderTop: '1px solid #cbd5e1', margin: '0 0 12px' }} />
 
                 {/* ── 5. Line items table ── */}
                 {loading ? (
@@ -255,21 +242,18 @@ const PoPrintModal3 = ({ po, onClose }) => {
                     }}>
                         <thead>
                             <tr style={{ background: '#1e3a5f', color: '#fff' }}>
-                                {['#','Code','Description','Qty','UOM','Unit Price','Tax %','Line Total','Total + Tax']
+                                {['#','Description','Qty','UOM','Unit Price','Total']
                                     .map((h, i) => (
                                     <th key={h} style={{
-                                        padding: '8px 8px', textAlign: i >= 3 && i !== 4 ? 'right' : 'left',
+                                        padding: '8px 8px', textAlign: i >= 2 && i !== 3 ? 'right' : 'left',
                                         fontSize: 9.5, fontWeight: 700,
                                         textTransform: 'uppercase', letterSpacing: '.04em',
                                         whiteSpace: 'nowrap',
                                         ...(i === 0 ? { width: 24 } : {}),
-                                        ...(i === 1 ? { width: 72 } : {}),
-                                        ...(i === 3 ? { width: 44 } : {}),
-                                        ...(i === 4 ? { width: 44, textAlign: 'center' } : {}),
-                                        ...(i === 5 ? { width: 78 } : {}),
-                                        ...(i === 6 ? { width: 46 } : {}),
-                                        ...(i === 7 ? { width: 80 } : {}),
-                                        ...(i === 8 ? { width: 84 } : {}),
+                                        ...(i === 2 ? { width: 44 } : {}),
+                                        ...(i === 3 ? { width: 44, textAlign: 'center' } : {}),
+                                        ...(i === 4 ? { width: 78 } : {}),
+                                        ...(i === 5 ? { width: 84 } : {}),
                                     }}>
                                         {h}
                                     </th>
@@ -279,7 +263,7 @@ const PoPrintModal3 = ({ po, onClose }) => {
                         <tbody>
                             {printLines.length === 0 ? (
                                 <tr>
-                                    <td colSpan={9} style={{ textAlign: 'center', padding: '14px 0',
+                                    <td colSpan={6} style={{ textAlign: 'center', padding: '14px 0',
                                                               color: '#94a3b8', fontStyle: 'italic' }}>
                                         No items
                                     </td>
@@ -292,10 +276,6 @@ const PoPrintModal3 = ({ po, onClose }) => {
                                         style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc',
                                                  borderBottom: '1px solid #f1f5f9' }}>
                                         <td style={{ padding: '7px 8px', color: '#94a3b8', fontSize: 10 }}>{i + 1}</td>
-                                        <td style={{ padding: '7px 8px', fontFamily: 'Courier New',
-                                                     fontSize: 10.5, color: '#1e40af' }}>
-                                            {l.itemCode || '—'}
-                                        </td>
                                         <td style={{ padding: '7px 8px', lineHeight: 1.4 }}>
                                             <div>{l.itemDesc || l.itemName || '—'}</div>
                                             {l.remarks && (
@@ -312,15 +292,6 @@ const PoPrintModal3 = ({ po, onClose }) => {
                                         <td style={{ padding: '7px 8px', textAlign: 'right',
                                                      fontFamily: 'Courier New', fontSize: 11 }}>
                                             {n(l.unitPrice)}
-                                        </td>
-                                        <td style={{ padding: '7px 8px', textAlign: 'right',
-                                                     color: '#64748b' }}>
-                                            {l.taxPct ?? 0}%
-                                        </td>
-                                        <td style={{ padding: '7px 8px', textAlign: 'right',
-                                                     fontFamily: 'Courier New', fontSize: 11,
-                                                     fontWeight: 600 }}>
-                                            {n(lineTotal)}
                                         </td>
                                         <td style={{ padding: '7px 8px', textAlign: 'right',
                                                      fontFamily: 'Courier New', fontSize: 11,
@@ -457,6 +428,8 @@ const PoPrintModal3 = ({ po, onClose }) => {
                         {company?.companyName}
                     </div>
                 </div>
+
+                {preview && <PreviewBanner />}
 
             </div>
         </div>

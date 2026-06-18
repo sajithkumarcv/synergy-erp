@@ -330,7 +330,10 @@ const InvoiceDetailPage = () => {
     const statusData = getStatusConfig('INV', invoice.status);
     const statusCfg  = statusBadgeCfg(statusData);
     const canDelete  = (statusData?.canDelete ?? invoice.status === 'Draft') && canDo('/invoices', 'DELETE');
-    const canPrint   = (statusData?.canPrint  ?? invoice.status !== 'Draft') && canDo('/invoices', 'PRINT');
+    // Draft invoices can be printed as a preview (logo/address hidden + DRAFT
+    // watermark + PREVIEW banners); other statuses follow the status config.
+    const isDraft    = invoice.status === 'Draft';
+    const canPrint   = ((statusData?.canPrint  ?? invoice.status !== 'Draft') || isDraft) && canDo('/invoices', 'PRINT');
     const canRevise  = invoice.status === 'Confirmed' && canDo('/invoices', 'REVISE');
     const canCopy    = canDo('/invoices', 'ADD');
 
@@ -528,6 +531,7 @@ const InvoiceDetailPage = () => {
                 <InvoicePrintModal
                     invoice={invoice}
                     lines={lines}
+                    preview={isDraft}
                     onClose={() => setShowPrint(false)}
                 />
             )}
@@ -535,6 +539,7 @@ const InvoiceDetailPage = () => {
                 <InvoicePrintModal2
                     invoice={invoice}
                     lines={lines}
+                    preview={isDraft}
                     onClose={() => setShowPrint(false)}
                 />
             )}

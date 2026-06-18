@@ -5,6 +5,8 @@ import { useCurrentUser } from '../../../AuthContext';
 import { useLookup } from '../../../LookupContext';
 import { fmt } from '../../inventoryConstants';
 import { useFieldConfig } from '../../../FieldConfigContext';
+import AmountInput from '../../../common/AmountInput';
+import AdjustmentImportModal from '../AdjustmentImportModal';
 
 const LBL = { fontSize: 10, fontWeight: 600, color: '#64748b', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '.04em' };
 
@@ -163,7 +165,7 @@ const LineEditor = ({ uoms, reasons, onSave, onCancel, initial }) => {
                     </div>
                     <div style={{ flex: '0 0 100px' }}>
                         <div style={LBL}>Unit Cost</div>
-                        <input type="number" min="0" step="any" className="pf-input" value={unitCost} onChange={e => setUnitCost(e.target.value)} />
+                        <AmountInput className="pf-input" value={unitCost} onChange={v => setUnitCost(v)} />
                     </div>
                     <div style={{ flex: '0 0 160px' }}>
                         <div style={LBL}>Reason {isReq('reason') && <span className="req">*</span>}</div>
@@ -183,6 +185,10 @@ const LineEditor = ({ uoms, reasons, onSave, onCancel, initial }) => {
                         <button className="pf-btn-sec" style={{ padding: '6px 10px' }} onClick={onCancel}>✕</button>
                     </div>
                 </div>
+                <div style={{ fontSize: 11, color: '#64748b', marginTop: 6 }}>
+                    ℹ️ <strong style={{ color: '#16a34a' }}>+ In</strong> adds to stock (opening balance, found / excess).
+                    To <strong>reduce</strong> stock (damage, loss, correction) choose <strong style={{ color: '#dc2626' }}>− Out</strong>.
+                </div>
                 {err && <div style={{ color: '#dc2626', fontSize: 11.5, marginTop: 6 }}>⚠ {err}</div>}
             </td>
         </tr>
@@ -190,7 +196,7 @@ const LineEditor = ({ uoms, reasons, onSave, onCancel, initial }) => {
 };
 
 // ── AdjustmentLinesTab ───────────────────────────────────────────────────
-const AdjustmentLinesTab = ({ header, lines, editable, adjustmentId, onRefresh }) => {
+const AdjustmentLinesTab = ({ header, lines, editable, adjustmentId, autoImport, onRefresh }) => {
     const currentUser      = useCurrentUser();
     const { lookups, getVList } = useLookup();
     const uoms    = lookups.uoms  || [];
@@ -199,6 +205,13 @@ const AdjustmentLinesTab = ({ header, lines, editable, adjustmentId, onRefresh }
     const [adding,  setAdding]  = useState(false);
     const [editId,  setEditId]  = useState(null);
     const [err,     setErr]     = useState('');
+    const [importing, setImporting] = useState(false);
+
+    // One-click "Opening Stock" deep-link: auto-open the importer once when landing
+    // on an editable adjustment.
+    useEffect(() => {
+        if (autoImport && editable) setImporting(true);
+    }, [autoImport, editable]);
 
     const saveLine = async (line) => {
         try {
@@ -325,7 +338,7 @@ const AdjustmentLinesTab = ({ header, lines, editable, adjustmentId, onRefresh }
                 </table>
 
                 {editable && !adding && editId === null && (
-                    <div style={{ padding: 12 }}>
+                    <div style={{ padding: 12, display: 'flex', gap: 10 }}>
                         <button
                             className="po-btn-pri"
                             style={{ background: '#0f766e', borderColor: '#0f766e' }}
@@ -333,9 +346,26 @@ const AdjustmentLinesTab = ({ header, lines, editable, adjustmentId, onRefresh }
                         >
                             + Add Line
                         </button>
+                        <button
+                            className="po-btn-pri"
+                            style={{ background: '#1e40af', borderColor: '#1e40af' }}
+                            onClick={() => setImporting(true)}
+                            title="Bulk import lines from Excel (opening stock / initial load)"
+                        >
+                            ⬆ Import Excel
+                        </button>
                     </div>
                 )}
             </div>
+
+            {importing && (
+                <AdjustmentImportModal
+                    adjustmentId={adjustmentId}
+                    reasons={reasons}
+                    onClose={() => setImporting(false)}
+                    onImported={onRefresh}
+                />
+            )}
         </div>
     );
 };

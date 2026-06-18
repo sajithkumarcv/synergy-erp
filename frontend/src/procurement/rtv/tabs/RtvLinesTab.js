@@ -4,6 +4,7 @@ import { useCurrentUser } from '../../../AuthContext';
 import { useLookup } from '../../../LookupContext';
 import { fmt } from '../../procurementConstants';
 import { useFieldConfig } from '../../../FieldConfigContext';
+import AmountInput from '../../../common/AmountInput';
 
 // ── GRN Import Modal ──────────────────────────────────────────────────────────
 const GrnImportModal = ({ rtv, onClose, onImported }) => {
@@ -483,7 +484,7 @@ const RtvLinesTab = ({ rtv, onRefresh }) => {
                                     </div>
                                     <div className="prd-lf-field">
                                         <label>Unit Cost {isReq('unitCost') && <span className="req">*</span>}</label>
-                                        <input className="prd-lf-input" type="number" name="unitCost" value={form.unitCost} onChange={handle} min="0" step="0.01" />
+                                        <AmountInput className="prd-lf-input" value={form.unitCost} onChange={v => handle({ target: { name: 'unitCost', value: v } })} />
                                     </div>
                                     <div className="prd-lf-field prd-lf-f2">
                                         <label>Return Reason</label>

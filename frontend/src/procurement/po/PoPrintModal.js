@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { variables, authHeaders } from '../../Variable';
 import { fmt, fmtDate } from '../procurementConstants';
 import useOwnerCompany from '../../hooks/useOwnerCompany';
-import { CompanyHeaderBand } from '../../components/print/PrintCompanyHeader';
+import { CompanyHeaderBand, DraftWatermark, PreviewBanner } from '../../components/print/PrintCompanyHeader';
 import consolidatePoLinesForPrint from './consolidatePoLinesForPrint';
 import { openPrintWindow } from '../../utils/printWindow';
 import './PoPrint.css';
@@ -38,10 +38,11 @@ const FlagChip = ({ on, label }) => (
 );
 
 // ── Main component ────────────────────────────────────────────
-const PoPrintModal = ({ po, onClose }) => {
+const PoPrintModal = ({ po, onClose, preview }) => {
     const { company, loading: coLoading } = useOwnerCompany();
     const [lines,     setLines]     = useState([]);
     const [annexures, setAnnexures] = useState([]);
+    const [terms,     setTerms]     = useState([]);
     const [loading,   setLoading]   = useState(true);
     const docRef = useRef(null);
 
@@ -67,10 +68,15 @@ const PoPrintModal = ({ po, onClose }) => {
                 })));
             })
             .catch(() => setAnnexures([]));
+
+        fetch(`${variables.API_URL}purchaseorder/terms`, { headers: authHeaders() })
+            .then(r => r.json())
+            .then(d => setTerms(Array.isArray(d) ? d : []))
+            .catch(console.error);
     }, [po.poId]);
 
     const handleBackdrop = (e) => { if (e.target === e.currentTarget) onClose(); };
-    const handlePrint    = () => openPrintWindow('.po-print-doc', `Purchase Order - ${po.poNumber}`);
+    const handlePrint    = () => openPrintWindow('.po-print-doc', `Purchase Order${preview ? ' (DRAFT)' : ''} - ${po.poNumber}`);
 
     // Vendor-facing consolidation: collapse rows that share item + price + tax + UOM
     // so the printed PO doesn't show the same SKU twice when multiple source PR
@@ -89,6 +95,9 @@ const PoPrintModal = ({ po, onClose }) => {
 
     const supplierName = po.supplierNameResolved || po.vendorName || '—';
     const currency     = po.currencyShort || po.currencyName || '';
+
+    // T&C term text substitution
+    const resolveTerm = (text) => (text || '').replace(/\{CompanyName\}/g, company?.companyName || '');
 
     // Doc requirement flags
     const docFlags = [
@@ -124,10 +133,13 @@ const PoPrintModal = ({ po, onClose }) => {
             </div>
 
             {/* ── Printable document ── */}
-            <div className="po-print-doc" ref={docRef} style={{ display: 'flex', flexDirection: 'column' }}>
+            <div className="po-print-doc" ref={docRef} style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}>
+
+                {preview && <DraftWatermark />}
+                {preview && <PreviewBanner />}
 
                 {/* ══ 1. Company Header ════════════════════════════════════ */}
-                <CompanyHeaderBand company={company} loading={coLoading} />
+                <CompanyHeaderBand company={company} loading={coLoading} hideLogo={preview} nameOnly={preview} />
 
                 {/* ══ 2. Document title band ═══════════════════════════════ */}
                 <div style={{ display: 'flex', justifyContent: 'space-between',
@@ -141,7 +153,6 @@ const PoPrintModal = ({ po, onClose }) => {
                             </div>
                         )}
                         <div className="pop-doc-meta" style={{ textAlign: 'right' }}>
-                            <InfoRow label="Status"    value={po.status} />
                             <InfoRow label="Priority"  value={po.priority} />
                             {po.jobId     && <InfoRow label="Job"      value={po.jobId} />}
                             <InfoRow label="Raised by" value={po.createdBy} />
@@ -165,7 +176,7 @@ const PoPrintModal = ({ po, onClose }) => {
                         <InfoRow label="PO Date"           value={fmtDate(po.poDate)} />
                         {po.vendorRef       && <InfoRow label="Vendor Quote Ref" value={po.vendorRef} />}
                         {po.vendorQuoteDate && <InfoRow label="Quote Date"       value={fmtDate(po.vendorQuoteDate)} />}
-                        <InfoRow label="Currency"     value={`${currency}${po.exchangeRate && po.exchangeRate !== 1 ? ` (@ ${po.exchangeRate})` : ''}`} />
+                        <InfoRow label="Currency"     value={currency} />
                         <InfoRow label="Payment Terms" value={po.paymentTermName} />
                         {po.deliveryTerms  && <InfoRow label="Del. Terms"  value={po.deliveryTerms} />}
                         {po.deliveryAddr   && <InfoRow label="Del. Address" value={po.deliveryAddr} />}
@@ -296,6 +307,36 @@ const PoPrintModal = ({ po, onClose }) => {
                     </div>
                 )}
 
+                {/* ══ 8a. Terms & Conditions ═══════════════════════════════ */}
+                {terms.length > 0 && (
+                    <div style={{ marginTop: 12 }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse',
+                                        border: '1px solid #cbd5e1', fontSize: 11 }}>
+                            <thead>
+                                <tr>
+                                    <th style={{ padding: '7px 10px', textAlign: 'left',
+                                                 fontWeight: 700, fontSize: 11.5,
+                                                 background: '#fff', color: '#1e293b',
+                                                 border: '1px solid #cbd5e1' }}>
+                                        Terms &amp; Conditions
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {terms.map((t, i) => (
+                                    <tr key={t.termId}>
+                                        <td style={{ padding: '5px 10px',
+                                                     border: '1px solid #cbd5e1',
+                                                     color: '#1e293b', lineHeight: 1.5 }}>
+                                            {i + 1} : {resolveTerm(t.termText)}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+
                 {/* ══ 8b. ANNEXURES — one per printed page ═════════════════ */}
                 {annexures.map(a => {
                     const linkedLineNums = a.linkedLineIds
@@ -358,6 +399,8 @@ const PoPrintModal = ({ po, onClose }) => {
                 })}
 
                 <div style={{ flex: 1 }} />
+
+                {preview && <PreviewBanner />}
 
                 {/* ══ 9. Signature footer ══════════════════════════════════ */}
                 <div className="pop-footer">

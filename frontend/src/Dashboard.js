@@ -185,6 +185,7 @@ const Dashboard = () => {
 
     const [data, setData]       = useState(null);
     const [loading, setLoading] = useState(true);
+    const [stockAlertCount, setStockAlertCount] = useState(null);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -196,6 +197,15 @@ const Dashboard = () => {
     }, [userId]);
 
     useEffect(() => { load(); }, [load]);
+
+    // Accurate open-stock-alert count (per-item Min/Reorder/Max), same source as
+    // the Stock Alerts page — the dashboard's own lowStock is a crude fixed threshold.
+    useEffect(() => {
+        fetch(`${variables.API_URL}stockbalance/alerts`, { headers: authHeaders() })
+            .then(r => r.ok ? r.json() : [])
+            .then(d => setStockAlertCount(Array.isArray(d) ? d.length : (d?.data?.length ?? 0)))
+            .catch(() => {});
+    }, []);
 
     if (loading) return (
         <div className="db-loading">
@@ -322,16 +332,32 @@ const Dashboard = () => {
                 {/* ── Inventory Status ── */}
                 {showSection('inventory') && (
                 <div className="db-card">
-                    <div className="db-card-header"><span className="db-card-icon">📦</span> INVENTORY STATUS</div>
+                    <div className="db-card-header">
+                        <span className="db-card-icon">📦</span> INVENTORY STATUS
+                        <span style={{ marginLeft: 'auto', fontSize: 11, color: '#2563eb', cursor: 'pointer', fontWeight: 600 }}
+                              onClick={() => navigate('/inventory-alerts')}>Stock Alerts →</span>
+                    </div>
                     <div className="db-card-body">
+                        {/* Accurate open-stock-alert count → clickable badge */}
+                        <div className="db-stat-row" style={{ cursor: 'pointer' }} onClick={() => navigate('/inventory-alerts')}
+                             title="Items below min / reorder, out of stock, or overstocked">
+                            <span className="db-stat-label">⚠ Stock Alerts</span>
+                            <span className="db-stat-val" style={{
+                                color: stockAlertCount > 0 ? '#dc2626' : '#16a34a',
+                                background: stockAlertCount > 0 ? '#fee2e2' : '#dcfce7',
+                                borderRadius: 12, padding: '1px 10px', fontWeight: 700,
+                            }}>{stockAlertCount == null ? '…' : stockAlertCount}</span>
+                        </div>
                         {[
-                            { label: 'Total Items',     val: fmtN(inventory?.totalItems),  color: '#1e293b' },
-                            { label: 'Low Stock Items', val: fmtN(inventory?.lowStock),    color: '#d97706' },
-                            { label: 'Out of Stock',    val: fmtN(inventory?.outOfStock),  color: '#dc2626' },
-                            { label: 'Pending GRN',     val: fmtN(inventory?.pendingGRN),  color: '#7c3aed' },
-                            { label: 'Stock Value',     val: fmtM(inventory?.stockValue),  color: '#16a34a' },
+                            { label: 'Total Items',     val: fmtN(inventory?.totalItems),  color: '#1e293b', route: null },
+                            { label: 'Low Stock Items', val: fmtN(inventory?.lowStock),    color: '#d97706', route: '/inventory-alerts' },
+                            { label: 'Out of Stock',    val: fmtN(inventory?.outOfStock),  color: '#dc2626', route: '/inventory-alerts' },
+                            { label: 'Pending GRN',     val: fmtN(inventory?.pendingGRN),  color: '#7c3aed', route: null },
+                            { label: 'Stock Value',     val: fmtM(inventory?.stockValue),  color: '#16a34a', route: null },
                         ].map(r => (
-                            <div key={r.label} className="db-stat-row">
+                            <div key={r.label} className="db-stat-row"
+                                 style={r.route ? { cursor: 'pointer' } : undefined}
+                                 onClick={r.route ? () => navigate(r.route) : undefined}>
                                 <span className="db-stat-label">{r.label}</span>
                                 <span className="db-stat-val" style={{ color: r.color }}>{r.val}</span>
                             </div>

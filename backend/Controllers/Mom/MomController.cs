@@ -70,6 +70,8 @@ namespace ERPWEB.Controllers.Mom
         [HttpPost("save")]
         public async Task<IActionResult> SaveMOM([FromBody] Mom model)
         {
+            if (string.IsNullOrWhiteSpace(model.JobId))
+                return BadRequest(new { message = "Job is required." });
             if (string.IsNullOrWhiteSpace(model.Title))
                 return BadRequest(new { message = "Title is required." });
             if (string.IsNullOrWhiteSpace(model.MeetingDate))
@@ -212,6 +214,10 @@ namespace ERPWEB.Controllers.Mom
                 });
                 if (result == "UNAUTHORIZED")
                     return StatusCode(403, new { message = "Only the assignee or assigner can update this task." });
+                if (result == "NOTFOUND")
+                    return NotFound(new { message = "Task not found." });
+                if (result == "INVALID")
+                    return BadRequest(new { message = "That status change is not allowed for this task." });
                 return Ok(new { message = "Status updated." });
             }
             catch (Exception ex)
@@ -238,6 +244,10 @@ namespace ERPWEB.Controllers.Mom
                 });
                 if (result == "UNAUTHORIZED")
                     return StatusCode(403, new { message = "Only the assignee or assigner can reassign this task." });
+                if (result == "NOTFOUND")
+                    return NotFound(new { message = "Task not found." });
+                if (result == "INVALID")
+                    return BadRequest(new { message = "A closed task cannot be reassigned." });
                 return Ok(new { message = "Task reassigned." });
             }
             catch (Exception ex)

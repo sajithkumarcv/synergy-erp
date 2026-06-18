@@ -6,6 +6,7 @@ import { useLookup } from '../../../LookupContext';
 import { usePermission } from '../../../PermissionContext';
 import { fmt, fmtDate } from '../../procurementConstants';
 import { useFieldConfig } from '../../../FieldConfigContext';
+import AmountInput from '../../../common/AmountInput';
 
 // ── Confirm Modal (delete / close / cancel line) ─────────────────
 const ConfirmModal = ({ title, titleColor = '#dc2626', icon = '🗑', detail, warning, error, confirmLabel, confirmColor = '#dc2626', onConfirm, onCancel, busy }) =>
@@ -451,7 +452,7 @@ const PrLinesTab = ({ pr, onRefresh }) => {
 
     const save = () => {
         if (!form.itemDesc.trim()) { setError('Item description is required.'); return; }
-        if (!form.requiredQty || isNaN(Number(form.requiredQty))) { setError('Required quantity must be a number.'); return; }
+        if (!form.requiredQty || isNaN(Number(form.requiredQty)) || Number(form.requiredQty) <= 0) { setError('Required quantity must be greater than zero.'); return; }
         setError(''); setSaving(true);
         fetch(`${variables.API_URL}purchaserequest/lines/save`, {
             method: 'POST', headers: authHeaders(),
@@ -769,7 +770,7 @@ const PrLinesTab = ({ pr, onRefresh }) => {
                             </div>
                             <div className="prd-lf-field">
                                 <label>Est. Unit Price</label>
-                                <input className="prd-lf-input" type="number" name="estUnitPrice" value={form.estUnitPrice} onChange={handle} min="0" step="0.01" />
+                                <AmountInput className="prd-lf-input" value={form.estUnitPrice} onChange={v => handle({ target: { name: 'estUnitPrice', value: v } })} />
                             </div>
                         </div>
                         <div className="prd-lf-row">

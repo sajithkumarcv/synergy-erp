@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { variables, authHeaders } from '../Variable';
 import { useCurrentUser } from '../AuthContext';
 import { useLookup } from '../LookupContext';
+import AmountInput from '../common/AmountInput';
 import '../procurement/Procurement.css';
 
 const PAGE_SIZES = [20, 50, 100, 200];
@@ -280,13 +281,13 @@ const RateForm = ({ initial, jobTypes, baseCurrencyCode, onClose, onSaved }) => 
                     <div className="pf-row">
                         <div className="pf-field pf-f2">
                             <label>NH Rate — Normal Hours {baseCurrencyCode && <span style={{ fontWeight: 700, color: '#0369a1' }}>({baseCurrencyCode})</span>}</label>
-                            <input className="pf-input" type="number" name="nhRate"
-                                value={form.nhRate} onChange={handle} min="0" step="0.0001" placeholder="0.0000" />
+                            <AmountInput className="pf-input" decimals={4} placeholder="0.0000"
+                                value={form.nhRate} onChange={v => handle({ target: { name: 'nhRate', value: v } })} />
                         </div>
                         <div className="pf-field pf-f2">
                             <label>OT Rate — Overtime {baseCurrencyCode && <span style={{ fontWeight: 700, color: '#0369a1' }}>({baseCurrencyCode})</span>}</label>
-                            <input className="pf-input" type="number" name="otRate"
-                                value={form.otRate} onChange={handle} min="0" step="0.0001" placeholder="0.0000" />
+                            <AmountInput className="pf-input" decimals={4} placeholder="0.0000"
+                                value={form.otRate} onChange={v => handle({ target: { name: 'otRate', value: v } })} />
                         </div>
                     </div>
 

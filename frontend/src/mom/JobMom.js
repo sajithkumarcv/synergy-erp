@@ -4,6 +4,7 @@ import { useCurrentUser } from '../AuthContext';
 import { useFilters } from '../FilterContext';
 import { useLookup } from '../LookupContext';
 import { usePermission } from '../PermissionContext';
+import AlertModal from '../common/AlertModal';
 
 // ── Formatters ────────────────────────────────────────────────
 const fmtDate = (d) =>
@@ -105,6 +106,7 @@ const JobMom = () => {
     const [activeTask,     setActiveTask]     = useState(null);
     const [users,          setUsers]          = useState([]);
     const [taskRefreshKey, setTaskRefreshKey] = useState(0);
+    const [alertMsg,       setAlertMsg]       = useState(null);
 
     const appliedRef = useRef(DEFAULT_FILTERS);
     useEffect(() => { appliedRef.current = applied; }, [applied]);
@@ -169,15 +171,26 @@ const JobMom = () => {
 
     const closeMom = async (momId) => {
         if (!window.confirm('Close this MOM? It will become read-only.')) return;
-        await fetch(`${variables.API_URL}mom/${momId}/close`, {
-            method: 'POST', headers: authHeaders(),
-            body: JSON.stringify({ modifiedBy: currentUser }),
-        });
-        load(appliedRef.current);
+        try {
+            const res = await fetch(`${variables.API_URL}mom/${momId}/close`, {
+                method: 'POST', headers: authHeaders(),
+                body: JSON.stringify({ modifiedBy: currentUser }),
+            });
+            if (!res.ok) {
+                const d = await res.json().catch(() => ({}));
+                setAlertMsg(d?.message || 'Failed to close MOM.');
+                return;
+            }
+            load(appliedRef.current);
+        } catch {
+            setAlertMsg('Network error. Please try again.');
+        }
     };
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+
+            {alertMsg && <AlertModal message={alertMsg} onClose={() => setAlertMsg(null)} />}
 
             {/* ── Page header ──────────────────────────────────── */}
             <div style={{ padding: '14px 20px', borderBottom: '1px solid #e2e8f0',

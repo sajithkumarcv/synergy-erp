@@ -2,6 +2,8 @@ using ERPWEB.Dbcontext;
 using ERPWEB.Models.Inventory;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace ERPWEB.Controllers.Inventory
 {
@@ -12,6 +14,15 @@ namespace ERPWEB.Controllers.Inventory
     {
         private readonly DbCon _dbcon;
         public StockAdjustmentController(DbCon dbcon) { _dbcon = dbcon; }
+
+        private static string Sha256Hex(string raw)
+        {
+            using var sha = SHA256.Create();
+            var bytes     = sha.ComputeHash(Encoding.UTF8.GetBytes(raw ?? string.Empty));
+            var sb        = new StringBuilder(bytes.Length * 2);
+            foreach (var b in bytes) sb.Append(b.ToString("x2"));
+            return sb.ToString();
+        }
 
         // ── SEARCH ───────────────────────────────────────────────
         [HttpGet("search")]
@@ -146,6 +157,72 @@ namespace ERPWEB.Controllers.Inventory
             }
         }
 
+        // ── BULK IMPORT LINES (Excel — opening stock / initial load) ─────────
+        // Each row is resolved + inserted as an IN (positive) adjustment line via
+        // sp_ImportAdjustmentLine. Per-row failures are reported but don't abort
+        // the rest — same UX as the item import.
+        [HttpPost("lines/import")]
+        public async Task<IActionResult> ImportLines([FromBody] ImportAdjustmentRequest req)
+        {
+            if (req.AdjustmentId <= 0)                 return BadRequest(new { message = "AdjustmentId is required." });
+            if (req.Rows == null || req.Rows.Count == 0) return BadRequest(new { message = "No rows to import." });
+            if (string.IsNullOrWhiteSpace(req.CreatedBy)) return BadRequest(new { message = "User is required." });
+            if (string.IsNullOrWhiteSpace(req.Password))  return BadRequest(new { message = "Password is required to authorize the import." });
+
+            try
+            {
+                // Password approval — verify the importing user's credentials before any write.
+                var check = await _dbcon.QueryAsync<dynamic>("sp_CheckUserPassword",
+                    new { UserName = req.CreatedBy, PasswordHash = Sha256Hex(req.Password) });
+                if (((int?)check?.FirstOrDefault()?.IsValid ?? 0) != 1)
+                    return StatusCode(403, new { message = "Incorrect password. Import not authorized." });
+
+                var results = new List<ImportRowResult>();
+                int rowNum = 0;
+                foreach (var row in req.Rows)
+                {
+                    rowNum++;
+                    var r = new ImportRowResult { RowNumber = rowNum, ItemCode = row.ItemCode };
+                    try
+                    {
+                        await _dbcon.QueryAsync<dynamic>("sp_ImportAdjustmentLine", new
+                        {
+                            req.AdjustmentId,
+                            ItemCode  = row.ItemCode?.Trim(),
+                            AdjustQty = row.Qty,
+                            UnitCost  = row.UnitCost,
+                            UomCode   = string.IsNullOrWhiteSpace(row.UomCode) ? null : row.UomCode.Trim(),
+                            Reason    = string.IsNullOrWhiteSpace(row.Reason)  ? null : row.Reason.Trim(),
+                            Notes     = string.IsNullOrWhiteSpace(row.Notes)   ? null : row.Notes.Trim(),
+                            req.CreatedBy
+                        });
+                        r.Success = true; r.Message = "Imported";
+                    }
+                    catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+                    {
+                        r.Success = false; r.Message = sqlEx.Message;
+                    }
+                    catch (Exception ex)
+                    {
+                        await _dbcon.WriteLog(ex, controller: "StockAdjustment", action: $"ImportLines (row {rowNum})", requestPath: HttpContext.Request.Path);
+                        r.Success = false; r.Message = ex.Message;
+                    }
+                    results.Add(r);
+                }
+                return Ok(new
+                {
+                    successCount = results.Count(x => x.Success),
+                    failCount    = results.Count(x => !x.Success),
+                    results
+                });
+            }
+            catch (Exception ex)
+            {
+                await _dbcon.WriteLog(ex, controller: "StockAdjustment", action: "ImportLines", requestPath: HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Import failed. Please try again." });
+            }
+        }
+
         // ── DELETE LINE ──────────────────────────────────────────
         [HttpDelete("line/{lineId:int}")]
         public async Task<IActionResult> DeleteLine(int lineId)
@@ -229,6 +306,31 @@ namespace ERPWEB.Controllers.Inventory
                 await _dbcon.WriteLog(ex, controller: "StockAdjustment", action: "Submit", requestPath: HttpContext.Request.Path);
                 return StatusCode(500, new { message = "Error submitting adjustment for approval." });
             }
+        }
+
+        // ── Bulk import request bodies ───────────────────────────
+        public class ImportAdjustmentRequest
+        {
+            public int AdjustmentId { get; set; }
+            public string? CreatedBy { get; set; }
+            public string? Password { get; set; }
+            public List<ImportAdjustmentRow> Rows { get; set; } = new();
+        }
+        public class ImportAdjustmentRow
+        {
+            public string? ItemCode { get; set; }
+            public decimal Qty { get; set; }
+            public decimal UnitCost { get; set; }
+            public string? UomCode { get; set; }
+            public string? Reason { get; set; }
+            public string? Notes { get; set; }
+        }
+        public class ImportRowResult
+        {
+            public int RowNumber { get; set; }
+            public string? ItemCode { get; set; }
+            public bool Success { get; set; }
+            public string? Message { get; set; }
         }
     }
 }

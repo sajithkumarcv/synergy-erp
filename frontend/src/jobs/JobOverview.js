@@ -4,6 +4,8 @@ import { variables, authHeaders } from '../Variable';
 import { useLookup } from '../LookupContext';
 import { useCurrentUser } from '../AuthContext';
 import { usePermission } from '../PermissionContext';
+import AmountInput from '../common/AmountInput';
+import AlertModal from '../common/AlertModal';
 import '../procurement/Procurement.css';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -505,9 +507,9 @@ const EditableCell = ({ row, canEdit, uoms, currencies, job, baseCurrencyCode, o
                     <div style={{ paddingTop: 14, color: '#94a3b8', fontSize: 12 }}>×</div>
                     <div style={{ flex: 1.5 }}>
                         <div style={{ fontSize: 9, color: '#94a3b8', marginBottom: 2 }}>UNIT PRICE</div>
-                        <input type="number" min="0" step="0.01" className="pf-input"
-                            style={{ width: '100%', textAlign: 'right', padding: '3px 7px', fontSize: 12 }}
-                            value={unitPrice} onChange={e => setUnitPrice(e.target.value)} onKeyDown={handleKey} placeholder="0.00" />
+                        <AmountInput className="pf-input"
+                            style={{ width: '100%', padding: '3px 7px', fontSize: 12 }}
+                            value={unitPrice} onChange={v => setUnitPrice(v)} onKeyDown={handleKey} placeholder="0.00" />
                     </div>
                     <div style={{ flex: 1 }}>
                         <div style={{ fontSize: 9, color: '#94a3b8', marginBottom: 2 }}>UOM</div>
@@ -704,6 +706,7 @@ const JobOverview = () => {
     const [additionalJobs,setAdditionalJobs] = useState([]);
     const [addlLoading,   setAddlLoading]  = useState(false);
     const [variationFinances, setVariationFinances] = useState([]);
+    const [alertMsg,      setAlertMsg]     = useState(null);
 
     useEffect(() => {
         fetch(`${variables.API_URL}job/types`, { headers: authHeaders() })
@@ -844,10 +847,10 @@ const JobOverview = () => {
                 method: 'DELETE', headers: authHeaders(),
             });
             const d = await res.json().catch(() => ({}));
-            if (!res.ok) { alert(d?.message || 'Delete failed.'); return; }
+            if (!res.ok) { setAlertMsg(d?.message || 'Delete failed.'); return; }
             loadBudget(selectedJobId);
             loadOverview(selectedJobId);
-        } catch { alert('Network error.'); }
+        } catch { setAlertMsg('Network error.'); }
     };
 
     const handleJobSelect = e => { const v = e.target.value; setSelectedJobId(v); loadOverview(v); };
@@ -889,6 +892,7 @@ const JobOverview = () => {
 
     return (
         <div className="po-page">
+            {alertMsg && <AlertModal message={alertMsg} onClose={() => setAlertMsg(null)} />}
             {/* ── Filter bar ──────────────────────────────────────────────── */}
             {/* overflow:visible + raised stacking so the customer live-search dropdown
                 is not clipped by .po-grid-wrap's `overflow:hidden` and sits above the
@@ -1160,6 +1164,85 @@ const JobOverview = () => {
                                 </div>
                             );
 
+                            // ── Collection donut + billing funnel ─────────────────
+                            // Credit-note total (job currency) from non-draft invoices, same
+                            // basis as the Receipts & Invoices section.
+                            const creditTotal = (data.invoices || [])
+                                .filter(r => r.status !== 'Draft')
+                                .reduce((s, r) => s + xToD(r.cnAmount, r.exchangeRate), 0);
+                            const collOutstanding = Math.max(0, finalInvoicedValue - receipts - creditTotal);
+
+                            // Donut: splits Final Invoiced into Received / Credit / Outstanding.
+                            const Donut = () => {
+                                const inv = finalInvoicedValue;
+                                const r = 54, cx = 70, cy = 70, C = 2 * Math.PI * r;
+                                const segs = inv > 0
+                                    ? [ { v: receipts, c: '#16a34a' }, { v: creditTotal, c: '#7c3aed' }, { v: collOutstanding, c: '#dc2626' } ]
+                                    : [];
+                                let acc = 0;
+                                const pctColl = inv > 0 ? Math.round((receipts + creditTotal) / inv * 100) : 0;
+                                return (
+                                    <svg viewBox="0 0 140 140" style={{ width: 132, height: 132, flexShrink: 0 }}>
+                                        <circle r={r} cx={cx} cy={cy} fill="none" stroke="#eef2f7" strokeWidth="22" />
+                                        {segs.map((s, i) => {
+                                            const frac = Math.max(0, Math.min(1, (s.v || 0) / inv));
+                                            const el = (
+                                                <circle key={i} r={r} cx={cx} cy={cy} fill="none" stroke={s.c} strokeWidth="22"
+                                                    strokeDasharray={`${(frac * C).toFixed(2)} ${(C - frac * C).toFixed(2)}`}
+                                                    strokeDashoffset={(-acc * C).toFixed(2)}
+                                                    transform={`rotate(-90 ${cx} ${cy})`} />
+                                            );
+                                            acc += frac;
+                                            return el;
+                                        })}
+                                        <text x={cx} y={cy - 1} textAnchor="middle" fontSize="24" fontWeight="800" fill="#1e293b">{pctColl}%</text>
+                                        <text x={cx} y={cy + 16} textAnchor="middle" fontSize="9.5" fill="#94a3b8"
+                                              style={{ textTransform: 'uppercase', letterSpacing: '.4px' }}>collected</text>
+                                    </svg>
+                                );
+                            };
+
+                            // Funnel: Order → Invoiced → Invoicing Pending → Received, scaled to Order.
+                            const invoicingPending = Math.max(0, finalOrderValue - finalInvoicedValue);
+                            const Funnel = () => {
+                                const top = finalOrderValue || 1;
+                                const pctInv  = finalOrderValue    > 0 ? finalInvoicedValue / finalOrderValue    * 100 : 0;
+                                const pctPend = finalOrderValue    > 0 ? invoicingPending   / finalOrderValue    * 100 : 0;
+                                const pctRecv = finalInvoicedValue > 0 ? receipts           / finalInvoicedValue * 100 : 0;
+                                const stages = [
+                                    { label: 'Order',             value: finalOrderValue,    c: '#2563eb', note: null },
+                                    { label: 'Invoiced',          value: finalInvoicedValue, c: '#0ea5e9', note: `${pctInv.toFixed(0)}% of order` },
+                                    { label: 'Invoicing Pending', value: invoicingPending,   c: '#f59e0b', note: `${pctPend.toFixed(0)}% of order` },
+                                    { label: 'Received',          value: receipts,           c: '#16a34a', note: `${pctRecv.toFixed(0)}% of invoiced` },
+                                ];
+                                return (
+                                    <div style={{ flex: 1, minWidth: 230, display: 'flex', flexDirection: 'column', gap: 9 }}>
+                                        {stages.map((st) => {
+                                            const pct = Math.max(0, Math.min(100, (st.value || 0) / top * 100));
+                                            return (
+                                                <div key={st.label}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                                                        <span style={{ fontSize: 11.5, color: '#475569', fontWeight: 500 }}>
+                                                            {st.label}
+                                                            {st.note && (
+                                                                <span style={{ color: '#94a3b8', fontWeight: 400 }}> · {st.note}</span>
+                                                            )}
+                                                        </span>
+                                                        <span style={{ fontSize: 11.5, fontWeight: 700, color: '#1e293b', fontFamily: 'Courier New' }}>
+                                                            {cur} {fmt(st.value)}
+                                                        </span>
+                                                    </div>
+                                                    <div style={{ height: 16, background: '#f1f5f9', borderRadius: 5, overflow: 'hidden' }}>
+                                                        <div style={{ width: `${pct}%`, minWidth: st.value > 0 ? 6 : 0,
+                                                            height: '100%', background: st.c, borderRadius: 5 }} />
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                );
+                            };
+
                             return (
                                 <>
                                     {/* Currency indicator — values shown in BASE currency */}
@@ -1279,6 +1362,43 @@ const JobOverview = () => {
                                         <Row label="Cash In"                 value={cashIn} />
                                         <Row label="Cash Out"                value={cashOut} />
                                     </div>
+
+                                    {/* ── Financial overview: collection donut + billing funnel ── */}
+                                    {(finalOrderValue > 0 || finalInvoicedValue > 0) && (
+                                        <div style={{ marginTop: 16, padding: '14px 16px', border: '1px solid #e2e8f0',
+                                            borderRadius: 8, background: '#fcfdff' }}>
+                                            <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b',
+                                                textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 14 }}>
+                                                Financial Overview ({cur})
+                                            </div>
+                                            <div style={{ display: 'flex', gap: 28, alignItems: 'center', flexWrap: 'wrap' }}>
+                                                {/* Collection donut + legend */}
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                                                    <Donut />
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                                        {[
+                                                            { label: 'Received',    value: receipts,        c: '#16a34a' },
+                                                            { label: 'Credit',      value: creditTotal,     c: '#7c3aed' },
+                                                            { label: 'Outstanding', value: collOutstanding, c: '#dc2626' },
+                                                        ].map(g => (
+                                                            <div key={g.label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                                <span style={{ width: 11, height: 11, borderRadius: 3, background: g.c, flexShrink: 0 }} />
+                                                                <span style={{ fontSize: 11.5, color: '#64748b', minWidth: 78 }}>{g.label}</span>
+                                                                <span style={{ fontSize: 11.5, fontWeight: 700, color: '#1e293b', fontFamily: 'Courier New' }}>
+                                                                    {cur} {fmt(g.value)}
+                                                                </span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+
+                                                <div style={{ width: 1, alignSelf: 'stretch', background: '#e2e8f0' }} />
+
+                                                {/* Order → Invoiced → Received funnel */}
+                                                <Funnel />
+                                            </div>
+                                        </div>
+                                    )}
 
                                     {/* Actual cost breakdown strip (kept — useful detail) */}
                                     {actualCost > 0 && (

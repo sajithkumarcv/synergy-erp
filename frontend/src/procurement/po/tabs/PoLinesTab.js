@@ -6,6 +6,7 @@ import { useLookup } from '../../../LookupContext';
 import { usePermission } from '../../../PermissionContext';
 import { fmt, fmtDate } from '../../procurementConstants';
 import { useFieldConfig } from '../../../FieldConfigContext';
+import AmountInput from '../../../common/AmountInput';
 
 const EMPTY_LINE = {
     poLineId:    0,
@@ -228,7 +229,7 @@ const PrImportModal = ({ po, initialPrId, onClose, onImported, budgetInfo }) => 
             })
             .catch(() => setError('Failed to load PR lines.'))
             .finally(() => setLinesLoading(false));
-    }, [selectedPrId, po.poId]);
+    }, [selectedPrId, po.poId, po.exchangeRate]);
 
     const cycleSort = (key) => {
         if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -730,19 +731,6 @@ const PoLinesTab = ({ po, onRefresh, initialPrId }) => {
     const wouldExceed      = remainingForEdit !== null && lineTotalBase > remainingForEdit;
     const overBy           = wouldExceed ? lineTotalBase - remainingForEdit : 0;
 
-    // Friendly prompt for a numeric field. Loops on invalid input so the user
-    // doesn't get stuck. Returns the parsed number, or null if the user cancels.
-    const promptForNumber = (label, defaultVal = '') => {
-        let raw = defaultVal;
-        while (true) {
-            raw = window.prompt(label, raw == null ? '' : String(raw));
-            if (raw === null) return null;                                // user cancelled
-            const n = parseFloat(String(raw).trim());
-            if (!isNaN(n) && n >= 0 && isFinite(n)) return n;
-            window.alert('Please enter a valid number (zero or greater).');
-        }
-    };
-
     const doSave = (orderedQty, unitPrice) => {
         setError(''); setSaving(true);
         fetch(`${variables.API_URL}purchaseorder/lines/save`, {
@@ -788,21 +776,14 @@ const PoLinesTab = ({ po, onRefresh, initialPrId }) => {
     const save = () => {
         if (!form.itemDesc.trim()) { setError('Item description is required.'); return; }
 
-        let orderedQty = parseFloat(form.orderedQty);
+        const orderedQty = parseFloat(form.orderedQty);
         if (!form.orderedQty || isNaN(orderedQty) || orderedQty <= 0) {
-            const q = promptForNumber(`Enter ordered quantity for "${form.itemDesc.trim()}":`, form.orderedQty || '');
-            if (q === null) return;
-            if (q <= 0) { setError('Ordered quantity must be greater than zero.'); return; }
-            orderedQty = q;
-            setForm(p => ({ ...p, orderedQty: String(q) }));
+            setError('Ordered quantity must be greater than zero.'); return;
         }
 
-        let unitPrice = parseFloat(form.unitPrice);
-        if (form.unitPrice === '' || form.unitPrice == null || isNaN(unitPrice)) {
-            const p = promptForNumber(`Enter unit price for "${form.itemDesc.trim()}" (enter 0 if free of charge):`, form.unitPrice || '');
-            if (p === null) return;
-            unitPrice = p;
-            setForm(prev => ({ ...prev, unitPrice: String(p) }));
+        const unitPrice = parseFloat(form.unitPrice);
+        if (form.unitPrice === '' || form.unitPrice == null || isNaN(unitPrice) || unitPrice < 0) {
+            setError('Unit price is required (enter 0 if free of charge).'); return;
         }
 
         // Soft budget guard: warn the purchaser when this line (in base currency) would
@@ -876,6 +857,16 @@ const PoLinesTab = ({ po, onRefresh, initialPrId }) => {
 
     const grandTotal        = lines.reduce((s, l) => s + (l.lineTotal || 0), 0);
     const grandTotalWithTax = lines.reduce((s, l) => s + (l.lineTotalWithTax || 0), 0);
+
+    // ── Delivery progress (value-based) ───────────────────────────────────────
+    // Quantities can't be summed across mixed UOMs, so the header rollup is by
+    // VALUE (qty × unit price); per-line qty bars below stay UOM-safe.
+    const orderedValue     = lines.reduce((s, l) => s + (Number(l.orderedQty)  || 0) * (Number(l.unitPrice) || 0), 0);
+    const receivedValue    = lines.reduce((s, l) => s + (Number(l.receivedQty) || 0) * (Number(l.unitPrice) || 0), 0);
+    const pendingValue     = Math.max(0, orderedValue - receivedValue);
+    const linesComplete    = lines.filter(l => (Number(l.orderedQty) || 0) > 0 && (Number(l.receivedQty) || 0) >= (Number(l.orderedQty) || 0)).length;
+    const pctReceivedValue = orderedValue > 0 ? receivedValue / orderedValue * 100 : 0;
+    const poCcy            = po.currencyShort || '';
 
     const cycleSort = (key) => {
         if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -1000,6 +991,39 @@ const PoLinesTab = ({ po, onRefresh, initialPrId }) => {
                     )}
                 </div>
 
+                {/* ── Delivery progress (value-based) ── */}
+                {lines.length > 0 && (
+                    <div style={{ padding: '12px 14px', borderBottom: '1px solid #f1f5f9', background: '#fcfdff' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
+                            <span style={{ fontSize: 10.5, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '.5px' }}>
+                                Delivery Progress
+                            </span>
+                            <span style={{ fontSize: 11.5, color: '#64748b' }}>
+                                <strong style={{ color: '#1e293b' }}>{pctReceivedValue.toFixed(0)}%</strong> received by value · {linesComplete}/{lines.length} lines complete
+                            </span>
+                        </div>
+                        <div style={{ height: 14, background: '#f1f5f9', borderRadius: 7, overflow: 'hidden', display: 'flex' }}>
+                            <div style={{ width: `${orderedValue > 0 ? receivedValue / orderedValue * 100 : 0}%`, background: '#16a34a', height: '100%' }} />
+                            <div style={{ width: `${orderedValue > 0 ? pendingValue  / orderedValue * 100 : 0}%`, background: '#f59e0b', height: '100%' }} />
+                        </div>
+                        <div style={{ display: 'flex', gap: 22, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                            <span style={{ fontSize: 11.5, color: '#64748b' }}>
+                                Ordered <strong style={{ color: '#1e293b', fontFamily: 'Courier New' }}>{poCcy} {fmt(orderedValue)}</strong>
+                            </span>
+                            {[
+                                { label: 'Received',           value: receivedValue, c: '#16a34a' },
+                                { label: 'Pending to Deliver', value: pendingValue,  c: '#f59e0b' },
+                            ].map(x => (
+                                <span key={x.label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <span style={{ width: 10, height: 10, borderRadius: 3, background: x.c, flexShrink: 0 }} />
+                                    <span style={{ fontSize: 11.5, color: '#64748b' }}>{x.label}</span>
+                                    <span style={{ fontSize: 11.5, fontWeight: 700, color: '#1e293b', fontFamily: 'Courier New' }}>{poCcy} {fmt(x.value)}</span>
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {/* Import hint when no lines yet */}
                 {canEdit && hasJob && lines.length === 0 && !showImport && (
                     <div style={{ padding: '10px 14px', background: '#f0fdf4', borderBottom: '1px solid #bbf7d0', fontSize: 12, color: '#166534' }}>
@@ -1064,7 +1088,15 @@ const PoLinesTab = ({ po, onRefresh, initialPrId }) => {
                                             </td>
                                             <td>{g.itemDesc}</td>
                                             <td className="prd-num-cell" style={{ fontWeight: g.isMerged ? 700 : undefined }}>{fmt(g.orderedQty)}</td>
-                                            <td className="prd-num-cell" style={{ color: recvColor, fontWeight: 600 }}>{fmt(g.receivedQty)}</td>
+                                            <td className="prd-num-cell" style={{ color: recvColor, fontWeight: 600 }}>
+                                                {fmt(g.receivedQty)}
+                                                {ord > 0 && (
+                                                    <div style={{ height: 4, background: '#f1f5f9', borderRadius: 2, marginTop: 3, overflow: 'hidden' }}
+                                                         title={`${fmt(recv)} of ${fmt(ord)} received`}>
+                                                        <div style={{ width: `${Math.min(100, recv / ord * 100)}%`, height: '100%', background: recvColor, borderRadius: 2 }} />
+                                                    </div>
+                                                )}
+                                            </td>
                                             <td>{g.uomName || '—'}</td>
                                             <td className="prd-num-cell">{g.isMerged ? <span style={{ color: '#94a3b8', fontSize: 11 }}>—</span> : fmt(g.unitPrice)}</td>
                                             <td className="prd-num-cell">{(!g.isMerged && g.taxPct) ? `${g.taxPct}%` : '—'}</td>
@@ -1287,7 +1319,7 @@ const PoLinesTab = ({ po, onRefresh, initialPrId }) => {
                                     </div>
                                     <div className="prd-lf-field">
                                         <label>Unit Price</label>
-                                        <input className="prd-lf-input" type="number" name="unitPrice" value={form.unitPrice} onChange={handle} min="0" step="0.01" />
+                                        <AmountInput className="prd-lf-input" value={form.unitPrice} onChange={v => handle({ target: { name: 'unitPrice', value: v } })} />
                                     </div>
                                     <div className="prd-lf-field">
                                         <label>Tax %</label>

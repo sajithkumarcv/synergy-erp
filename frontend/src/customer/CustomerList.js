@@ -10,6 +10,7 @@ import { getFlag, fmt } from './customerConstants';
 import { useFieldConfig } from '../FieldConfigContext';
 import RowLink from '../common/RowLink';
 import ValidationModal from '../common/ValidationModal';
+import AmountInput from '../common/AmountInput';
 import '../jobs/JobDetail.css';
 import './Customer.css';
 
@@ -247,7 +248,7 @@ const CustomerCreateForm = ({ onClose, onCreated }) => {
                         </div>
                         <div className="jf-field" style={{ flex: '0 0 130px' }}>
                             <label>Credit Limit</label>
-                            <input name="creditLimit" type="number" className="jf-input" value={form.creditLimit} onChange={handle} placeholder="0.00" />
+                            <AmountInput name="creditLimit" className="jf-input" value={form.creditLimit} onChange={v => handle({ target: { name: 'creditLimit', value: v } })} placeholder="0.00" />
                         </div>
                         <div className="jf-field" style={{ flex: '0 0 110px' }}>
                             <label>Credit Days</label>

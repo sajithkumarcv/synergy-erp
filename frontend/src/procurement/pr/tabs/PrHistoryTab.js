@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { variables, authHeaders } from '../../../Variable';
-import { fmtDate } from '../../procurementConstants';
 
 const actionColor = (action) => {
     if (!action) return '#64748b';

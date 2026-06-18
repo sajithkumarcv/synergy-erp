@@ -4,6 +4,7 @@ import { useCurrentUser } from '../../../AuthContext';
 import { useLookup } from '../../../LookupContext';
 import { fmt } from '../../procurementConstants';
 import { useFieldConfig } from '../../../FieldConfigContext';
+import AmountInput from '../../../common/AmountInput';
 
 const TYPE_COLORS = {
     SUBCON: { bg: '#f3e8ff', color: '#7e22ce' },
@@ -427,8 +428,8 @@ const SrvLinesTab = ({ srv, onRefresh }) => {
                                     </div>
                                     <div className="prd-lf-field">
                                         <label>Unit Cost</label>
-                                        <input className="prd-lf-input" type="number" value={form.unitCost}
-                                            onChange={e => setForm(f => ({ ...f, unitCost: e.target.value }))} min="0" step="0.01" />
+                                        <AmountInput className="prd-lf-input" value={form.unitCost}
+                                            onChange={v => setForm(f => ({ ...f, unitCost: v }))} />
                                     </div>
                                 </div>
                                 <div className="prd-lf-row">

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { variables, authHeaders } from '../../Variable';
 import { useCurrentUser } from '../../AuthContext';
 import { fmt } from '../jobConstants';
+import AlertModal from '../../common/AlertModal';
 
 const MAT_STATUS = {
   Open:      { bg: '#dbeafe', color: '#1e40af' },
@@ -178,6 +179,7 @@ const MaterialsTab = ({ job, onRefresh }) => {
   const [saving,     setSaving]     = useState(false);
   const [editRow,    setEditRow]    = useState(null);
   const [uoms,       setUoms]       = useState([]);
+  const [alertMsg,   setAlertMsg]   = useState(null);
 
   const loadBoms = useCallback(() => {
     setBomsLoading(true);
@@ -217,11 +219,11 @@ const MaterialsTab = ({ job, onRefresh }) => {
         })
       });
       const d = await res.json();
-      if (!res.ok) { alert(d?.message || 'Failed to add BOM.'); return; }
+      if (!res.ok) { setAlertMsg(d?.message || 'Failed to add BOM.'); return; }
       setShowAddBom(false);
       loadBoms();
       onRefresh();
-    } catch { alert('Network error. Please try again.'); }
+    } catch { setAlertMsg('Network error. Please try again.'); }
     finally { setSavingBom(false); }
   };
 
@@ -231,13 +233,13 @@ const MaterialsTab = ({ job, onRefresh }) => {
       const res = await fetch(`${variables.API_URL}job/${encodeURIComponent(job.jobId)}/boms/${id}`, {
         method: 'DELETE', headers: authHeaders()
       });
-      if (!res.ok) { const d = await res.json(); alert(d?.message || 'Failed to remove BOM.'); return; }
+      if (!res.ok) { const d = await res.json(); setAlertMsg(d?.message || 'Failed to remove BOM.'); return; }
       loadBoms(); loadMaterials(); onRefresh();
-    } catch { alert('Network error. Please try again.'); }
+    } catch { setAlertMsg('Network error. Please try again.'); }
   };
 
   const generate = async () => {
-    if (boms.length === 0) { alert('No BOMs assigned to this job yet.'); return; }
+    if (boms.length === 0) { setAlertMsg('No BOMs assigned to this job yet.'); return; }
     if (!window.confirm(`Generate materials from ${boms.length} BOM(s)? Existing BOM-sourced lines will be replaced. Manually added lines are preserved.`)) return;
     setGenerating(true);
     try {
@@ -246,16 +248,16 @@ const MaterialsTab = ({ job, onRefresh }) => {
         body: JSON.stringify({ createdBy: currentUser })
       });
       const d = await res.json();
-      if (!res.ok) { alert(d?.message || 'Failed to generate materials.'); return; }
+      if (!res.ok) { setAlertMsg(d?.message || 'Failed to generate materials.'); return; }
       loadMaterials();
-    } catch { alert('Network error. Please try again.'); }
+    } catch { setAlertMsg('Network error. Please try again.'); }
     finally { setGenerating(false); }
   };
 
   const saveAddLine = async () => {
-    if (!addRow.componentItemId) { alert('Select an item.'); return; }
-    if (!addRow.plannedQty || Number(addRow.plannedQty) <= 0) { alert('Enter a valid planned quantity.'); return; }
-    if (!addRow.uomId) { alert('Select a UOM.'); return; }
+    if (!addRow.componentItemId) { setAlertMsg('Select an item.'); return; }
+    if (!addRow.plannedQty || Number(addRow.plannedQty) <= 0) { setAlertMsg('Enter a valid planned quantity.'); return; }
+    if (!addRow.uomId) { setAlertMsg('Select a UOM.'); return; }
     setSaving(true);
     try {
       const res = await fetch(`${variables.API_URL}job/${encodeURIComponent(job.jobId)}/materials`, {
@@ -267,9 +269,9 @@ const MaterialsTab = ({ job, onRefresh }) => {
         })
       });
       const d = await res.json();
-      if (!res.ok) { alert(d?.message || 'Failed to save material line.'); return; }
+      if (!res.ok) { setAlertMsg(d?.message || 'Failed to save material line.'); return; }
       setAddRow(null); loadMaterials();
-    } catch { alert('Network error. Please try again.'); }
+    } catch { setAlertMsg('Network error. Please try again.'); }
     finally { setSaving(false); }
   };
 
@@ -280,9 +282,9 @@ const MaterialsTab = ({ job, onRefresh }) => {
         method: 'POST', headers: authHeaders(),
         body: JSON.stringify({ ...row, [field]: value, modifiedBy: currentUser })
       });
-      if (!res.ok) { const d = await res.json(); alert(d?.message || 'Failed to save changes.'); }
+      if (!res.ok) { const d = await res.json(); setAlertMsg(d?.message || 'Failed to save changes.'); }
       loadMaterials();
-    } catch { alert('Network error. Please try again.'); }
+    } catch { setAlertMsg('Network error. Please try again.'); }
   };
 
   const totPlanned   = rows.reduce((s, r) => s + Number(r.plannedQty   || 0), 0);
@@ -291,6 +293,8 @@ const MaterialsTab = ({ job, onRefresh }) => {
 
   return (
     <div className="mat-tab">
+
+      {alertMsg && <AlertModal message={alertMsg} onClose={() => setAlertMsg(null)} />}
 
       {/* ── BOM Assignments panel ── */}
       <div className="mat-bom-panel">

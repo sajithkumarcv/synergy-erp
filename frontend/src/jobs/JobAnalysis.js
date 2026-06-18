@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { variables, authHeaders } from '../Variable';
 import { useFilters } from '../FilterContext';
+import { useLookup } from '../LookupContext';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
     ResponsiveContainer, PieChart, Pie, Cell, ReferenceLine,
@@ -96,6 +97,8 @@ const EmptyChart = ({ h = 200 }) => (
 export default function JobAnalysis() {
     const navigate = useNavigate();
     const { registerFilters, unregisterFilters, updateFilterDefs, setFilter: setCtxFilter } = useFilters();
+    const { baseCurrencyCode } = useLookup();
+    const baseCode = baseCurrencyCode || 'base currency';
 
     const [summary,    setSummary]    = useState(null);
     const [rows,       setRows]       = useState([]);
@@ -223,6 +226,11 @@ export default function JobAnalysis() {
                 <div>
                     <div style={{ fontSize:22, fontWeight:800, color:'#0f172a', letterSpacing:'-.02em' }}>Job Profitability Analysis</div>
                     <div style={{ fontSize:12, color:'#64748b', marginTop:3 }}>360° financial view per job — Revenue · Cost · Profit · Receivable · Budget</div>
+                    <div style={{ display:'inline-flex', alignItems:'center', gap:6, marginTop:8,
+                        background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:6,
+                        padding:'4px 10px', fontSize:11.5, fontWeight:600, color:'#1e40af' }}>
+                        💱 All amounts in {baseCode} (base currency) — foreign-currency jobs converted at their exchange rate.
+                    </div>
                 </div>
                 <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
                     {GROUP_OPTIONS.map(g => (

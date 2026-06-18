@@ -3,7 +3,7 @@ import { variables, authHeaders } from '../../Variable';
 import { fmt, fmtDate } from '../procurementConstants';
 import { numberToWords } from '../../invoice/invoiceConstants';
 import useOwnerCompany from '../../hooks/useOwnerCompany';
-import { BankDetailsBlock } from '../../components/print/PrintCompanyHeader';
+import { BankDetailsBlock, DraftWatermark, PreviewBanner } from '../../components/print/PrintCompanyHeader';
 import consolidatePoLinesForPrint from './consolidatePoLinesForPrint';
 import { openPrintWindow } from '../../utils/printWindow';
 import './PoPrint.css';                       // overlay + toolbar
@@ -40,18 +40,6 @@ const FlagChip = ({ on, label }) => (
     </span>
 );
 
-// ── Banner status colours ─────────────────────────────────────
-const bannerStatusStyle = (status) => {
-    switch (status) {
-        case 'Approved':   return { background: '#22c55e', color: '#fff' };
-        case 'Confirmed':  return { background: '#0ea5e9', color: '#fff' };
-        case 'Closed':     return { background: '#6366f1', color: '#fff' };
-        case 'Cancelled':  return { background: '#ef4444', color: '#fff' };
-        case 'On Hold':    return { background: '#f97316', color: '#fff' };
-        default:           return {};
-    }
-};
-
 // ── Section divider ───────────────────────────────────────────
 const SectionHeading = ({ label }) => (
     <div style={{
@@ -63,7 +51,7 @@ const SectionHeading = ({ label }) => (
 );
 
 // ══════════════════════════════════════════════════════════════
-const PoPrintModal2 = ({ po, onClose }) => {
+const PoPrintModal2 = ({ po, onClose, preview }) => {
     const [lines,        setLines]        = useState([]);
     const [loading,      setLoading]      = useState(true);
     const [annexures,    setAnnexures]    = useState([]);  // [{ annexureId, annexureCode, title, notes, details:[], linkedLineIds:[] }]
@@ -97,7 +85,7 @@ const PoPrintModal2 = ({ po, onClose }) => {
     }, [po.poId]);
 
     const handleBackdrop = (e) => { if (e.target === e.currentTarget) onClose(); };
-    const handlePrint    = () => openPrintWindow('.ip2-doc', `Purchase Order - ${po.poNumber}`);
+    const handlePrint    = () => openPrintWindow('.ip2-doc', `Purchase Order${preview ? ' (DRAFT)' : ''} - ${po.poNumber}`);
 
     // Vendor-facing consolidation — see comments in PoPrintModal.js. Internal
     // PR↔PO traceability is preserved on the DB rows; this only affects what
@@ -157,7 +145,10 @@ const PoPrintModal2 = ({ po, onClose }) => {
             </div>
 
             {/* ── A4 Document ── */}
-            <div className="ip2-doc">
+            <div className="ip2-doc" style={{ position: 'relative' }}>
+
+                {preview && <DraftWatermark />}
+                {preview && <PreviewBanner />}
 
                 {/* ══ 1. Full-width banner ══════════════════════════════════ */}
                 <div className="ip2-banner">
@@ -165,15 +156,17 @@ const PoPrintModal2 = ({ po, onClose }) => {
                         <div className="ip2-banner-company">
                             {coLoading ? '…' : (company?.companyName || '—')}
                         </div>
-                        <div className="ip2-banner-addr">
-                            {(() => {
-                                const a = company?.addresses?.find(x => x.isPrimary) ?? company?.addresses?.[0];
-                                if (!a) return null;
-                                return [a.addressLine1, a.addressLine2, a.city, a.country].filter(Boolean).join('  ·  ');
-                            })()}
-                            {company?.phone && <><br />{company.phone}{company.fax ? `   Fax: ${company.fax}` : ''}{company.email ? `   ·   ${company.email}` : ''}</>}
-                            {company?.trn   && <><br />TRN: {company.trn}{company.website ? `   ·   ${company.website}` : ''}</>}
-                        </div>
+                        {!preview && (
+                            <div className="ip2-banner-addr">
+                                {(() => {
+                                    const a = company?.addresses?.find(x => x.isPrimary) ?? company?.addresses?.[0];
+                                    if (!a) return null;
+                                    return [a.addressLine1, a.addressLine2, a.city, a.country].filter(Boolean).join('  ·  ');
+                                })()}
+                                {company?.phone && <><br />{company.phone}{company.fax ? `   Fax: ${company.fax}` : ''}{company.email ? `   ·   ${company.email}` : ''}</>}
+                                {company?.trn   && <><br />TRN: {company.trn}{company.website ? `   ·   ${company.website}` : ''}</>}
+                            </div>
+                        )}
                     </div>
                     <div className="ip2-banner-right">
                         <div className="ip2-banner-doctype">Purchase Order</div>
@@ -185,9 +178,6 @@ const PoPrintModal2 = ({ po, onClose }) => {
                                 </span>
                             )}
                         </div>
-                        <span className="ip2-banner-status" style={bannerStatusStyle(po.status)}>
-                            {po.status}
-                        </span>
                         {po.priority && (
                             <span style={{
                                 marginLeft: 6, display: 'inline-block', padding: '2px 10px',
@@ -228,8 +218,7 @@ const PoPrintModal2 = ({ po, onClose }) => {
                             <InfoRow label="PO Date"         value={fmtDate(po.poDate)} />
                             <InfoRow label="Vendor Quote Ref" value={po.vendorRef}   mono />
                             <InfoRow label="Quote Date"      value={fmtDate(po.vendorQuoteDate)} />
-                            <InfoRow label="Currency"      value={currency
-                                + (po.exchangeRate && po.exchangeRate !== 1 ? ` (@ ${po.exchangeRate})` : '')} />
+                            <InfoRow label="Currency"      value={currency} />
                             <InfoRow label="Payment Terms" value={po.paymentTermName} />
                             <InfoRow label="Job Ref"       value={po.jobId || null} mono />
                             {po.discount > 0 && <InfoRow label="Discount" value={`${po.discount}%`} />}
@@ -488,6 +477,8 @@ const PoPrintModal2 = ({ po, onClose }) => {
                             <div className="ip2-sig-sub">Signature &amp; Date</div>
                         </div>
                     </div>
+
+                    {preview && <PreviewBanner />}
 
                     <div className="ip2-print-note">
                         This is a computer-generated purchase order.

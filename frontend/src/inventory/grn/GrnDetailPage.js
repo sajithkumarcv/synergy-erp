@@ -6,6 +6,8 @@ import { DOC_STATUS, RECEIPT_TYPE, fmt, fmtDate, fmtDateTime } from '../inventor
 import '../Inventory.css';
 import { useFieldConfig } from '../../FieldConfigContext';
 import { InlineError } from '../../common/InlineError';
+import AmountInput from '../../common/AmountInput';
+import AlertModal from '../../common/AlertModal';
 
 // ── Helpers ────────────────────────────────────────────────────
 const StatusBadge = ({ status }) => {
@@ -333,7 +335,7 @@ const LinesTab = ({ receipt, lines, onRefresh, currentUser }) => {
                         </div>
                         <div className="invd-field">
                             <label className="invd-label">Unit Cost {isReq('unitCost') && <span className="req">*</span>}</label>
-                            <input className={`invd-input${formErr.unitCost ? ' error' : ''}`} type="number" min="0" step="0.01" value={form.unitCost} onChange={e => set('unitCost', e.target.value)} />
+                            <AmountInput className={`invd-input${formErr.unitCost ? ' error' : ''}`} value={form.unitCost} onChange={v => set('unitCost', v)} />
                             {formErr.unitCost && <span style={{ color: '#dc2626', fontSize: 11 }}>{formErr.unitCost}</span>}
                         </div>
                         <div className="invd-field">
@@ -604,6 +606,7 @@ const GrnDetailPage = () => {
     const [activeTab, setActiveTab] = useState('info');
     const [confirming, setConfirming] = useState(false);
     const [pageError,  setPageError]  = useState('');
+    const [alertMsg,   setAlertMsg]   = useState(null);
     const [confirmModal, setConfirmModal] = useState(false);
     const [confirmPwd,   setConfirmPwd]   = useState('');
     const [confirmErr,   setConfirmErr]   = useState('');
@@ -629,7 +632,7 @@ const GrnDetailPage = () => {
         // enforces, surfaced earlier so the user gets a clear message instead
         // of a generic SP error.
         if (!lines || lines.length === 0) {
-            window.alert(
+            setAlertMsg(
                 'Cannot confirm this GRN.\n\n' +
                 'No line items have been added yet.\n\n' +
                 'Add at least one line on the Lines tab and try again.'
@@ -681,6 +684,7 @@ const GrnDetailPage = () => {
     const isConfirmed = receipt.status === 'Confirmed';
     return (
         <div className="invd-shell">
+            {alertMsg && <AlertModal message={alertMsg} onClose={() => setAlertMsg(null)} />}
             {/* Top bar */}
             <div className="invd-topbar">
                 <button className="invd-back" onClick={() => navigate('/inventory-grn')}>← GRNs</button>

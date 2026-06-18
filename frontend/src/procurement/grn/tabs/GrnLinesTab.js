@@ -5,6 +5,7 @@ import { useLookup } from '../../../LookupContext';
 import { usePermission } from '../../../PermissionContext';
 import { fmt, fmtDate } from '../../procurementConstants';
 import { useFieldConfig } from '../../../FieldConfigContext';
+import AmountInput from '../../../common/AmountInput';
 
 const QC_STATUSES = ['Pending', 'Passed', 'Failed', 'Partial'];
 
@@ -740,7 +741,7 @@ const GrnLinesTab = ({ grn, onRefresh }) => {
                                     </div>
                                     <div className="prd-lf-field">
                                         <label>Unit Price</label>
-                                        <input className="prd-lf-input" type="number" name="unitPrice" value={form.unitPrice} onChange={handle} min="0" step="0.01" />
+                                        <AmountInput className="prd-lf-input" value={form.unitPrice} onChange={v => handle({ target: { name: 'unitPrice', value: v } })} />
                                     </div>
                                     <div className="prd-lf-field">
                                         <label>Tax %</label>

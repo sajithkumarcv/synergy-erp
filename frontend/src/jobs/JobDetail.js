@@ -4,6 +4,7 @@ import { useCurrentUser } from '../AuthContext';
 import { useLookup } from '../LookupContext';
 import { useFieldConfig } from '../FieldConfigContext';
 import AlertModal from '../common/AlertModal';
+import AmountInput from '../common/AmountInput';
 import './JobDetail.css';
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
@@ -164,7 +165,7 @@ const ExpensesTab = ({ jobId }) => {
                         </div>
                         <div className="jd-form-field" style={{ flex: '0 0 130px' }}>
                             <label>Amount {isReq('expenseAmount') && <span className="req">*</span>}</label>
-                            <input type="number" name="expenseAmount" className="jd-input" value={form.expenseAmount} onChange={handle} placeholder="0.00" />
+                            <AmountInput className="jd-input" value={form.expenseAmount} onChange={v => handle({ target: { name: 'expenseAmount', value: v } })} placeholder="0.00" />
                         </div>
                         <div className="jd-form-field">
                             <label>Currency</label>

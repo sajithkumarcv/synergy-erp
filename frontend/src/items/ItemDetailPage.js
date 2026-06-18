@@ -4,6 +4,8 @@ import { variables, authHeaders } from '../Variable';
 import { useCurrentUser } from '../AuthContext';
 import { useLookup } from '../LookupContext';
 import { useFieldConfig } from '../FieldConfigContext';
+import AmountInput from '../common/AmountInput';
+import AlertModal from '../common/AlertModal';
 import '../jobs/JobDetail.css';
 import './Item.css';
 
@@ -73,11 +75,12 @@ const VariantsTab = ({ itemId }) => {
   const currentUser = useCurrentUser();
   const { lookups } = useLookup();
   const { isReq } = useFieldConfig('ITEM_VARIANT');
-  const { countries, currencies } = lookups;
+  const { countries } = lookups;
 
   const [variants, setVariants] = useState([]);
   const [form,     setForm]     = useState(null);
   const [saving,   setSaving]   = useState(false);
+  const [alertMsg, setAlertMsg] = useState(null);
 
   const load = useCallback(() => {
     fetch(`${variables.API_URL}item/${itemId}/details`, { headers: authHeaders() })
@@ -101,7 +104,7 @@ const VariantsTab = ({ itemId }) => {
   };
 
   const save = async () => {
-    if (!form.skuCode) { alert('SKU Code is required.'); return; }
+    if (!form.skuCode) { setAlertMsg('SKU Code is required.'); return; }
     setSaving(true);
     try {
       const res = await fetch(`${variables.API_URL}item/${itemId}/details`, {
@@ -122,14 +125,15 @@ const VariantsTab = ({ itemId }) => {
         })
       });
       const d = await res.json();
-      if (!res.ok) { alert(d?.message || 'Failed to save variant.'); return; }
+      if (!res.ok) { setAlertMsg(d?.message || 'Failed to save variant.'); return; }
       load(); setForm(null);
-    } catch { alert('Network error. Please try again.'); }
+    } catch { setAlertMsg('Network error. Please try again.'); }
     finally { setSaving(false); }
   };
 
   return (
     <div className="tab-section">
+      {alertMsg && <AlertModal message={alertMsg} onClose={() => setAlertMsg(null)} />}
       <div className="tab-toolbar">
         <div className="tab-toolbar-left">
           <span className="tab-section-title">Variants / SKUs</span>
@@ -160,8 +164,8 @@ const VariantsTab = ({ itemId }) => {
             </div>
           </div>
           <div className="tab-form-row">
-            <div className="tab-form-field tab-f-sm"><label>Std Cost (base)</label><input type="number" name="standardCost" className="tab-input" value={form.standardCost} onChange={handle} placeholder="0.00" /></div>
-            <div className="tab-form-field tab-f-sm"><label>List Price (base)</label><input type="number" name="listPrice" className="tab-input" value={form.listPrice} onChange={handle} placeholder="0.00" /></div>
+            <div className="tab-form-field tab-f-sm"><label>Std Cost (base)</label><AmountInput name="standardCost" className="tab-input" value={form.standardCost} onChange={v => handle({ target: { name: 'standardCost', value: v } })} placeholder="0.00" /></div>
+            <div className="tab-form-field tab-f-sm"><label>List Price (base)</label><AmountInput name="listPrice" className="tab-input" value={form.listPrice} onChange={v => handle({ target: { name: 'listPrice', value: v } })} placeholder="0.00" /></div>
             <div className="tab-form-field tab-f-sm"><label>Weight</label><input type="number" name="weight" className="tab-input" value={form.weight} onChange={handle} placeholder="0.00" /></div>
             <div className="tab-form-field" style={{ flex: '0 0 80px' }}><label>Wt UOM</label><input name="weightUom" className="tab-input" value={form.weightUom} onChange={handle} placeholder="kg" /></div>
             <div className="tab-form-field tab-f-sm"><label>Lead Time (days)</label><input type="number" name="leadTimeDays" className="tab-input" value={form.leadTimeDays} onChange={handle} /></div>
@@ -235,6 +239,7 @@ const SpecsTab = ({ itemId }) => {
   const [specs,  setSpecs]  = useState([]);
   const [form,   setForm]   = useState(null);
   const [saving, setSaving] = useState(false);
+  const [alertMsg, setAlertMsg] = useState(null);
 
   const load = useCallback(() => {
     fetch(`${variables.API_URL}item/${itemId}/specs`, { headers: authHeaders() })
@@ -246,7 +251,7 @@ const SpecsTab = ({ itemId }) => {
   const handle = (e) => { const { name, value } = e.target; setForm(p => ({ ...p, [name]: value })); };
 
   const save = async () => {
-    if (!form.specName.trim()) { alert('Spec Name is required.'); return; }
+    if (!form.specName.trim()) { setAlertMsg('Spec Name is required.'); return; }
     setSaving(true);
     try {
       const res = await fetch(`${variables.API_URL}item/${itemId}/specs`, {
@@ -254,14 +259,15 @@ const SpecsTab = ({ itemId }) => {
         body: JSON.stringify({ ...form, sortOrder: form.sortOrder ? Number(form.sortOrder) : null, createdBy: currentUser, modifiedBy: currentUser })
       });
       const d = await res.json();
-      if (!res.ok) { alert(d?.message || 'Failed to save specification.'); return; }
+      if (!res.ok) { setAlertMsg(d?.message || 'Failed to save specification.'); return; }
       load(); setForm(null);
-    } catch { alert('Network error. Please try again.'); }
+    } catch { setAlertMsg('Network error. Please try again.'); }
     finally { setSaving(false); }
   };
 
   return (
     <div className="tab-section">
+      {alertMsg && <AlertModal message={alertMsg} onClose={() => setAlertMsg(null)} />}
       <div className="tab-toolbar">
         <div className="tab-toolbar-left">
           <span className="tab-section-title">Specifications</span>
@@ -322,6 +328,7 @@ const UomTab = ({ itemId }) => {
   const [uoms,        setUoms]        = useState([]);
   const [form,        setForm]        = useState(null);
   const [saving,      setSaving]      = useState(false);
+  const [alertMsg,    setAlertMsg]    = useState(null);
 
   const load = useCallback(() => {
     fetch(`${variables.API_URL}item/${itemId}/uom-conversions`, { headers: authHeaders() })
@@ -340,8 +347,8 @@ const UomTab = ({ itemId }) => {
   };
 
   const save = async () => {
-    if (!form.fromUomId || !form.toUomId) { alert('Both UOMs are required.'); return; }
-    if (!form.conversionFactor)           { alert('Conversion Factor is required.'); return; }
+    if (!form.fromUomId || !form.toUomId) { setAlertMsg('Both UOMs are required.'); return; }
+    if (!form.conversionFactor)           { setAlertMsg('Conversion Factor is required.'); return; }
     setSaving(true);
     try {
       const res = await fetch(`${variables.API_URL}item/${itemId}/uom-conversions`, {
@@ -349,14 +356,15 @@ const UomTab = ({ itemId }) => {
         body: JSON.stringify({ ...form, fromUomId: Number(form.fromUomId), toUomId: Number(form.toUomId), conversionFactor: Number(form.conversionFactor), createdBy: currentUser, modifiedBy: currentUser })
       });
       const d = await res.json();
-      if (!res.ok) { alert(d?.message || 'Failed to save UOM conversion.'); return; }
+      if (!res.ok) { setAlertMsg(d?.message || 'Failed to save UOM conversion.'); return; }
       load(); setForm(null);
-    } catch { alert('Network error. Please try again.'); }
+    } catch { setAlertMsg('Network error. Please try again.'); }
     finally { setSaving(false); }
   };
 
   return (
     <div className="tab-section">
+      {alertMsg && <AlertModal message={alertMsg} onClose={() => setAlertMsg(null)} />}
       <div className="tab-toolbar">
         <div className="tab-toolbar-left">
           <span className="tab-section-title">UOM Conversions</span>
@@ -430,6 +438,7 @@ const ItemEditSlideOver = ({ item, categories, itemTypes, uoms, onClose, onSaved
   const { isReq: isReqItem } = useFieldConfig('ITEM');
   const [form,   setForm]   = useState({ ...item, categoryId: item.categoryId ?? '', itemTypeId: item.itemTypeId ?? '', baseUomId: item.baseUomId ?? '', purchaseUomId: item.purchaseUomId ?? '', salesUomId: item.salesUomId ?? '' });
   const [saving, setSaving] = useState(false);
+  const [alertMsg, setAlertMsg] = useState(null);
   const handle = (e) => { const { name, value, type, checked } = e.target; setForm(p => ({ ...p, [name]: type === 'checkbox' ? checked : value })); };
 
   const parentCats = categories.filter(c => !c.parentCategoryId);
@@ -452,8 +461,8 @@ const ItemEditSlideOver = ({ item, categories, itemTypes, uoms, onClose, onSaved
   };
 
   const save = async () => {
-    if (!form.itemName.trim()) { alert('Item Name is required.'); return; }
-    if (!form.itemTypeId)      { alert('Item Type is required.'); return; }
+    if (!form.itemName.trim()) { setAlertMsg('Item Name is required.'); return; }
+    if (!form.itemTypeId)      { setAlertMsg('Item Type is required.'); return; }
     setSaving(true);
     try {
       const res = await fetch(`${variables.API_URL}item/save`, {
@@ -461,9 +470,9 @@ const ItemEditSlideOver = ({ item, categories, itemTypes, uoms, onClose, onSaved
         body: JSON.stringify({ ...form, categoryId: form.categoryId ? Number(form.categoryId) : null, itemTypeId: form.itemTypeId ? Number(form.itemTypeId) : null, baseUomId: form.baseUomId ? Number(form.baseUomId) : null, purchaseUomId: form.purchaseUomId ? Number(form.purchaseUomId) : null, salesUomId: form.salesUomId ? Number(form.salesUomId) : null, modifiedBy: currentUser })
       });
       const d = await res.json();
-      if (!res.ok) { alert(d?.message || 'Failed to save item.'); return; }
+      if (!res.ok) { setAlertMsg(d?.message || 'Failed to save item.'); return; }
       onSaved();
-    } catch { alert('Network error. Please try again.'); }
+    } catch { setAlertMsg('Network error. Please try again.'); }
     finally { setSaving(false); }
   };
 
@@ -471,6 +480,7 @@ const ItemEditSlideOver = ({ item, categories, itemTypes, uoms, onClose, onSaved
 
   return (
     <div className="jf-overlay">
+      {alertMsg && <AlertModal message={alertMsg} onClose={() => setAlertMsg(null)} />}
       <div className="jf-panel" onClick={e => e.stopPropagation()}>
         <div className="jf-header">
           <div><div className="jf-header-title">Edit Item — {item.itemCode || `#${item.itemId}`}</div><div className="jf-header-sub">Update item information</div></div>

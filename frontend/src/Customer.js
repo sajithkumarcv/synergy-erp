@@ -4,6 +4,8 @@ import { useLookup } from './LookupContext';
 import { useCurrentUser } from './AuthContext';
 import { useFilters } from './FilterContext';
 import { useFieldConfig } from './FieldConfigContext';
+import AmountInput from './common/AmountInput';
+import AlertModal from './common/AlertModal';
 import './Customer.css';
 
 const initials = (name = '') =>
@@ -53,6 +55,7 @@ const CreditHoldModal = ({ customer, onClose, onSaved }) => {
     const isOnHold = customer.creditHold;
     const [note, setNote] = useState('');
     const [saving, setSaving] = useState(false);
+    const [alertMsg, setAlertMsg] = useState(null);
     const submit = async () => {
         setSaving(true);
         try {
@@ -61,13 +64,14 @@ const CreditHoldModal = ({ customer, onClose, onSaved }) => {
                 body: JSON.stringify({ customerId: customer.customerId, creditHold: !isOnHold, creditHoldBy: currentUser, creditHoldNote: note.trim() || null })
             });
             const d = await res.json();
-            if (!res.ok) { alert(d?.message || 'Failed to update credit hold.'); return; }
+            if (!res.ok) { setAlertMsg(d?.message || 'Failed to update credit hold.'); return; }
             onSaved(); onClose();
-        } catch { alert('Network error. Please try again.'); }
+        } catch { setAlertMsg('Network error. Please try again.'); }
         finally { setSaving(false); }
     };
     return (
         <div className="modal-backdrop">
+            {alertMsg && <AlertModal message={alertMsg} onClose={() => setAlertMsg(null)} />}
             <div className="modal-box">
                 <div className={`modal-header ${isOnHold ? 'modal-header-green' : 'modal-header-black'}`}>
                     <span>{isOnHold ? 'Release Credit Hold' : 'Place on Credit Hold'}</span>
@@ -147,6 +151,7 @@ const CustomerForm = ({ title, cust, onClose, onSaved }) => {
     const customerTypes = getVList('Customer', 'CustomerType');
     const [form, setForm] = useState(() => normaliseCustomer(cust, currencies, paymentTerms, customerCategories, customerTypes));
     const [saving, setSaving] = useState(false);
+    const [alertMsg, setAlertMsg] = useState(null);
 
     useEffect(() => {
         if (currencies.length && !form.currencyId) {
@@ -157,10 +162,10 @@ const CustomerForm = ({ title, cust, onClose, onSaved }) => {
     const handle = (e) => { const { name, value, type, checked } = e.target; setForm(p => ({ ...p, [name]: type === 'checkbox' ? checked : value })); };
 
     const save = () => {
-        if (!form.customerCode || !form.customerName) { alert('Customer Code and Name are required.'); return; }
-        if (!form.currencyId)     { alert('Currency is required.');       return; }
-        if (!form.paymentTermsId) { alert('Payment Terms are required.'); return; }
-        if (!form.customerType)   { alert('Customer Type is required.');  return; }
+        if (!form.customerCode || !form.customerName) { setAlertMsg('Customer Code and Name are required.'); return; }
+        if (!form.currencyId)     { setAlertMsg('Currency is required.');       return; }
+        if (!form.paymentTermsId) { setAlertMsg('Payment Terms are required.'); return; }
+        if (!form.customerType)   { setAlertMsg('Customer Type is required.');  return; }
         setSaving(true);
         const isNew = form.customerId === 0;
         const payload = { ...form, createdBy: isNew ? currentUser : form.createdBy, modifiedBy: isNew ? null : currentUser };
@@ -170,6 +175,7 @@ const CustomerForm = ({ title, cust, onClose, onSaved }) => {
 
     return (
         <div className="cf-panel">
+            {alertMsg && <AlertModal message={alertMsg} onClose={() => setAlertMsg(null)} />}
             <div className="cf-header"><span className="cf-title">{title}</span><button className="cf-close" onClick={onClose}>&#10005;</button></div>
             <div className="cf-body">
                 <FormSection label="Identity" />
@@ -197,7 +203,7 @@ const CustomerForm = ({ title, cust, onClose, onSaved }) => {
                 <div className="cf-row">
                     <div className="cf-field"><label>Currency {isReqCust('currencyId') && <span className="req">*</span>}</label><select name="currencyId" className="cf-input" value={form.currencyId} onChange={handle}>{currencies.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}</select></div>
                     <div className="cf-field"><label>Payment Terms {isReqCust('paymentTermsId') && <span className="req">*</span>}</label><select name="paymentTermsId" className="cf-input" value={form.paymentTermsId} onChange={handle}>{paymentTerms.map(p => <option key={p.id} value={String(p.id)}>{p.name}</option>)}</select></div>
-                    <div className="cf-field" style={{ flex: '0 0 140px' }}><label>Credit Limit{baseCurrencyCode ? ` (${baseCurrencyCode})` : ''}</label><input name="creditLimit" type="number" className="cf-input" value={form.creditLimit || ''} onChange={handle} placeholder="0.00" /></div>
+                    <div className="cf-field" style={{ flex: '0 0 140px' }}><label>Credit Limit{baseCurrencyCode ? ` (${baseCurrencyCode})` : ''}</label><AmountInput name="creditLimit" className="cf-input" value={form.creditLimit || ''} onChange={v => handle({ target: { name: 'creditLimit', value: v } })} placeholder="0.00" /></div>
                     <div className="cf-field" style={{ flex: '0 0 110px' }}><label>Credit Days</label><input name="creditDays" type="number" className="cf-input" value={form.creditDays || ''} onChange={handle} placeholder="0" /></div>
                 </div>
                 <FormSection label="Tax & Other" />
@@ -222,18 +228,20 @@ const ContactForm = ({ customerId, record, onSaved, onCancel }) => {
     const isEdit = record.customerContactId > 0;
     const [form, setForm] = useState(() => normaliseContact(record, userTitles));
     const [saving, setSaving] = useState(false);
+    const [alertMsg, setAlertMsg] = useState(null);
     useEffect(() => { if (userTitles.length && !form.contactTitle) setForm(f => normaliseContact(f, userTitles)); }, [userTitles]); // eslint-disable-line
     const handle = (e) => { const { name, value, type, checked } = e.target; setForm(p => ({ ...p, [name]: type === 'checkbox' ? checked : value })); };
     const save = () => {
-        if (!form.contactName.trim()) { alert('Contact Name is required.'); return; }
+        if (!form.contactName.trim()) { setAlertMsg('Contact Name is required.'); return; }
         setSaving(true);
         const payload = { ...form, customerId, createdBy: isEdit ? form.createdBy : currentUser, modifiedBy: isEdit ? currentUser : null };
         fetch(variables.API_URL + 'customer/contacts/save', { method: 'POST', headers: authHeaders(), body: JSON.stringify(payload) })
             .then(r => { if (!r.ok) return r.json().then(e => { throw new Error(e.message); }); return r.json(); })
-            .then(() => onSaved()).catch(e => alert(e.message || 'Failed to save contact.')).finally(() => setSaving(false));
+            .then(() => onSaved()).catch(e => setAlertMsg(e.message || 'Failed to save contact.')).finally(() => setSaving(false));
     };
     return (
         <div className={`sub-form-card ${isEdit ? 'sub-form-edit' : 'sub-form-blue'}`}>
+            {alertMsg && <AlertModal message={alertMsg} onClose={() => setAlertMsg(null)} />}
             <div className="sub-form-card-title" style={{ color: isEdit ? '#854d0e' : '#2e5fa3' }}>{isEdit ? '✎ Edit Contact' : '+ New Contact Person'}</div>
             <div className="cf-row">
                 <div className="cf-field" style={{ flex: '0 0 110px' }}><label>Title {isReqCon('contactTitle') && <span className="req">*</span>}</label><select name="contactTitle" className="cf-input" value={form.contactTitle} onChange={handle}>{userTitles.map(t => <option key={t.id} value={t.value}>{t.label}</option>)}</select></div>
@@ -262,12 +270,13 @@ const AddressForm = ({ customerId, record, onSaved, onCancel }) => {
     const isEdit = record.customerAddressId > 0;
     const [form, setForm] = useState(() => normaliseAddress(record, addressTypes, countries));
     const [saving, setSaving] = useState(false);
+    const [alertMsg, setAlertMsg] = useState(null);
     useEffect(() => { if (addressTypes.length && !form.addressType) setForm(f => normaliseAddress(f, addressTypes, countries)); }, [addressTypes, countries]); // eslint-disable-line
     const handle = (e) => { const { name, value, type, checked } = e.target; setForm(p => ({ ...p, [name]: type === 'checkbox' ? checked : value })); };
     const save = () => {
-        if (!form.addressLine1.trim()) { alert('Address Line 1 is required.'); return; }
-        if (!form.addressType)         { alert('Address Type is required.');   return; }
-        if (!form.countryId)           { alert('Country is required.');        return; }
+        if (!form.addressLine1.trim()) { setAlertMsg('Address Line 1 is required.'); return; }
+        if (!form.addressType)         { setAlertMsg('Address Type is required.');   return; }
+        if (!form.countryId)           { setAlertMsg('Country is required.');        return; }
         setSaving(true);
         const payload = { ...form, customerId, createdBy: isEdit ? form.createdBy : currentUser, modifiedBy: isEdit ? currentUser : null };
         fetch(variables.API_URL + 'customer/address/save', { method: 'POST', headers: authHeaders(), body: JSON.stringify(payload) })
@@ -275,6 +284,7 @@ const AddressForm = ({ customerId, record, onSaved, onCancel }) => {
     };
     return (
         <div className={`sub-form-card ${isEdit ? 'sub-form-edit' : 'sub-form-teal'}`}>
+            {alertMsg && <AlertModal message={alertMsg} onClose={() => setAlertMsg(null)} />}
             <div className="sub-form-card-title" style={{ color: isEdit ? '#854d0e' : '#0f766e' }}>{isEdit ? '✎ Edit Address' : '+ New Address'}</div>
             <div className="cf-row">
                 <div className="cf-field" style={{ flex: '0 0 150px' }}><label>Type {isReqAddr('addressType') && <span className="req">*</span>}</label><select name="addressType" className="cf-input" value={form.addressType} onChange={handle}>{addressTypes.map(t => <option key={t.id} value={t.value}>{t.label}</option>)}</select></div>

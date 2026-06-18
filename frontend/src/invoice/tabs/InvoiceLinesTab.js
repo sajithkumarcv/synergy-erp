@@ -38,6 +38,8 @@ const LineModal = ({ invoiceId, line, onSaved, onClose, currentUser, ccy }) => {
     const [errors, setErrors] = useState({});
     const [saving, setSaving] = useState(false);
     const [error,  setError]  = useState('');
+    // Show the unit price with thousands separators when not focused; raw while editing.
+    const [priceFocused, setPriceFocused] = useState(false);
 
     const qty        = Number(form.qty)       || 0;
     const unitPrice  = Number(form.unitPrice) || 0;
@@ -139,14 +141,18 @@ const LineModal = ({ invoiceId, line, onSaved, onClose, currentUser, ccy }) => {
                                 <input type="text" inputMode="decimal"
                                     className={`pf-input${errors.unitPrice ? ' pf-input-err' : ''}`}
                                     style={ccy ? { borderRadius: '0 6px 6px 0', borderLeft: 'none', textAlign: 'right' } : { textAlign: 'right' }}
-                                    value={form.unitPrice}
+                                    value={priceFocused
+                                        ? form.unitPrice
+                                        : (form.unitPrice !== '' ? fmt(unitPrice) : '')}
                                     onChange={e => set('unitPrice', e.target.value.replace(/[^0-9.]/g, ''))}
                                     onBlur={e => {
-                                        const n = parseFloat(e.target.value);
+                                        setPriceFocused(false);
+                                        const n = parseFloat(e.target.value.replace(/,/g, ''));
                                         if (!isNaN(n)) set('unitPrice', n.toFixed(2));
                                     }}
-                                    onFocus={e => {
-                                        const n = parseFloat(e.target.value);
+                                    onFocus={() => {
+                                        setPriceFocused(true);
+                                        const n = parseFloat(form.unitPrice);
                                         if (!isNaN(n) && n === 0) set('unitPrice', '');
                                     }}
                                     placeholder="0.00" />

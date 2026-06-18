@@ -9,6 +9,7 @@ import { fmt, fmtDate } from '../inventory/inventoryConstants';
 import ApprovalHistoryTab   from '../approval/ApprovalHistoryTab';
 import ApprovalStatusBanner from '../approval/ApprovalStatusBanner';
 import JobClosedBanner      from '../jobs/JobClosedBanner';
+import AmountInput          from '../common/AmountInput';
 import '../inventory/Inventory.css';
 
 // ── BOM line status colours ─────────────────────────────────────
@@ -462,9 +463,9 @@ const LineForm = ({ line, sections, bomDetailStatuses, onSave, onCancel, saving,
                                 <span style={{ marginLeft: 5, color: '#3b82f6', fontSize: 10 }}>loading…</span>
                             )}
                         </div>
-                        <input className="invd-input" type="number" step="0.0001" min="0"
+                        <AmountInput className="invd-input" decimals={4}
                             value={form.bomPrice}
-                            onChange={e => set('bomPrice', e.target.value)}
+                            onChange={v => set('bomPrice', v)}
                             disabled={priceLoading}
                             style={{ fontSize: 12, width: 100, opacity: priceLoading ? 0.6 : 1 }} />
                     </div>

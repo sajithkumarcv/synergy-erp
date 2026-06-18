@@ -5,6 +5,7 @@ import { useLookup } from '../../LookupContext';
 import { fmt } from '../customerConstants';
 import { useFieldConfig } from '../../FieldConfigContext';
 import ValidationModal from '../../common/ValidationModal';
+import AmountInput from '../../common/AmountInput';
 
 const normalise = (c, currencies, paymentTerms, customerCategories, customerTypes) => ({
     ...c,
@@ -111,7 +112,7 @@ const OverviewTab = ({ customer, onRefresh, canEdit = true }) => {
                     <div className="jf-row">
                         <div className="jf-field"><label>Currency {isReq('currencyId') && <span className="req">*</span>}</label><select name="currencyId" className="jf-input" value={form.currencyId} onChange={handle}>{currencies.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}</select></div>
                         <div className="jf-field"><label>Payment Terms {isReq('paymentTermsId') && <span className="req">*</span>}</label><select name="paymentTermsId" className="jf-input" value={form.paymentTermsId} onChange={handle}>{paymentTerms.map(p => <option key={p.id} value={String(p.id)}>{p.name}</option>)}</select></div>
-                        <div className="jf-field" style={{ flex: '0 0 140px' }}><label>Credit Limit {baseCurrencyCode && <span style={{ fontWeight: 400, color: '#64748b' }}>({baseCurrencyCode})</span>}</label><input name="creditLimit" type="number" className="jf-input" value={form.creditLimit ?? 0} onChange={handle} /></div>
+                        <div className="jf-field" style={{ flex: '0 0 140px' }}><label>Credit Limit {baseCurrencyCode && <span style={{ fontWeight: 400, color: '#64748b' }}>({baseCurrencyCode})</span>}</label><AmountInput name="creditLimit" className="jf-input" value={form.creditLimit ?? 0} onChange={v => handle({ target: { name: 'creditLimit', value: v } })} /></div>
                         <div className="jf-field" style={{ flex: '0 0 110px' }}><label>Credit Days</label><input name="creditDays" type="number" className="jf-input" value={form.creditDays ?? 0} onChange={handle} /></div>
                     </div>
 

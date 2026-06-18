@@ -272,6 +272,10 @@ namespace ERPWEB.Controllers.Item
                     }
                     catch (Exception ex)
                     {
+                        // Unexpected per-row failure — log to TBL_APP_LOG for diagnosis,
+                        // but keep importing the remaining rows and report this row as failed.
+                        await _db.WriteLog(ex, controller: "Item", action: $"Import (row {rowNum})",
+                            requestPath: HttpContext.Request.Path);
                         result.Success = false;
                         result.Message = ex.Message;
                     }

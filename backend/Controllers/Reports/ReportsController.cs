@@ -1619,7 +1619,8 @@ namespace ERPWEB.Controllers.Reports
             [FromQuery] string? mType      = null,
             [FromQuery] string? site       = null,
             [FromQuery] int?    employeeId = null,
-            [FromQuery] string? empType    = null)
+            [FromQuery] string? empType    = null,
+            [FromQuery] int?    supplierId = null)
         {
             try
             {
@@ -1633,9 +1634,13 @@ namespace ERPWEB.Controllers.Reports
                     Site       = string.IsNullOrWhiteSpace(site)     ? null : site.Trim().ToUpper(),
                     EmployeeId = employeeId,
                     EmpType    = string.IsNullOrWhiteSpace(empType)  ? null : empType.Trim().ToUpper(),
+                    SupplierId = supplierId,
                 };
-                var rows   = await _dbcon.QueryAsync<dynamic>("sp_ReportManhours", p);
-                var result = (rows ?? Enumerable.Empty<dynamic>()).Select(r => new
+                using var grid = await _dbcon.QueryMultipleAsync("sp_ReportManhours", p);
+                var batchRows    = (await grid.ReadAsync<dynamic>()).ToList();
+                var supplierRows = (await grid.ReadAsync<dynamic>()).ToList();
+
+                var batches = batchRows.Select(r => new
                 {
                     batchId           = (int)r.BatchId,
                     documentNo        = (string)r.DocumentNo,
@@ -1649,7 +1654,16 @@ namespace ERPWEB.Controllers.Reports
                     createdBy         = (string?)r.CreatedBy,
                     createdDate       = (DateTime?)r.CreatedDate,
                 });
-                return Ok(result);
+                var suppliers = supplierRows.Select(r => new
+                {
+                    supplierId    = (int)r.SupplierId,
+                    supplierName  = (string?)r.SupplierName,
+                    employeeCount = (int)r.EmployeeCount,
+                    batchCount    = (int)r.BatchCount,
+                    totalHours    = (decimal)r.TotalHours,
+                    totalOTHours  = (decimal)r.TotalOTHours,
+                });
+                return Ok(new { batches, suppliers });
             }
             catch (Exception ex)
             {

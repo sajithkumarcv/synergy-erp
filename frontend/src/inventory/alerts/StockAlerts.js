@@ -11,12 +11,14 @@ const ALERT_TABS = [
     { key: 'BELOW_MIN',     label: 'Below Min Stock' },
     { key: 'BELOW_REORDER', label: 'Below Reorder'   },
     { key: 'ZERO_STOCK',    label: 'Zero Stock'      },
+    { key: 'OVERSTOCK',     label: 'Overstock'       },
 ];
 
 const ALERT_CONFIG = {
     ZERO_STOCK:    { label: 'Zero Stock',    bg: '#fee2e2', color: '#991b1b', dot: '#dc2626' },
     BELOW_MIN:     { label: 'Below Min',     bg: '#fef3c7', color: '#92400e', dot: '#f59e0b' },
     BELOW_REORDER: { label: 'Below Reorder', bg: '#eff6ff', color: '#1e40af', dot: '#3b82f6' },
+    OVERSTOCK:     { label: 'Overstock',     bg: '#f5f3ff', color: '#6d28d9', dot: '#8b5cf6' },
 };
 
 const AlertBadge = ({ type }) => {

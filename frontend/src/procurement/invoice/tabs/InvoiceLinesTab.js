@@ -3,6 +3,7 @@ import { variables, authHeaders } from '../../../Variable';
 import { usePermission } from '../../../PermissionContext';
 import { fmt, fmtDate } from '../../procurementConstants';
 import AlertModal from '../../../common/AlertModal';
+import AmountInput from '../../../common/AmountInput';
 
 // ── SRV Lines Import Modal — parallel to GrnImportModal ──────────────
 const SrvImportModal = ({ invoice, onClose, onImported }) => {
@@ -177,9 +178,9 @@ const SrvImportModal = ({ invoice, onClose, onImported }) => {
                                                         onChange={e => setQtyMap(p => ({ ...p, [l.srvLineId]: e.target.value }))} />
                                                 </td>
                                                 <td style={{ padding:'7px 10px', textAlign:'right' }}>
-                                                    <input type="number" min="0" step="0.01" style={{ width:100, padding:'4px 6px', fontSize:12, border:'1px solid #e2e8f0', borderRadius:4, textAlign:'right' }}
+                                                    <AmountInput style={{ width:100, padding:'4px 6px', fontSize:12, border:'1px solid #e2e8f0', borderRadius:4 }}
                                                         value={priceMap[l.srvLineId] ?? ''}
-                                                        onChange={e => setPriceMap(p => ({ ...p, [l.srvLineId]: e.target.value }))} />
+                                                        onChange={v => setPriceMap(p => ({ ...p, [l.srvLineId]: v }))} />
                                                 </td>
                                             </tr>
                                         ))}
@@ -434,12 +435,12 @@ const GrnImportModal = ({ invoice, onClose, onImported }) => {
                                                         />
                                                     </td>
                                                     <td style={{ padding: '4px 6px', textAlign: 'right' }}>
-                                                        <input
-                                                            type="number" min="0" step="0.0001"
+                                                        <AmountInput
+                                                            decimals={4}
                                                             value={priceMap[l.grnDetailId] || ''}
-                                                            onChange={e => setPriceMap(p => ({ ...p, [l.grnDetailId]: e.target.value }))}
+                                                            onChange={v => setPriceMap(p => ({ ...p, [l.grnDetailId]: v }))}
                                                             disabled={!checked}
-                                                            style={{ width: 90, padding: '4px 6px', border: '1px solid #cbd5e1', borderRadius: 4, fontSize: 13, textAlign: 'right', background: checked ? '#fff' : '#f8fafc' }}
+                                                            style={{ width: 90, padding: '4px 6px', border: '1px solid #cbd5e1', borderRadius: 4, fontSize: 13, background: checked ? '#fff' : '#f8fafc' }}
                                                         />
                                                     </td>
                                                     <td style={{ padding: '8px 8px', textAlign: 'right', color: '#64748b' }}>{l.taxPct}%</td>

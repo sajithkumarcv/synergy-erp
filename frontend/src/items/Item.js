@@ -6,6 +6,7 @@ import { useFilters } from '../FilterContext';
 import { useFieldConfig } from '../FieldConfigContext';
 import { usePermission } from '../PermissionContext';
 import ItemImportModal from './ItemImportModal';
+import AlertModal from '../common/AlertModal';
 import './Item.css';
 import RowLink from '../common/RowLink';
 
@@ -33,6 +34,7 @@ const ItemForm = ({ categories, itemTypes, uoms, onClose, onSaved }) => {
   });
   const [parentCatId, setParentCatId] = useState('');
   const [saving, setSaving] = useState(false);
+  const [alertMsg, setAlertMsg] = useState(null);
 
   const handle = (e) => {
     const { name, value, type, checked } = e.target;
@@ -50,8 +52,8 @@ const ItemForm = ({ categories, itemTypes, uoms, onClose, onSaved }) => {
   };
 
   const save = async () => {
-    if (!form.itemName.trim()) { alert('Item Name is required.'); return; }
-    if (!form.itemTypeId)      { alert('Item Type is required.'); return; }
+    if (!form.itemName.trim()) { setAlertMsg('Item Name is required.'); return; }
+    if (!form.itemTypeId)      { setAlertMsg('Item Type is required.'); return; }
     setSaving(true);
     try {
       const res = await fetch(`${variables.API_URL}item/save`, {
@@ -67,9 +69,9 @@ const ItemForm = ({ categories, itemTypes, uoms, onClose, onSaved }) => {
         })
       });
       const d = await res.json();
-      if (!res.ok) { alert(d?.message || 'Failed to save item.'); return; }
+      if (!res.ok) { setAlertMsg(d?.message || 'Failed to save item.'); return; }
       onSaved(d.itemId); onClose();
-    } catch { alert('Network error. Please try again.'); }
+    } catch { setAlertMsg('Network error. Please try again.'); }
     finally { setSaving(false); }
   };
 
@@ -82,6 +84,7 @@ const ItemForm = ({ categories, itemTypes, uoms, onClose, onSaved }) => {
 
   return (
     <div className="if-overlay">
+      {alertMsg && <AlertModal message={alertMsg} onClose={() => setAlertMsg(null)} />}
       <div className="if-panel" onClick={e => e.stopPropagation()}>
 
         <div className="if-header">

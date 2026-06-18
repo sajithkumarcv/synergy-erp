@@ -160,7 +160,26 @@ namespace ERPWEB.Controllers.Approval
                     OverrideBudget = overrideBudget,
                 };
 
-                var result = await _dbcon.QueryFirstAsync<dynamic>("sp_ProcessApproval", p);
+                // Read the LAST result set. A post-approval hook (run inside
+                // sp_ProcessApproval) may emit its own recordset, which would shadow
+                // the status row if we read the first set. sp_ProcessApproval's
+                // status/error SELECT is always the final result set, so taking the
+                // last set is immune to any current or future hook that emits rows.
+                dynamic? result = null;
+                using (var grid = await _dbcon.QueryMultipleAsync("sp_ProcessApproval", p))
+                {
+                    while (!grid.IsConsumed)
+                    {
+                        var set = (await grid.ReadAsync<dynamic>()).ToList();
+                        if (set.Count > 0) result = set[set.Count - 1];
+                    }
+                }
+                if (result == null)
+                {
+                    await _dbcon.WriteRawLog("sp_ProcessApproval returned no result row.", controller: "Approval",
+                        action: "Action", requestPath: HttpContext.Request.Path, userId: req.ActionByName, logLevel: "Warning");
+                    return BadRequest(new { message = "Approval action could not be processed." });
+                }
                 bool isComplete = Convert.ToBoolean(result.IsComplete);
 
                 if (result.NewStatus == null && !isComplete)

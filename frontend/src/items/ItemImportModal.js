@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { variables, authHeaders } from '../Variable';
 import { useCurrentUser } from '../AuthContext';
+import AlertModal from '../common/AlertModal';
 
 // ── Download sample template (generated in-browser via SheetJS) ──────────────
 const downloadTemplate = () => {
@@ -186,6 +187,7 @@ const ItemImportModal = ({ onClose, onImported }) => {
     const [importing,  setImporting]  = useState(false);
     const [results,    setResults]    = useState(null);
     const [showErrors, setShowErrors] = useState(false);
+    const [alertMsg,   setAlertMsg]   = useState(null);
     const fileRef = useRef(null);
 
     const validRows   = rows.filter(r => r._errors.length === 0);
@@ -245,11 +247,11 @@ const ItemImportModal = ({ onClose, onImported }) => {
                 body: JSON.stringify(payload),
             });
             const data = await res.json();
-            if (!res.ok) { alert(data?.message || 'Import failed.'); return; }
+            if (!res.ok) { setAlertMsg(data?.message || 'Import failed.'); return; }
             setResults(data);
             setStep('done');
             if (data.successCount > 0 && onImported) onImported();
-        } catch { alert('Network error. Please try again.'); }
+        } catch { setAlertMsg('Network error. Please try again.'); }
         finally { setImporting(false); }
     };
 
@@ -262,6 +264,7 @@ const ItemImportModal = ({ onClose, onImported }) => {
     // ── Render ────────────────────────────────────────────────────
     return (
         <div className="iim-overlay">
+            {alertMsg && <AlertModal message={alertMsg} onClose={() => setAlertMsg(null)} />}
             <div className="iim-panel" onClick={e => e.stopPropagation()}>
 
                 {/* Header */}

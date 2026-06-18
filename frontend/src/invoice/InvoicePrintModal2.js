@@ -1,7 +1,7 @@
 import React from 'react';
 import { fmt, fmtDate, numberToWords } from './invoiceConstants';
 import useOwnerCompany from '../hooks/useOwnerCompany';
-import { BankDetailsBlock } from '../components/print/PrintCompanyHeader';
+import { BankDetailsBlock, DraftWatermark, PreviewBanner } from '../components/print/PrintCompanyHeader';
 import { openPrintWindow } from '../utils/printWindow';
 import '../procurement/po/PoPrint.css';   // overlay + toolbar styles
 import './InvoicePrint2.css';             // ip2-* document styles
@@ -19,11 +19,11 @@ const bannerStatusStyle = (status) => {
     }
 };
 
-const InvoicePrintModal2 = ({ invoice, lines = [], onClose }) => {
+const InvoicePrintModal2 = ({ invoice, lines = [], onClose, preview }) => {
     const { company, loading: coLoading } = useOwnerCompany();
 
     const handleBackdrop = (e) => { if (e.target === e.currentTarget) onClose(); };
-    const handlePrint    = () => openPrintWindow('.ip2-doc', `Invoice - ${invoice.invoiceNo}`);
+    const handlePrint    = () => openPrintWindow('.ip2-doc', `Invoice${preview ? ' (DRAFT)' : ''} - ${invoice.invoiceNo}`);
 
     const subTotal   = lines.reduce((s, l) => s + (l.amount    || 0), 0);
     const taxTotal   = lines.reduce((s, l) => s + (l.taxAmount || 0), 0);
@@ -53,7 +53,10 @@ const InvoicePrintModal2 = ({ invoice, lines = [], onClose }) => {
             </div>
 
             {/* ── A4 Document ── */}
-            <div className="ip2-doc">
+            <div className="ip2-doc" style={{ position: 'relative' }}>
+
+                {preview && <DraftWatermark />}
+                {preview && <PreviewBanner />}
 
                 {/* 1. Full-width banner */}
                 <div className="ip2-banner">
@@ -61,15 +64,17 @@ const InvoicePrintModal2 = ({ invoice, lines = [], onClose }) => {
                         <div className="ip2-banner-company">
                             {coLoading ? '…' : (company?.companyName || '—')}
                         </div>
-                        <div className="ip2-banner-addr">
-                            {(() => {
-                                const a = company?.addresses?.find(x => x.isPrimary) ?? company?.addresses?.[0];
-                                if (!a) return null;
-                                return [a.addressLine1, a.addressLine2, a.city, a.country].filter(Boolean).join('  ·  ');
-                            })()}
-                            {company?.phone && <><br />{company.phone}{company.fax ? `   Fax: ${company.fax}` : ''}{company.email ? `   ·   ${company.email}` : ''}</>}
-                            {company?.trn   && <><br />TRN: {company.trn}{company.website ? `   ·   ${company.website}` : ''}</>}
-                        </div>
+                        {!preview && (
+                            <div className="ip2-banner-addr">
+                                {(() => {
+                                    const a = company?.addresses?.find(x => x.isPrimary) ?? company?.addresses?.[0];
+                                    if (!a) return null;
+                                    return [a.addressLine1, a.addressLine2, a.city, a.country].filter(Boolean).join('  ·  ');
+                                })()}
+                                {company?.phone && <><br />{company.phone}{company.fax ? `   Fax: ${company.fax}` : ''}{company.email ? `   ·   ${company.email}` : ''}</>}
+                                {company?.trn   && <><br />TRN: {company.trn}{company.website ? `   ·   ${company.website}` : ''}</>}
+                            </div>
+                        )}
                     </div>
                     <div className="ip2-banner-right">
                         <div className="ip2-banner-doctype">Tax Invoice</div>
@@ -300,6 +305,8 @@ const InvoicePrintModal2 = ({ invoice, lines = [], onClose }) => {
                             <div className="ip2-sig-sub">Name / Signature / Company Stamp</div>
                         </div>
                     </div>
+
+                    {preview && <PreviewBanner />}
 
                     <div className="ip2-print-note">
                         This is a computer-generated tax invoice.

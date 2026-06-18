@@ -3,6 +3,7 @@ import { variables, authHeaders } from '../Variable';
 import { useCurrentUser } from '../AuthContext';
 import '../procurement/Procurement.css';
 import AlertModal from '../common/AlertModal';
+import AmountInput from '../common/AmountInput';
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 const APPROVER_TYPES = [
@@ -254,13 +255,13 @@ const PolicyForm = ({ policy, modules, roles, users, onSaved, onClose, currentUs
                             <div className="pf-row">
                                 <div className="pf-field">
                                     <label>Amount From</label>
-                                    <input type="number" min="0" step="any" className="pf-input" placeholder="0 = no lower limit"
-                                        value={form.amountFrom} onChange={e => setF('amountFrom', e.target.value)} />
+                                    <AmountInput className="pf-input" placeholder="0 = no lower limit"
+                                        value={form.amountFrom} onChange={v => setF('amountFrom', v)} />
                                 </div>
                                 <div className="pf-field">
                                     <label>Amount To</label>
-                                    <input type="number" min="0" step="any" className="pf-input" placeholder="blank = no upper limit"
-                                        value={form.amountTo} onChange={e => setF('amountTo', e.target.value)} />
+                                    <AmountInput className="pf-input" placeholder="blank = no upper limit"
+                                        value={form.amountTo} onChange={v => setF('amountTo', v)} />
                                 </div>
                             </div>
                         </>

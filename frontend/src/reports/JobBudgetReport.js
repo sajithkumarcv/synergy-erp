@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { variables, authHeaders } from '../Variable';
-import { fmtDate, fmt } from '../procurement/procurementConstants';
+import { fmt } from '../procurement/procurementConstants';
 import { useLookup } from '../LookupContext';
 import './Reports.css';
 

@@ -9,7 +9,7 @@ const today        = () => new Date().toISOString().slice(0, 10);
 const firstOfMonth = () => { const d = new Date(); d.setDate(1); return d.toISOString().slice(0, 10); };
 const PAGE_SIZES   = [10, 20, 50, 100];
 
-const DEFAULT_FILTERS = { dateFrom: firstOfMonth(), dateTo: today(), jobId: '', status: '', mType: '', site: '', empType: '', employeeId: '' };
+const DEFAULT_FILTERS = { dateFrom: firstOfMonth(), dateTo: today(), jobId: '', status: '', mType: '', site: '', empType: '', employeeId: '', supplierId: '' };
 
 
 const exportCsv = (rows) => {
@@ -54,6 +54,7 @@ const ManhourReport = () => {
     const [pageSize, setPageSize] = useState(20);
     const [jobs, setJobs]           = useState([]);
     const [employees, setEmployees] = useState([]);
+    const [supplierRows, setSupplierRows] = useState([]);
     const setF = (k, v) => setFilters(f => ({ ...f, [k]: v }));
 
     useEffect(() => {
@@ -63,6 +64,17 @@ const ManhourReport = () => {
         fetch(`${variables.API_URL}employee`, { headers: h })
             .then(r => r.ok ? r.json() : []).then(d => setEmployees(Array.isArray(d) ? d : (d.data || []))).catch(() => {});
     }, []);
+
+    // Only suppliers that actually have employees (outsourced) — derived from the
+    // employee list rather than the full supplier master.
+    const suppliers = useMemo(() => {
+        const map = new Map();
+        employees.forEach(e => {
+            if (e.supplierId && !map.has(e.supplierId))
+                map.set(e.supplierId, { supplierId: e.supplierId, supplierName: e.supplierName, supplierCode: e.supplierCode });
+        });
+        return Array.from(map.values()).sort((a, b) => String(a.supplierName || '').localeCompare(String(b.supplierName || '')));
+    }, [employees]);
 
     const runReport = useCallback(async () => {
         setLoading(true); setError(''); setPage(1);
@@ -75,12 +87,14 @@ const ManhourReport = () => {
         if (filters.site)       p.set('site',       filters.site);
         if (filters.empType)    p.set('empType',    filters.empType);
         if (filters.employeeId) p.set('employeeId', filters.employeeId);
+        if (filters.supplierId) p.set('supplierId', filters.supplierId);
         try {
             const res = await fetch(`${variables.API_URL}reports/manhour?${p}`, { headers: authHeaders() });
             const data = await res.json();
-            if (!res.ok) { setError(data?.message || 'Error loading report.'); setRows([]); return; }
-            setRows(data);
-        } catch { setError('Network error.'); setRows([]); }
+            if (!res.ok) { setError(data?.message || 'Error loading report.'); setRows([]); setSupplierRows([]); return; }
+            setRows(data.batches || []);
+            setSupplierRows(data.suppliers || []);
+        } catch { setError('Network error.'); setRows([]); setSupplierRows([]); }
         finally { setLoading(false); }
     }, [filters]);
 
@@ -106,7 +120,7 @@ const ManhourReport = () => {
     }, [rows]);
 
     const Th = ({ col, label, cls }) => <th className={cls} onClick={() => handleSort(col)}>{label}<SortIcon col={col} sc={sortCol} sd={sortDir} /></th>;
-    const clearAll = () => { setFilters({ ...DEFAULT_FILTERS }); setRows(null); setPage(1); };
+    const clearAll = () => { setFilters({ ...DEFAULT_FILTERS }); setRows(null); setSupplierRows([]); setPage(1); };
 
     return (
         <div className="rpt-page">
@@ -173,6 +187,17 @@ const ManhourReport = () => {
                                 ))}
                         </select>
                     </div>
+                    <div className="rpt-filter-group w220">
+                        <span className="rpt-filter-label">Supplier (Outsourced)</span>
+                        <select className="rpt-filter-select" value={filters.supplierId} onChange={e => setF('supplierId', e.target.value)}>
+                            <option value="">All Suppliers</option>
+                            {suppliers.map(s => (
+                                <option key={s.supplierId} value={s.supplierId}>
+                                    {s.supplierCode ? `${s.supplierCode} — ` : ''}{s.supplierName}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
                     <div className="rpt-filter-group w140">
                         <span className="rpt-filter-label">Status</span>
                         <select className="rpt-filter-select" value={filters.status} onChange={e => setF('status', e.target.value)}>
@@ -198,6 +223,48 @@ const ManhourReport = () => {
                     <div className="rpt-summary-item"><div className="rpt-summary-label">Total Hours</div><div className="rpt-summary-val blue">{fmt(totals.totalHours, 2)}</div></div>
                     <div className="rpt-summary-item"><div className="rpt-summary-label">OT Hours</div><div className="rpt-summary-val amber">{fmt(totals.totalOTHours, 2)}</div></div>
                     <div className="rpt-summary-item"><div className="rpt-summary-label">Employee Records</div><div className="rpt-summary-val">{totals.totalEmployees}</div></div>
+                </div>
+            )}
+
+            {!loading && supplierRows.length > 0 && (
+                <div className="rpt-content" style={{ marginBottom: 16 }}>
+                    <div style={{ padding: '10px 14px', fontWeight: 700, fontSize: 13, color: '#0f172a', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 8 }}>
+                        🏢 By Supplier — Outsourced Manpower
+                        <span style={{ fontSize: 11, fontWeight: 500, color: '#94a3b8' }}>(employees linked to a supplier)</span>
+                    </div>
+                    <div className="rpt-body">
+                        <table className="rpt-table">
+                            <thead>
+                                <tr>
+                                    <th>Supplier</th>
+                                    <th className="r">Employees</th>
+                                    <th className="r">Batches</th>
+                                    <th className="r">Total Hrs</th>
+                                    <th className="r">OT Hrs</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {supplierRows.map(s => (
+                                    <tr key={s.supplierId}>
+                                        <td style={{ fontWeight: 600, color: '#5b21b6' }}>{s.supplierName || `#${s.supplierId}`}</td>
+                                        <td className="r" style={{ color: '#475569', fontWeight: 600 }}>{s.employeeCount}</td>
+                                        <td className="r" style={{ color: '#475569' }}>{s.batchCount}</td>
+                                        <td className="r" style={{ fontFamily: 'monospace', fontWeight: 700, color: '#1e40af' }}>{fmt(s.totalHours, 2)}</td>
+                                        <td className="r" style={{ fontFamily: 'monospace', fontWeight: s.totalOTHours > 0 ? 700 : 400, color: s.totalOTHours > 0 ? '#d97706' : '#94a3b8' }}>{fmt(s.totalOTHours, 2)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                            <tfoot>
+                                <tr style={{ background: '#f1f5f9', borderTop: '2px solid #cbd5e1', fontWeight: 700 }}>
+                                    <td style={{ textAlign: 'right', padding: '8px 10px', color: '#334155', fontSize: 12 }}>Total — {supplierRows.length} supplier{supplierRows.length !== 1 ? 's' : ''}</td>
+                                    <td className="r" style={{ padding: '8px 6px', color: '#334155' }}>{supplierRows.reduce((a, s) => a + (s.employeeCount || 0), 0)}</td>
+                                    <td />
+                                    <td className="r" style={{ padding: '8px 6px', fontFamily: 'monospace', color: '#1e40af' }}>{fmt(supplierRows.reduce((a, s) => a + (s.totalHours || 0), 0), 2)}</td>
+                                    <td className="r" style={{ padding: '8px 6px', fontFamily: 'monospace', color: '#d97706' }}>{fmt(supplierRows.reduce((a, s) => a + (s.totalOTHours || 0), 0), 2)}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
                 </div>
             )}
 

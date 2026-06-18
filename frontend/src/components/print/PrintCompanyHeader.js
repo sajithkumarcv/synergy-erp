@@ -10,9 +10,50 @@ export const CompanyLogo = ({ url }) => {
     return <img src={src} alt="Logo" className="pop-logo" onError={() => setOk(false)} />;
 };
 
+// ── Diagonal DRAFT watermark (preview only) ──────────────────
+// Tiled across the whole page so it can't be cropped out. pointer-events:none
+// so it never blocks clicks; carried into the print window via inline styles.
+export const DraftWatermark = ({ label = 'DRAFT', count = 24 }) => (
+    <div style={{
+        position: 'absolute', inset: 0, zIndex: 0,
+        pointerEvents: 'none', overflow: 'hidden',
+    }}>
+        <div style={{
+            position: 'absolute', top: '-25%', left: '-25%', width: '150%', height: '150%',
+            transform: 'rotate(-30deg)',
+            display: 'flex', flexWrap: 'wrap',
+            alignContent: 'space-around', justifyContent: 'space-around',
+            gap: '5% 7%',
+        }}>
+            {Array.from({ length: count }).map((_, i) => (
+                <span key={i} style={{
+                    fontSize: 60, fontWeight: 800, letterSpacing: '.12em',
+                    color: 'rgba(220, 38, 38, 0.17)', textTransform: 'uppercase',
+                    whiteSpace: 'nowrap', userSelect: 'none',
+                }}>
+                    {label}
+                </span>
+            ))}
+        </div>
+    </div>
+);
+
+// ── Red "preview only" notice banner (preview only) ──────────
+export const PreviewBanner = ({ text = 'PREVIEW ONLY — NOT VALID FOR ISSUE TO SUPPLIER' }) => (
+    <div style={{
+        position: 'relative', zIndex: 1,
+        background: '#fef2f2', color: '#dc2626', border: '1.5px solid #fecaca',
+        borderRadius: 4, padding: '7px 12px', margin: '0 0 12px',
+        fontSize: 11.5, fontWeight: 800, letterSpacing: '.06em',
+        textAlign: 'center', textTransform: 'uppercase',
+    }}>
+        {text}
+    </div>
+);
+
 // ── Company header band (matches the image layout) ────────────
 // Left: name + address block   Right: logo
-export const CompanyHeaderBand = ({ company, loading }) => {
+export const CompanyHeaderBand = ({ company, loading, hideLogo, nameOnly }) => {
     const primaryAddr = company?.addresses?.find(a => a.isPrimary)
         ?? company?.addresses?.[0];
 
@@ -26,21 +67,22 @@ export const CompanyHeaderBand = ({ company, loading }) => {
                 <div style={{ fontSize: 18, fontWeight: 800, color: '#1e3a5f', marginBottom: 4 }}>
                     {loading ? '…' : (company?.companyName || '—')}
                 </div>
-                {primaryAddr && (
+                {/* nameOnly (draft preview) hides address / contact / TRN */}
+                {!nameOnly && primaryAddr && (
                     <div style={{ fontSize: 11, color: '#475569', lineHeight: 1.6 }}>
                         {[primaryAddr.addressLine1, primaryAddr.addressLine2,
                           primaryAddr.city, primaryAddr.state, primaryAddr.country]
                             .filter(Boolean).join(', ')}
                     </div>
                 )}
-                {(company?.phone || company?.fax || company?.email) && (
+                {!nameOnly && (company?.phone || company?.fax || company?.email) && (
                     <div style={{ fontSize: 11, color: '#475569', lineHeight: 1.6 }}>
                         {company.phone && <>Tel : {company.phone}</>}
                         {company.fax   && <>{'   '}Fax: {company.fax}</>}
                         {company.email && <>{'   '}Email :  {company.email}</>}
                     </div>
                 )}
-                {(company?.trn || company?.website) && (
+                {!nameOnly && (company?.trn || company?.website) && (
                     <div style={{ fontSize: 11, color: '#475569', lineHeight: 1.6 }}>
                         {company.trn     && <>TRN: {company.trn}</>}
                         {company.website && <>{company.trn ? '  ,  ' : ''}Web : {company.website}</>}
@@ -48,7 +90,7 @@ export const CompanyHeaderBand = ({ company, loading }) => {
                 )}
             </div>
             {/* Right: logo */}
-            <CompanyLogo url={company?.logoPath} />
+            {!hideLogo && <CompanyLogo url={company?.logoPath} />}
         </div>
     );
 };

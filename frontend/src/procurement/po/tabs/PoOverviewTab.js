@@ -5,6 +5,7 @@ import { useLookup } from '../../../LookupContext';
 import { usePermission } from '../../../PermissionContext';
 import { fmt, fmtDate, today, PRIORITY_CONFIG } from '../../procurementConstants';
 import { useFieldConfig } from '../../../FieldConfigContext';
+import AmountInput from '../../../common/AmountInput';
 
 const Field = ({ label, children, mono }) => (
     <div className="prd-ov-card">
@@ -84,6 +85,7 @@ const PoOverviewTab = ({ po, onRefresh }) => {
             deliveryAddr:   po.deliveryAddr   || '',
             deliveryTerms:  po.deliveryTerms  || '',
             discount:          po.discount          != null ? String(po.discount)          : '',
+            taxAmount:         po.taxAmount         != null ? String(po.taxAmount)         : '',
             priority:          po.priority          || '',
             notes:             po.notes             || '',
             expenseCategoryId: po.expenseCategoryId ? String(po.expenseCategoryId) : '',
@@ -133,6 +135,7 @@ const PoOverviewTab = ({ po, onRefresh }) => {
                 deliveryAddr:  form.deliveryAddr.trim()  || null,
                 deliveryTerms: form.deliveryTerms        || null,
                 discount:      form.discount     ? Number(form.discount)      : null,
+                taxAmount:     form.taxAmount    ? Number(form.taxAmount)     : null,
                 priority:          form.priority          || null,
                 notes:             form.notes.trim()      || null,
                 expenseCategoryId: form.expenseCategoryId ? Number(form.expenseCategoryId) : null,
@@ -313,6 +316,10 @@ const PoOverviewTab = ({ po, onRefresh }) => {
                         <label style={lbl}>Discount %</label>
                         <input className="pf-input" type="number" name="discount" value={form.discount} onChange={handle} placeholder="0.00" min="0" max="100" step="0.01" />
                     </div>
+                    <div style={{ ...field, flex: '0 0 110px' }}>
+                        <label style={lbl}>Tax Amount</label>
+                        <AmountInput className="pf-input" value={form.taxAmount} onChange={v => handle({ target: { name: 'taxAmount', value: v } })} />
+                    </div>
                 </div>
 
                 {/* Row 4: Delivery Date + Delivery Terms + Delivery Address */}
@@ -411,6 +418,7 @@ const PoOverviewTab = ({ po, onRefresh }) => {
                 <Field label="Delivery Terms" mono>{po.deliveryTerms}</Field>
                 <Field label="Delivery Address">{po.deliveryAddr}</Field>
                 {po.discount > 0 && <Field label="Discount">{po.discount}%</Field>}
+                {po.taxAmount > 0 && <Field label="Tax Amount">{fmt(po.taxAmount)}</Field>}
                 <div className="prd-ov-card" style={{ borderColor: '#dbeafe', background: '#f0f7ff' }}>
                     <div className="prd-ov-label">Total Amount</div>
                     <div className="prd-ov-val" style={{ color: '#1e40af', fontWeight: 600, fontSize: 15 }}>{fmt(po.totalAmount)}</div>

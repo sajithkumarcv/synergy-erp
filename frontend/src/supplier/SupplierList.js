@@ -11,6 +11,7 @@ import '../jobs/JobDetail.css';
 import './Supplier.css';
 import RowLink from '../common/RowLink';
 import ValidationModal from '../common/ValidationModal';
+import AmountInput from '../common/AmountInput';
 
 const PAYMENT_MODES = ['Bank Transfer', 'Cheque', 'Cash', 'Letter of Credit (LC)', 'Online Transfer'];
 
@@ -227,7 +228,7 @@ const SupplierCreateForm = ({ onClose, onCreated }) => {
                     <div className="jf-row">
                         <div className="jf-field" style={{ flex: '0 0 130px' }}>
                             <label>Credit Limit</label>
-                            <input name="creditLimit" type="number" className="jf-input" value={form.creditLimit} onChange={handle} placeholder="0.00" />
+                            <AmountInput name="creditLimit" className="jf-input" value={form.creditLimit} onChange={v => handle({ target: { name: 'creditLimit', value: v } })} placeholder="0.00" />
                         </div>
                         <div className="jf-field" style={{ flex: '0 0 110px' }}>
                             <label>Credit Days</label>

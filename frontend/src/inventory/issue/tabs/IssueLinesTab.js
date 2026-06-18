@@ -5,6 +5,7 @@ import { useLookup } from '../../../LookupContext';
 import { usePermission } from '../../../PermissionContext';
 import { fmt } from '../../inventoryConstants';
 import { useFieldConfig } from '../../../FieldConfigContext';
+import AmountInput from '../../../common/AmountInput';
 
 // ── Smart item search ─────────────────────────────────────────
 // EXC_COSTING → job-specific items only (api/stockissue/jobitems/{jobId})
@@ -447,8 +448,8 @@ const IssueLinesTab = ({ issue, lines, onRefresh }) => {
                                         </span>
                                     )}
                                 </label>
-                                <input className="prd-lf-input" type="number" name="unitCost"
-                                    value={form.unitCost} onChange={handle} min="0" step="0.01"
+                                <AmountInput className="prd-lf-input"
+                                    value={form.unitCost} onChange={v => handle({ target: { name: 'unitCost', value: v } })}
                                     disabled={costLoading} />
                             </div>
                             <div className="prd-lf-field">

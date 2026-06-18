@@ -644,11 +644,11 @@ const AllocApplyModal = ({ pv, inv, amount, onClose, onConfirm }) => {
                                                 {p.linesValueForThisPo != null ? fmt(p.linesValueForThisPo) : (p.source || '—')}
                                             </td>
                                             <td style={{ padding: '6px 10px', textAlign: 'right' }}>
-                                                <input type="number" min="0" step="0.01"
+                                                <AmountInput
                                                     disabled={!pick.checked}
                                                     value={pick.amount}
-                                                    onChange={e => updateAmt(p.poId, e.target.value)}
-                                                    style={{ width: 110, padding: '4px 6px', fontSize: 12, border: '1px solid #e2e8f0', borderRadius: 4, textAlign: 'right', fontFamily: 'monospace', background: pick.checked ? '#fff' : '#f1f5f9' }} />
+                                                    onChange={v => updateAmt(p.poId, v)}
+                                                    style={{ width: 110, padding: '4px 6px', fontSize: 12, border: '1px solid #e2e8f0', borderRadius: 4, fontFamily: 'monospace', background: pick.checked ? '#fff' : '#f1f5f9' }} />
                                             </td>
                                         </tr>
                                     );

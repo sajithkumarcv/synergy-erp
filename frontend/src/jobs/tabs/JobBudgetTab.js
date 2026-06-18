@@ -4,6 +4,8 @@ import { useCurrentUser } from '../../AuthContext';
 import { useLookup } from '../../LookupContext';
 import { usePermission } from '../../PermissionContext';
 import { fmt } from '../jobConstants';
+import AmountInput from '../../common/AmountInput';
+import AlertModal from '../../common/AlertModal';
 
 // ── Variance colour ───────────────────────────────────────────
 const varianceStyle = (v, budgeted) => {
@@ -219,9 +221,9 @@ const EditableCell = ({ row, canEdit, uoms, currencies, job, baseCurrencyCode, b
                     <div style={{ paddingTop: 14, color: '#94a3b8', fontSize: 12 }}>×</div>
                     <div style={{ flex: 1.5 }}>
                         <div style={{ fontSize: 9, color: '#94a3b8', marginBottom: 2 }}>UNIT PRICE</div>
-                        <input type="number" min="0" step="0.01" className="pf-input"
-                            style={{ width: '100%', textAlign: 'right', padding: '3px 7px', fontSize: 12 }}
-                            value={unitPrice} onChange={e => setUnitPrice(e.target.value)} onKeyDown={handleKey} placeholder="0.00" />
+                        <AmountInput className="pf-input"
+                            style={{ width: '100%', padding: '3px 7px', fontSize: 12 }}
+                            value={unitPrice} onChange={v => setUnitPrice(v)} onKeyDown={handleKey} placeholder="0.00" />
                     </div>
                     <div style={{ flex: 1 }}>
                         <div style={{ fontSize: 9, color: '#94a3b8', marginBottom: 2 }}>UOM</div>
@@ -337,6 +339,7 @@ const JobBudgetTab = ({ job }) => {
     const [pwdAction, setPwdAction] = useState(null);  // 'approve' | 'revise' | null
     const [pwdBusy,   setPwdBusy]   = useState(false);
     const [banner,    setBanner]    = useState('');
+    const [alertMsg,  setAlertMsg]  = useState(null);
 
     // ── Permission flags from TBL_ROLE_MENU_ACTION (via PermissionContext) ──
     const canEditPerm = canDo('/jobs', 'EDIT');
@@ -400,9 +403,9 @@ const JobBudgetTab = ({ job }) => {
                 method: 'DELETE', headers: authHeaders(),
             });
             const d = await res.json().catch(() => ({}));
-            if (!res.ok) { alert(d?.message || 'Delete failed.'); return; }
+            if (!res.ok) { setAlertMsg(d?.message || 'Delete failed.'); return; }
             load();
-        } catch { alert('Network error.'); }
+        } catch { setAlertMsg('Network error.'); }
     };
 
     // ── Approve / Revise ──────────────────────────────────────
@@ -439,6 +442,7 @@ const JobBudgetTab = ({ job }) => {
 
     return (
         <div>
+            {alertMsg && <AlertModal message={alertMsg} onClose={() => setAlertMsg(null)} />}
             {/* ── Action banner ── */}
             {banner && (
                 <div style={{ marginBottom: 12, padding: '8px 14px', background: '#dcfce7', color: '#166534', borderRadius: 6, fontSize: 12.5 }}>

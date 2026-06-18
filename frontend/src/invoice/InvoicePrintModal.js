@@ -1,17 +1,17 @@
 import React from 'react';
 import { fmt, fmtDate, numberToWords } from './invoiceConstants';
 import useOwnerCompany from '../hooks/useOwnerCompany';
-import { CompanyHeaderBand, BankDetailsBlock } from '../components/print/PrintCompanyHeader';
+import { CompanyHeaderBand, BankDetailsBlock, DraftWatermark, PreviewBanner } from '../components/print/PrintCompanyHeader';
 import { openPrintWindow } from '../utils/printWindow';
 import '../procurement/po/PoPrint.css';
 
 const dash = (v) => (v != null && v !== '') ? v : '—';
 
-const InvoicePrintModal = ({ invoice, lines = [], onClose }) => {
+const InvoicePrintModal = ({ invoice, lines = [], onClose, preview }) => {
     const { company, loading: coLoading } = useOwnerCompany();
 
     const handleBackdrop = (e) => { if (e.target === e.currentTarget) onClose(); };
-    const handlePrint    = () => openPrintWindow('.po-print-doc', `Invoice - ${invoice.invoiceNo}`);
+    const handlePrint    = () => openPrintWindow('.po-print-doc', `Invoice${preview ? ' (DRAFT)' : ''} - ${invoice.invoiceNo}`);
 
     const subTotal   = lines.reduce((s, l) => s + (l.amount    || 0), 0);
     const taxTotal   = lines.reduce((s, l) => s + (l.taxAmount || 0), 0);
@@ -37,10 +37,13 @@ const InvoicePrintModal = ({ invoice, lines = [], onClose }) => {
             </div>
 
             {/* ── A4 Document ── */}
-            <div className="po-print-doc" style={{ display: 'flex', flexDirection: 'column' }}>
+            <div className="po-print-doc" style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}>
+
+                {preview && <DraftWatermark />}
+                {preview && <PreviewBanner />}
 
                 {/* 1. Company Header */}
-                <CompanyHeaderBand company={company} loading={coLoading} />
+                <CompanyHeaderBand company={company} loading={coLoading} hideLogo={preview} nameOnly={preview} />
 
                 {/* 2. Document title band */}
                 <div style={{ display: 'flex', justifyContent: 'space-between',
@@ -281,6 +284,8 @@ const InvoicePrintModal = ({ invoice, lines = [], onClose }) => {
                 )}
 
                 <div style={{ flex: 1 }} />
+
+                {preview && <PreviewBanner />}
 
                 {/* 9. Signature Footer */}
                 <div className="pop-footer">
