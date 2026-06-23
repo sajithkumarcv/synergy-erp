@@ -10,6 +10,7 @@ import DeliveryPrintModal    from './DeliveryPrintModal';
 import '../jobs/JobDetail.css';
 import '../procurement/Procurement.css';
 import AlertModal from '../common/AlertModal';
+import ConfirmModal from '../common/ConfirmModal';
 
 const DeliveryDetailPage = () => {
     const { deliveryId }  = useParams();
@@ -26,6 +27,7 @@ const DeliveryDetailPage = () => {
     const [deleting,    setDeleting]    = useState(false);
     const [showPrint,   setShowPrint]   = useState(false);
     const [alertMsg,    setAlertMsg]    = useState(null);
+    const [confirm,     setConfirm]     = useState(null);
 
     const loadDelivery = useCallback(() => {
         setLoading(true); setError(null);
@@ -52,18 +54,25 @@ const DeliveryDetailPage = () => {
         finally { setStatusBusy(false); }
     };
 
-    const deleteDelivery = async () => {
-        if (!window.confirm('Delete this delivery note? This cannot be undone.')) return;
-        setDeleting(true);
-        try {
-            const r = await fetch(`${variables.API_URL}delivery/${deliveryId}`, {
-                method: 'DELETE', headers: authHeaders(),
-            });
-            const d = await r.json();
-            if (!r.ok) { setAlertMsg(d?.message || 'Delete failed.'); return; }
-            navigate('/delivery');
-        } catch { setAlertMsg('Network error.'); }
-        finally { setDeleting(false); }
+    const deleteDelivery = () => {
+        setConfirm({
+            title: 'Delete Delivery Note',
+            message: 'Delete this delivery note? This cannot be undone.',
+            confirmLabel: 'Delete',
+            onConfirm: async () => {
+                setConfirm(null);
+                setDeleting(true);
+                try {
+                    const r = await fetch(`${variables.API_URL}delivery/${deliveryId}`, {
+                        method: 'DELETE', headers: authHeaders(),
+                    });
+                    const d = await r.json();
+                    if (!r.ok) { setAlertMsg(d?.message || 'Delete failed.'); return; }
+                    navigate('/delivery');
+                } catch { setAlertMsg('Network error.'); }
+                finally { setDeleting(false); }
+            },
+        });
     };
 
     const renderTab = () => {
@@ -100,6 +109,7 @@ const DeliveryDetailPage = () => {
 
     return (
         <div className="jd-page">
+            {confirm && <ConfirmModal {...confirm} onClose={() => setConfirm(null)} />}
 
             {/* ── Print Modal ── */}
             {showPrint && (

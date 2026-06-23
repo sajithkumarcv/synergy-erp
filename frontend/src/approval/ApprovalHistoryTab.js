@@ -181,8 +181,8 @@ const ApprovalHistoryTab = ({
     return (
         <div className="jd-tab-body">
             {error   && (
-                <div style={{ background: '#fee2e2', color: '#991b1b', borderRadius: 6, padding: '8px 14px', fontSize: 12.5, marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                    <span>⚠ {error}</span>
+                <div style={{ background: '#fee2e2', color: '#991b1b', borderRadius: 6, padding: '8px 14px', fontSize: 12.5, marginBottom: 12, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+                    <span style={{ whiteSpace: 'pre-line', lineHeight: 1.6 }}>⚠ {error}</span>
                     <button onClick={load} style={{ fontSize: 11, padding: '3px 10px', borderRadius: 5, border: '1px solid #fca5a5', background: '#fff', color: '#991b1b', cursor: 'pointer', flexShrink: 0 }}>
                         Retry
                     </button>

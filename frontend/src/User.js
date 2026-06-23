@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import ReactDOM from "react-dom";
 import { variables, authHeaders } from "./Variable.js";
 import AlertModal from "./common/AlertModal";
+import ConfirmModal from "./common/ConfirmModal";
 
 // ─── Modal rendered via portal so it sits above all other DOM ───────────────
 function UserModal({ show, title, form, companies, branches, onChange, onSave, onClose }) {
@@ -137,6 +138,7 @@ export default function User() {
   const [currentPage,  setCurrentPage]  = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
   const [alertMsg, setAlertMsg] = useState(null);
+  const [confirm,  setConfirm]  = useState(null);
 
   // ── Data loading ────────────────────────────────────────────────────────────
   const refreshList = useCallback(() => {
@@ -251,11 +253,18 @@ export default function User() {
 
   // ── Delete ────────────────────────────────────────────────────────────────────
   const deleteUser = (id) => {
-    if (!window.confirm("Delete this user?")) return;
-    fetch(variables.API_URL + "User/" + id, { method: "DELETE", headers: authHeaders() })
-      .then(r => { if (!r.ok) throw new Error("Delete failed"); return r.text(); })
-      .then(refreshList)
-      .catch(e => console.error("Error deleting user:", e));
+    setConfirm({
+      title: 'Delete User',
+      message: 'Delete this user?',
+      confirmLabel: 'Delete',
+      onConfirm: () => {
+        setConfirm(null);
+        fetch(variables.API_URL + "User/" + id, { method: "DELETE", headers: authHeaders() })
+          .then(r => { if (!r.ok) throw new Error("Delete failed"); return r.text(); })
+          .then(refreshList)
+          .catch(e => console.error("Error deleting user:", e));
+      },
+    });
   };
 
   // ── Filter + paginate ────────────────────────────────────────────────────────
@@ -277,6 +286,7 @@ export default function User() {
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <div>
+      {confirm && <ConfirmModal {...confirm} onClose={() => setConfirm(null)} />}
       {/* Toolbar */}
       <div className="mb-3 d-flex align-items-center gap-2 flex-wrap">
         <label className="mb-0">Rows per page:</label>

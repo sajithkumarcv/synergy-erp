@@ -10,6 +10,7 @@ import ApprovalStatusBanner from '../approval/ApprovalStatusBanner';
 import InvoicePrintModal2   from '../invoice/InvoicePrintModal2';
 import VoucherPrintModal    from '../common/VoucherPrintModal';
 import AlertModal from '../common/AlertModal';
+import ConfirmModal from '../common/ConfirmModal';
 import '../jobs/JobDetail.css';
 import '../procurement/Procurement.css';
 
@@ -401,6 +402,7 @@ const CreditNoteDetail = () => {
     const [showRevise, setShowRevise] = useState(false);
     const [showCancel, setShowCancel] = useState(false);
     const [showPrint,  setShowPrint]  = useState(false);
+    const [confirm,    setConfirm]    = useState(null);
 
     const load = useCallback(() => {
         setLoading(true); setError(null);
@@ -413,19 +415,26 @@ const CreditNoteDetail = () => {
 
     useEffect(() => { load(); }, [load]);
 
-    const deleteCn = async () => {
-        if (!window.confirm('Delete this Draft credit note? This cannot be undone.')) return;
-        setBusy(true);
-        try {
-            const res = await fetch(
-                `${variables.API_URL}creditnote/${id}?modifiedBy=${encodeURIComponent(currentUser)}`,
-                { method: 'DELETE', headers: authHeaders() }
-            );
-            const d = await res.json().catch(() => ({}));
-            if (!res.ok) { setBanner(`✕ ${d?.message || 'Delete failed.'}`); return; }
-            navigate('/credit-notes');
-        } catch { setBanner('✕ Network error.'); }
-        finally { setBusy(false); }
+    const deleteCn = () => {
+        setConfirm({
+            title: 'Delete Credit Note',
+            message: 'Delete this Draft credit note? This cannot be undone.',
+            confirmLabel: 'Delete',
+            onConfirm: async () => {
+                setConfirm(null);
+                setBusy(true);
+                try {
+                    const res = await fetch(
+                        `${variables.API_URL}creditnote/${id}?modifiedBy=${encodeURIComponent(currentUser)}`,
+                        { method: 'DELETE', headers: authHeaders() }
+                    );
+                    const d = await res.json().catch(() => ({}));
+                    if (!res.ok) { setBanner(`✕ ${d?.message || 'Delete failed.'}`); return; }
+                    navigate('/credit-notes');
+                } catch { setBanner('✕ Network error.'); }
+                finally { setBusy(false); }
+            },
+        });
     };
 
     const handleRevise = async (reason, password) => {
@@ -504,6 +513,7 @@ const CreditNoteDetail = () => {
 
     return (
         <div className="jd-page">
+            {confirm && <ConfirmModal {...confirm} onClose={() => setConfirm(null)} />}
 
             {/* HEADER */}
             <div className="jd-header">

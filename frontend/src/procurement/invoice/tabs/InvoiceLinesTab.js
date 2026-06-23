@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { variables, authHeaders } from '../../../Variable';
 import { usePermission } from '../../../PermissionContext';
+import ConfirmModal from '../../../common/ConfirmModal';
 import { fmt, fmtDate } from '../../procurementConstants';
 import AlertModal from '../../../common/AlertModal';
 import AmountInput from '../../../common/AmountInput';
@@ -479,23 +480,32 @@ const InvoiceLinesTab = ({ invoice, lines, onRefresh }) => {
     const [showSrvImport, setShowSrvImport] = useState(false);
     const [deletingId,    setDeletingId]    = useState(null);
     const [alertMsg,      setAlertMsg]      = useState(null);
+    const [confirm,       setConfirm]       = useState(null);
 
-    const deleteLine = async (lineId) => {
-        if (!window.confirm('Remove this line?')) return;
-        setDeletingId(lineId);
-        try {
-            const res = await fetch(`${variables.API_URL}supplierinvoice/deleteline/${lineId}`, {
-                method: 'DELETE', headers: authHeaders()
-            });
-            const d = await res.json();
-            if (!res.ok) { setAlertMsg(d.message || 'Delete failed.'); return; }
-            onRefresh();
-        } catch { setAlertMsg('Network error. Please try again.'); }
-        finally { setDeletingId(null); }
+    const deleteLine = (lineId) => {
+        setConfirm({
+            title: 'Remove Line',
+            message: 'Remove this line?',
+            confirmLabel: 'Remove',
+            onConfirm: async () => {
+                setConfirm(null);
+                setDeletingId(lineId);
+                try {
+                    const res = await fetch(`${variables.API_URL}supplierinvoice/deleteline/${lineId}`, {
+                        method: 'DELETE', headers: authHeaders()
+                    });
+                    const d = await res.json();
+                    if (!res.ok) { setAlertMsg(d.message || 'Delete failed.'); return; }
+                    onRefresh();
+                } catch { setAlertMsg('Network error. Please try again.'); }
+                finally { setDeletingId(null); }
+            },
+        });
     };
 
     return (
         <div style={{ padding: '16px 20px' }}>
+            {confirm && <ConfirmModal {...confirm} onClose={() => setConfirm(null)} />}
             {/* Toolbar */}
             {canEdit && (
                 <div style={{ marginBottom: 14, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>

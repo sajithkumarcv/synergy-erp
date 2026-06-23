@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { variables, authHeaders, getCurrentUser } from '../Variable';
 import AlertModal from '../common/AlertModal';
+import ConfirmModal from '../common/ConfirmModal';
 
 const S = {
   page:       { padding: '24px' },
@@ -39,6 +40,7 @@ export default function UserGroups() {
   const [msg,         setMsg]         = useState({ type:'', text:'' });
   const [loading,     setLoading]     = useState(false);
   const [alertMsg, setAlertMsg] = useState(null);
+  const [confirm,  setConfirm]  = useState(null);
 
   const loadGroups = useCallback(async () => {
     const r = await fetch(`${variables.API_URL}UserGroup`, { headers: authHeaders() });
@@ -83,12 +85,19 @@ export default function UserGroups() {
     } finally { setLoading(false); }
   };
 
-  const deleteGroup = async (groupId) => {
-    if (!window.confirm('Delete this group?')) return;
-    const r = await fetch(`${variables.API_URL}UserGroup/${groupId}`, { method:'DELETE', headers: authHeaders() });
-    const d = await r.json();
-    if (r.ok) { await loadGroups(); if (selected?.groupId === groupId) { setSelected(null); setMembers([]); } }
-    else setAlertMsg(d.message);
+  const deleteGroup = (groupId) => {
+    setConfirm({
+      title: 'Delete Group',
+      message: 'Delete this group?',
+      confirmLabel: 'Delete',
+      onConfirm: async () => {
+        setConfirm(null);
+        const r = await fetch(`${variables.API_URL}UserGroup/${groupId}`, { method:'DELETE', headers: authHeaders() });
+        const d = await r.json();
+        if (r.ok) { await loadGroups(); if (selected?.groupId === groupId) { setSelected(null); setMembers([]); } }
+        else setAlertMsg(d.message);
+      },
+    });
   };
 
   const addMember = async () => {
@@ -101,11 +110,18 @@ export default function UserGroups() {
     else { const d = await r.json(); setAlertMsg(d.message); }
   };
 
-  const removeMember = async (detailId) => {
-    if (!window.confirm('Remove this member?')) return;
-    await fetch(`${variables.API_URL}UserGroup/member/${detailId}`, { method:'DELETE', headers: authHeaders() });
-    loadMembers(selected.groupId);
-    loadGroups();
+  const removeMember = (detailId) => {
+    setConfirm({
+      title: 'Remove Member',
+      message: 'Remove this member?',
+      confirmLabel: 'Remove',
+      onConfirm: async () => {
+        setConfirm(null);
+        await fetch(`${variables.API_URL}UserGroup/member/${detailId}`, { method:'DELETE', headers: authHeaders() });
+        loadMembers(selected.groupId);
+        loadGroups();
+      },
+    });
   };
 
   const memberUserIds = new Set(members.map(m => m.userId));
@@ -113,6 +129,7 @@ export default function UserGroups() {
 
   return (
     <div style={S.page}>
+      {confirm && <ConfirmModal {...confirm} onClose={() => setConfirm(null)} />}
       <div style={S.header}>
         <h1 style={S.title}>User Groups</h1>
         <button style={S.btnPrimary} onClick={() => openModal()}>+ New Group</button>

@@ -31,6 +31,11 @@ namespace ERPWEB.Models.Bom
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         public string? JobTypeName    { get; set; }
 
+        // From the job type — drives BOM read-only (costed) vs editable (in-house).
+        // NOTE: no WhenWritingDefault ignore, so `false` (in-house) is always sent.
+        public bool IsCostingRequired    { get; set; } = true;
+        public bool IsBudgetHeaderLinked { get; set; }
+
         // Pagination / aggregates
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         public int LineCount { get; set; }

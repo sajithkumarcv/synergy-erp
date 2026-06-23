@@ -271,6 +271,57 @@ namespace ERPWEB.Controllers.Invoice
         }
 
         // ═══════════════════════════════════════════════════════
+        // BULK IMPORT LINES FROM EXCEL  —  POST: api/invoice/lines/import
+        // ═══════════════════════════════════════════════════════
+        [HttpPost("lines/import")]
+        public async Task<IActionResult> ImportLines([FromBody] InvoiceImportRequest req)
+        {
+            if (req.InvoiceId <= 0) return BadRequest(new { message = "InvoiceId is required." });
+            try
+            {
+                var results = new List<object>();
+                int ok = 0, fail = 0, n = 0;
+                foreach (var row in req.Rows)
+                {
+                    n++;
+                    if (string.IsNullOrWhiteSpace(row.Description))
+                    {
+                        fail++; results.Add(new { rowNumber = n, description = row.Description, success = false, message = "Description is required." });
+                        continue;
+                    }
+                    try
+                    {
+                        await _dbcon.ExecuteScalarAsync("sp_SetInvoiceLine", new
+                        {
+                            InvoiceLineId = 0,
+                            req.InvoiceId,
+                            LineNum     = 0,
+                            Description = row.Description.Trim(),
+                            UomName     = string.IsNullOrWhiteSpace(row.UomName) ? null : row.UomName.Trim(),
+                            UnitPrice   = row.UnitPrice,
+                            Qty         = row.Qty,
+                            VatPercent  = row.VatPercent,
+                            Notes       = string.IsNullOrWhiteSpace(row.Notes) ? null : row.Notes.Trim(),
+                            CreatedBy   = req.ImportedBy,
+                            ModifiedBy  = (string?)null,
+                        });
+                        ok++; results.Add(new { rowNumber = n, description = row.Description, success = true, message = "Imported" });
+                    }
+                    catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+                    {
+                        fail++; results.Add(new { rowNumber = n, description = row.Description, success = false, message = sqlEx.Message });
+                    }
+                }
+                return Ok(new { successCount = ok, failCount = fail, results });
+            }
+            catch (Exception ex)
+            {
+                await _dbcon.WriteLog(ex, controller: "Invoice", action: "ImportLines", requestPath: HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Error importing invoice lines." });
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════
         // DELETE LINE  —  DELETE: api/invoice/line/{lineId}
         // ═══════════════════════════════════════════════════════
         [HttpDelete("line/{lineId:int}")]

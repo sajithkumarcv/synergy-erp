@@ -9,6 +9,7 @@ import ApprovalHistoryTab   from '../approval/ApprovalHistoryTab';
 import ApprovalStatusBanner from '../approval/ApprovalStatusBanner';
 import VoucherPrintModal    from '../common/VoucherPrintModal';
 import AlertModal from '../common/AlertModal';
+import ConfirmModal from '../common/ConfirmModal';
 import '../jobs/JobDetail.css';
 import '../procurement/Procurement.css';
 
@@ -1228,6 +1229,7 @@ const PaymentVoucherDetail = () => {
     const [showPrint,   setShowPrint]   = useState(false);
     const [busy,        setBusy]        = useState(false);
     const [alertMsg,    setAlertMsg]    = useState(null);
+    const [confirm,     setConfirm]     = useState(null);
 
     const load = useCallback(() => {
         setLoading(true); setError('');
@@ -1240,19 +1242,26 @@ const PaymentVoucherDetail = () => {
 
     useEffect(() => { load(); }, [load]);
 
-    const deletePv = async () => {
-        if (!window.confirm('Delete this payment voucher? This cannot be undone.')) return;
-        setBusy(true);
-        try {
-            const res = await fetch(
-                `${variables.API_URL}paymentvoucher/${id}?modifiedBy=${encodeURIComponent(currentUser)}`,
-                { method: 'DELETE', headers: authHeaders() }
-            );
-            const d = await res.json().catch(() => ({}));
-            if (!res.ok) { setAlertMsg(d?.message || 'Delete failed.'); return; }
-            navigate('/payment-vouchers');
-        } catch { setAlertMsg('Network error.'); }
-        finally { setBusy(false); }
+    const deletePv = () => {
+        setConfirm({
+            title: 'Delete Payment Voucher',
+            message: 'Delete this payment voucher? This cannot be undone.',
+            confirmLabel: 'Delete',
+            onConfirm: async () => {
+                setConfirm(null);
+                setBusy(true);
+                try {
+                    const res = await fetch(
+                        `${variables.API_URL}paymentvoucher/${id}?modifiedBy=${encodeURIComponent(currentUser)}`,
+                        { method: 'DELETE', headers: authHeaders() }
+                    );
+                    const d = await res.json().catch(() => ({}));
+                    if (!res.ok) { setAlertMsg(d?.message || 'Delete failed.'); return; }
+                    navigate('/payment-vouchers');
+                } catch { setAlertMsg('Network error.'); }
+                finally { setBusy(false); }
+            },
+        });
     };
 
     const handleRevise = async (reason, password) => {
@@ -1326,6 +1335,7 @@ const PaymentVoucherDetail = () => {
 
     return (
         <div className="jd-page">
+            {confirm && <ConfirmModal {...confirm} onClose={() => setConfirm(null)} />}
 
             {/* ── HEADER ── */}
             <div className="jd-header">

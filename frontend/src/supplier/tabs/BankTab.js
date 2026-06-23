@@ -3,6 +3,7 @@ import { variables, authHeaders } from '../../Variable';
 import { useCurrentUser } from '../../AuthContext';
 import { useLookup } from '../../LookupContext';
 import AlertModal from '../../common/AlertModal';
+import ConfirmModal from '../../common/ConfirmModal';
 
 const makeEmpty = (supplierId, currencies) => ({
     supplierBankId: 0, supplierId,
@@ -118,6 +119,7 @@ const BankTab = ({ supplier, canEdit = true }) => {
     const [banks, setbanks]      = useState([]);
     const [formRecord, setForm]  = useState(null);
     const [alertMsg, setAlertMsg] = useState(null);
+    const [confirm, setConfirm]  = useState(null);
 
     const load = useCallback(() => {
         fetch(variables.API_URL + 'supplier/banks/' + supplier.supplierId, { headers: authHeaders() })
@@ -128,13 +130,20 @@ const BankTab = ({ supplier, canEdit = true }) => {
 
     useEffect(() => { load(); }, [load]);
 
-    const deleteBank = async (id) => {
-        if (!window.confirm('Delete this bank account?')) return;
-        try {
-            const res = await fetch(variables.API_URL + 'supplier/banks/' + id, { method: 'DELETE', headers: authHeaders() });
-            if (!res.ok) { const d = await res.json(); setAlertMsg(d?.message || 'Failed to delete bank account.'); return; }
-            load();
-        } catch { setAlertMsg('Network error. Please try again.'); }
+    const deleteBank = (id) => {
+        setConfirm({
+            title: 'Delete Bank Account',
+            message: 'Delete this bank account?',
+            confirmLabel: 'Delete',
+            onConfirm: async () => {
+                setConfirm(null);
+                try {
+                    const res = await fetch(variables.API_URL + 'supplier/banks/' + id, { method: 'DELETE', headers: authHeaders() });
+                    if (!res.ok) { const d = await res.json(); setAlertMsg(d?.message || 'Failed to delete bank account.'); return; }
+                    load();
+                } catch { setAlertMsg('Network error. Please try again.'); }
+            },
+        });
     };
 
     return (
@@ -204,7 +213,8 @@ const BankTab = ({ supplier, canEdit = true }) => {
                     </tbody>
                 </table>
             </div>
-            {alertMsg && <AlertModal message={alertMsg} onClose={() => setAlertMsg(null)} />}
+            {alertMsg  && <AlertModal message={alertMsg} onClose={() => setAlertMsg(null)} />}
+            {confirm   && <ConfirmModal {...confirm} onClose={() => setConfirm(null)} />}
         </div>
     );
 };

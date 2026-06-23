@@ -49,7 +49,7 @@ const SrvForm = ({ onClose, onSaved }) => {
     useEffect(() => {
         if (!poSearch.trim()) { setPoResults([]); return; }
         const t = setTimeout(() => {
-            fetch(`${variables.API_URL}purchaseorder/search?searchText=${encodeURIComponent(poSearch)}&pageSize=10&page=1`, { headers: authHeaders() })
+            fetch(`${variables.API_URL}purchaseorder/search?search=${encodeURIComponent(poSearch)}&pageSize=10&page=1&isSubcontractOnly=true`, { headers: authHeaders() })
                 .then(r => r.json()).then(d => setPoResults(d.data || [])).catch(console.error);
         }, 280);
         return () => clearTimeout(t);

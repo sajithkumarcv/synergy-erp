@@ -3,6 +3,7 @@ import { variables, authHeaders } from '../../Variable';
 import { useCurrentUser } from '../../AuthContext';
 import { fmt } from '../jobConstants';
 import AlertModal from '../../common/AlertModal';
+import ConfirmModal from '../../common/ConfirmModal';
 
 const MAT_STATUS = {
   Open:      { bg: '#dbeafe', color: '#1e40af' },
@@ -180,6 +181,7 @@ const MaterialsTab = ({ job, onRefresh }) => {
   const [editRow,    setEditRow]    = useState(null);
   const [uoms,       setUoms]       = useState([]);
   const [alertMsg,   setAlertMsg]   = useState(null);
+  const [confirm,    setConfirm]    = useState(null);
 
   const loadBoms = useCallback(() => {
     setBomsLoading(true);
@@ -227,21 +229,34 @@ const MaterialsTab = ({ job, onRefresh }) => {
     finally { setSavingBom(false); }
   };
 
-  const deleteJobBom = async id => {
-    if (!window.confirm('Remove this BOM? Its generated material lines will also be removed.')) return;
-    try {
-      const res = await fetch(`${variables.API_URL}job/${encodeURIComponent(job.jobId)}/boms/${id}`, {
-        method: 'DELETE', headers: authHeaders()
-      });
-      if (!res.ok) { const d = await res.json(); setAlertMsg(d?.message || 'Failed to remove BOM.'); return; }
-      loadBoms(); loadMaterials(); onRefresh();
-    } catch { setAlertMsg('Network error. Please try again.'); }
+  const deleteJobBom = (id) => {
+    setConfirm({
+      title: 'Remove BOM',
+      message: 'Remove this BOM? Its generated material lines will also be removed.',
+      confirmLabel: 'Remove',
+      onConfirm: async () => {
+        setConfirm(null);
+        try {
+          const res = await fetch(`${variables.API_URL}job/${encodeURIComponent(job.jobId)}/boms/${id}`, {
+            method: 'DELETE', headers: authHeaders()
+          });
+          if (!res.ok) { const d = await res.json(); setAlertMsg(d?.message || 'Failed to remove BOM.'); return; }
+          loadBoms(); loadMaterials(); onRefresh();
+        } catch { setAlertMsg('Network error. Please try again.'); }
+      },
+    });
   };
 
-  const generate = async () => {
+  const generate = () => {
     if (boms.length === 0) { setAlertMsg('No BOMs assigned to this job yet.'); return; }
-    if (!window.confirm(`Generate materials from ${boms.length} BOM(s)? Existing BOM-sourced lines will be replaced. Manually added lines are preserved.`)) return;
-    setGenerating(true);
+    setConfirm({
+      title: 'Generate Materials',
+      message: `Generate materials from ${boms.length} BOM(s)? Existing BOM-sourced lines will be replaced. Manually added lines are preserved.`,
+      confirmLabel: 'Generate',
+      confirmStyle: { background: '#1e40af', color: '#fff' },
+      onConfirm: async () => {
+        setConfirm(null);
+        setGenerating(true);
     try {
       const res = await fetch(`${variables.API_URL}job/${encodeURIComponent(job.jobId)}/generate-materials`, {
         method: 'POST', headers: authHeaders(),
@@ -250,8 +265,10 @@ const MaterialsTab = ({ job, onRefresh }) => {
       const d = await res.json();
       if (!res.ok) { setAlertMsg(d?.message || 'Failed to generate materials.'); return; }
       loadMaterials();
-    } catch { setAlertMsg('Network error. Please try again.'); }
-    finally { setGenerating(false); }
+        } catch { setAlertMsg('Network error. Please try again.'); }
+        finally { setGenerating(false); }
+      },
+    });
   };
 
   const saveAddLine = async () => {
@@ -295,6 +312,7 @@ const MaterialsTab = ({ job, onRefresh }) => {
     <div className="mat-tab">
 
       {alertMsg && <AlertModal message={alertMsg} onClose={() => setAlertMsg(null)} />}
+      {confirm && <ConfirmModal {...confirm} onClose={() => setConfirm(null)} />}
 
       {/* ── BOM Assignments panel ── */}
       <div className="mat-bom-panel">

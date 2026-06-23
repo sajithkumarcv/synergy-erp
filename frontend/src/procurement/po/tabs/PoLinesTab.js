@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import ReactDOM from 'react-dom';
 import { variables, authHeaders } from '../../../Variable';
 import { useCurrentUser } from '../../../AuthContext';
@@ -630,6 +630,24 @@ const PoLinesTab = ({ po, onRefresh, initialPrId }) => {
     const { isReq } = useFieldConfig('PO_LINE');
     const { items: itemLookup, uoms } = lookups;
 
+    // For budget-header-linked jobs, the PO may only contain STOCKABLE items
+    // whose budget header matches the PO's expense category. Restrict the picker
+    // accordingly (the server re-validates in sp_SetPOLine).
+    const itemOptions = useMemo(() => {
+        const all = itemLookup || [];
+        if (!po.isBudgetHeaderLinked) return all;
+        return all.filter(i =>
+            i.isStockable &&
+            i.budgetCategoryId != null &&
+            String(i.budgetCategoryId) === String(po.expenseCategoryId));
+    }, [itemLookup, po.isBudgetHeaderLinked, po.expenseCategoryId]);
+
+    // Server-backed item search for budget-header-linked POs — not capped at the
+    // 500-item global lookup. Returns only stockable items in the PO's category.
+    const [itemSearch,    setItemSearch]    = useState('');
+    const [itemResults,   setItemResults]   = useState([]);
+    const [itemSearching, setItemSearching] = useState(false);
+
     const [lines,        setLines]        = useState([]);
     const [loading,      setLoading]      = useState(true);
     const [showForm,     setShowForm]     = useState(false);
@@ -682,6 +700,29 @@ const PoLinesTab = ({ po, onRefresh, initialPrId }) => {
 
     useEffect(() => { loadLines(); }, [loadLines]);
 
+    // Debounced server search for the budget-header-linked item picker
+    useEffect(() => {
+        if (!showForm || form.poLineId > 0 || !po.isBudgetHeaderLinked || !po.expenseCategoryId) {
+            setItemResults([]); return;
+        }
+        const t = setTimeout(() => {
+            setItemSearching(true);
+            fetch(`${variables.API_URL}item/search?isActive=true&isStockable=true&budgetCategoryId=${po.expenseCategoryId}&searchText=${encodeURIComponent(itemSearch)}&pageSize=50&page=1&sortCol=ItemName&sortDir=ASC`,
+                { headers: authHeaders() })
+                .then(r => r.json())
+                .then(d => setItemResults(d.data || []))
+                .catch(() => setItemResults([]))
+                .finally(() => setItemSearching(false));
+        }, 300);
+        return () => clearTimeout(t);
+    }, [itemSearch, showForm, form.poLineId, po.isBudgetHeaderLinked, po.expenseCategoryId]);
+
+    const pickItem = (it) => {
+        setForm(p => ({ ...p, itemId: String(it.itemId), itemCode: it.itemCode || '', itemDesc: it.itemName || '' }));
+        setItemSearch(`[${it.itemCode}] ${it.itemName}`);
+        setItemResults([]);
+    };
+
     const openEdit = (line) => {
         setEditLine(line);
         setForm({
@@ -697,6 +738,8 @@ const PoLinesTab = ({ po, onRefresh, initialPrId }) => {
             taxPct:      line.taxPct    != null ? String(line.taxPct)    : '0',
             remarks:     line.remarks || '',
         });
+        setItemSearch(line.itemCode ? `[${line.itemCode}] ${line.itemDesc || ''}` : '');
+        setItemResults([]);
         setError('');
         setShowForm(true);
     };
@@ -1283,10 +1326,34 @@ const PoLinesTab = ({ po, onRefresh, initialPrId }) => {
                                                 style={{ background: '#f1f5f9', color: '#64748b', cursor: 'not-allowed' }}
                                                 title="Item cannot be changed on an existing PO line"
                                             />
+                                        ) : po.isBudgetHeaderLinked ? (
+                                            <div style={{ position: 'relative' }}>
+                                                <input
+                                                    className="prd-lf-input"
+                                                    placeholder={!po.expenseCategoryId ? 'Select PO expense category first' : 'Search stockable items in this category…'}
+                                                    value={itemSearch}
+                                                    disabled={!po.expenseCategoryId}
+                                                    onChange={e => {
+                                                        setItemSearch(e.target.value);
+                                                        if (form.itemId) setForm(p => ({ ...p, itemId: '', itemCode: '', itemDesc: '' }));
+                                                    }}
+                                                />
+                                                {itemSearching && <span style={{ position: 'absolute', right: 8, top: 8, fontSize: 11, color: '#94a3b8' }}>⏳</span>}
+                                                {itemResults.length > 0 && (
+                                                    <div style={{ position: 'absolute', zIndex: 20, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 6, width: '100%', maxHeight: 220, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,.08)' }}>
+                                                        {itemResults.map(it => (
+                                                            <div key={it.itemId} onClick={() => pickItem(it)}
+                                                                style={{ padding: '6px 10px', cursor: 'pointer', fontSize: 12, borderBottom: '1px solid #f1f5f9' }}>
+                                                                <strong>[{it.itemCode}]</strong> {it.itemName}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
                                         ) : (
                                             <select className="prd-lf-input" name="itemId" value={form.itemId} onChange={handle}>
                                                 <option value="">— Select Item —</option>
-                                                {(itemLookup || []).map(i => <option key={i.id} value={i.id}>{i.code ? `[${i.code}] ` : ''}{i.name}</option>)}
+                                                {itemOptions.map(i => <option key={i.id} value={i.id}>{i.code ? `[${i.code}] ` : ''}{i.name}</option>)}
                                             </select>
                                         )}
                                     </div>

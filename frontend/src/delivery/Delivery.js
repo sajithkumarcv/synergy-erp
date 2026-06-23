@@ -43,6 +43,7 @@ const DeliveryForm = ({ onClose, onSaved }) => {
     const [customerResults, setCustomerResults] = useState([]);
     const [contacts,        setContacts]        = useState([]);
     const [invoiceResults,  setInvoiceResults]  = useState([]);
+    const [jobOptions,      setJobOptions]      = useState([]);
     const [errors,          setErrors]          = useState({});
     const [saving,          setSaving]          = useState(false);
     const [serverError,     setServerError]     = useState('');
@@ -71,6 +72,13 @@ const DeliveryForm = ({ onClose, onSaved }) => {
             .then(r => r.json()).then(d => setInvoiceResults(Array.isArray(d) ? d : [])).catch(console.error);
     }, [form.customerId, form.invoiceId]);
 
+    // Load jobs linked to the selected customer (for the Job ID dropdown)
+    useEffect(() => {
+        if (!form.customerId) { setJobOptions([]); return; }
+        fetch(`${variables.API_URL}delivery/jobs/${form.customerId}`, { headers: authHeaders() })
+            .then(r => r.json()).then(d => setJobOptions(Array.isArray(d) ? d : [])).catch(console.error);
+    }, [form.customerId]);
+
     const handle = e => {
         const { name, value } = e.target;
         setForm(p => ({ ...p, [name]: value }));
@@ -79,7 +87,8 @@ const DeliveryForm = ({ onClose, onSaved }) => {
 
     const selectCustomer = c => {
         setForm(p => ({ ...p, customerId: String(c.customerId), customerName: c.customerName,
-            customerSearch: '', contactId: '', invoiceId: '', invoiceLabel: '' }));
+            customerSearch: '', contactId: '', invoiceId: '', invoiceLabel: '',
+            jobId: '', jobIdFromInvoice: false }));
         setCustomerResults([]);
         if (errors.customerId) setErrors(p => ({ ...p, customerId: undefined }));
         // Load contacts for this customer
@@ -96,8 +105,9 @@ const DeliveryForm = ({ onClose, onSaved }) => {
 
     const clearCustomer = () => {
         setForm(p => ({ ...p, customerId: '', customerName: '', customerSearch: '',
-            contactId: '', invoiceId: '', invoiceLabel: '' }));
+            contactId: '', invoiceId: '', invoiceLabel: '', jobId: '', jobIdFromInvoice: false }));
         setContacts([]);
+        setJobOptions([]);
     };
 
     const selectInvoice = inv => {
@@ -274,7 +284,19 @@ const DeliveryForm = ({ onClose, onSaved }) => {
                                     <span style={{ fontSize: 10, color: '#92400e', background: '#fef3c7', border: '1px solid #fde68a', borderRadius: 4, padding: '2px 6px', whiteSpace: 'nowrap' }}>from invoice</span>
                                 </div>
                             ) : (
-                                <input className="pf-input" type="text" name="jobId" value={form.jobId} onChange={handle} placeholder="Job reference" />
+                                <select className="pf-input" name="jobId" value={form.jobId} onChange={handle}
+                                    disabled={!form.customerId}>
+                                    <option value="">
+                                        {!form.customerId ? '— Select a customer first —'
+                                            : jobOptions.length === 0 ? '— No jobs for this customer —'
+                                            : '— Select job (optional) —'}
+                                    </option>
+                                    {jobOptions.map(j => (
+                                        <option key={j.jobId} value={j.jobId}>
+                                            {j.jobId}{j.projectName ? ` — ${j.projectName}` : ''}
+                                        </option>
+                                    ))}
+                                </select>
                             )}
                         </div>
                     </div>

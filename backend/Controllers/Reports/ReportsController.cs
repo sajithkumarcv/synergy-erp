@@ -1717,5 +1717,65 @@ namespace ERPWEB.Controllers.Reports
                 return StatusCode(500, new { message = "Error loading issue notes." });
             }
         }
+
+        // ── IN-HOUSE STOCK (purchased / issued / on-hand per in-house job) ──────
+        [HttpGet("inhouse-stock")]
+        public async Task<IActionResult> InHouseStock([FromQuery] string? jobId = null)
+        {
+            try
+            {
+                var rows = await _dbcon.QueryAsync<dynamic>("sp_ReportInHouseStock",
+                    new { JobId = string.IsNullOrWhiteSpace(jobId) ? null : jobId.Trim() });
+                var result = (rows ?? Enumerable.Empty<dynamic>()).Select(r => new
+                {
+                    inHouseJobId = (string?)r.InHouseJobId,
+                    projectName  = (string?)r.ProjectName,
+                    budgetHeader = (string?)r.BudgetHeader,
+                    itemId       = (int)r.ItemId,
+                    itemCode     = (string?)r.ItemCode,
+                    itemName     = (string?)r.ItemName,
+                    purchased    = (decimal?)r.Purchased,
+                    issued       = (decimal?)r.Issued,
+                    onHand       = (decimal?)r.OnHand,
+                    onHandValue  = (decimal?)r.OnHandValue,
+                });
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                await _dbcon.WriteLog(ex, controller: "Reports", action: "InHouseStock", requestPath: HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Error loading in-house stock." });
+            }
+        }
+
+        // ── ITEMS ISSUED FROM IN-HOUSE JOBS → a destination fab job ─────────────
+        [HttpGet("issued-from-inhouse")]
+        public async Task<IActionResult> IssuedFromInHouse([FromQuery] string jobId)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(jobId))
+                    return BadRequest(new { message = "jobId (destination job) is required." });
+
+                var rows = await _dbcon.QueryAsync<dynamic>("sp_ReportIssuedFromInHouse", new { JobId = jobId.Trim() });
+                var result = (rows ?? Enumerable.Empty<dynamic>()).Select(r => new
+                {
+                    inHouseJobId   = (string?)r.InHouseJobId,
+                    inHouseJobName = (string?)r.InHouseJobName,
+                    budgetHeader   = (string?)r.BudgetHeader,
+                    itemId         = (int)r.ItemId,
+                    itemCode       = (string?)r.ItemCode,
+                    itemName       = (string?)r.ItemName,
+                    qtyIssued      = (decimal?)r.QtyIssued,
+                    valueIssued    = (decimal?)r.ValueIssued,
+                });
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                await _dbcon.WriteLog(ex, controller: "Reports", action: "IssuedFromInHouse", requestPath: HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Error loading issued-from-in-house report." });
+            }
+        }
     }
 }

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { variables, authHeaders } from '../../Variable';
 import { useCurrentUser } from '../../AuthContext';
+import ConfirmModal from '../../common/ConfirmModal';
 import { fmtDate, fmt, FormSection } from '../procurementConstants';
 import { useLookup } from '../../LookupContext';
 import { usePermission } from '../../PermissionContext';
@@ -432,6 +433,7 @@ const SupplierInvoiceDetailPage = () => {
     const [statusBusy,     setStatusBusy] = useState(false);
     const [showRevise,     setShowRevise] = useState(false);
     const [alertMsg,       setAlertMsg]   = useState(null);
+    const [confirm,        setConfirm]    = useState(null);
     const statusRef = useRef(null);
 
     const load = useCallback(() => {
@@ -474,14 +476,21 @@ const SupplierInvoiceDetailPage = () => {
         finally { setStatusBusy(false); }
     };
 
-    const deleteInvoice = async () => {
-        if (!window.confirm('Delete this draft invoice? This cannot be undone.')) return;
-        try {
-            const res = await fetch(`${variables.API_URL}supplierinvoice/${invoiceId}`, { method: 'DELETE', headers: authHeaders() });
-            const d = await res.json();
-            if (!res.ok) { setAlertMsg(d.message || 'Delete failed.'); return; }
-            navigate('/supplier-invoice');
-        } catch { setAlertMsg('Network error. Please try again.'); }
+    const deleteInvoice = () => {
+        setConfirm({
+            title: 'Delete Invoice',
+            message: 'Delete this draft invoice? This cannot be undone.',
+            confirmLabel: 'Delete',
+            onConfirm: async () => {
+                setConfirm(null);
+                try {
+                    const res = await fetch(`${variables.API_URL}supplierinvoice/${invoiceId}`, { method: 'DELETE', headers: authHeaders() });
+                    const d = await res.json();
+                    if (!res.ok) { setAlertMsg(d.message || 'Delete failed.'); return; }
+                    navigate('/supplier-invoice');
+                } catch { setAlertMsg('Network error. Please try again.'); }
+            },
+        });
     };
 
     // Returns true on success, or an error-message string on failure
@@ -521,6 +530,7 @@ const SupplierInvoiceDetailPage = () => {
 
     return (
         <div className="jd-page">
+            {confirm && <ConfirmModal {...confirm} onClose={() => setConfirm(null)} />}
             {/* ── HEADER ── */}
             <div className="jd-header">
                 <div className="jd-header-left">

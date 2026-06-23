@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { variables, authHeaders } from '../../../Variable';
 import { useCurrentUser } from '../../../AuthContext';
+import ConfirmModal from '../../../common/ConfirmModal';
 import { useLookup } from '../../../LookupContext';
 import { usePermission } from '../../../PermissionContext';
 import { fmt } from '../../inventoryConstants';
@@ -115,6 +116,7 @@ const IssueLinesTab = ({ issue, lines, onRefresh }) => {
     const [deleting,    setDeleting]    = useState(null);
     const [error,       setError]       = useState('');
     const [costLoading, setCostLoading] = useState(false);
+    const [confirm,     setConfirm]     = useState(null);
     // Cost is fetched per BASE uom. The line cost must be expressed in the chosen
     // issue UOM: cost/ROLL = cost/MTR × (MTR per ROLL). So unitCost = baseCost ×
     // conversion factor for the selected UOM (factor 1 when issuing in base UOM).
@@ -269,18 +271,25 @@ const IssueLinesTab = ({ issue, lines, onRefresh }) => {
             .finally(() => setSaving(false));
     };
 
-    const deleteLine = async (lineId) => {
-        if (!window.confirm('Delete this line?')) return;
-        setDeleting(lineId);
-        try {
-            const res = await fetch(
-                `${variables.API_URL}stockissue/line/${lineId}?modifiedBy=${encodeURIComponent(currentUser)}`,
-                { method: 'DELETE', headers: authHeaders() }
-            );
-            if (!res.ok) { const d = await res.json(); setError(d?.message || 'Failed to delete line.'); return; }
-            onRefresh();
-        } catch { setError('Network error. Please try again.'); }
-        finally { setDeleting(null); }
+    const deleteLine = (lineId) => {
+        setConfirm({
+            title: 'Delete Line',
+            message: 'Delete this line?',
+            confirmLabel: 'Delete',
+            onConfirm: async () => {
+                setConfirm(null);
+                setDeleting(lineId);
+                try {
+                    const res = await fetch(
+                        `${variables.API_URL}stockissue/line/${lineId}?modifiedBy=${encodeURIComponent(currentUser)}`,
+                        { method: 'DELETE', headers: authHeaders() }
+                    );
+                    if (!res.ok) { const d = await res.json(); setError(d?.message || 'Failed to delete line.'); return; }
+                    onRefresh();
+                } catch { setError('Network error. Please try again.'); }
+                finally { setDeleting(null); }
+            },
+        });
     };
 
     const grandTotal = lines.reduce((s, l) => s + (l.qty || 0) * (l.unitCost || 0), 0);
@@ -292,6 +301,7 @@ const IssueLinesTab = ({ issue, lines, onRefresh }) => {
 
     return (
         <div>
+            {confirm && <ConfirmModal {...confirm} onClose={() => setConfirm(null)} />}
             {/* Costing mode information banner */}
             <div style={{ margin: '0 0 0 0', padding: '8px 14px', background: modeBanner.bg, borderBottom: `1px solid ${modeBanner.border}`, fontSize: 12, color: modeBanner.color, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span>{modeBanner.icon}</span> <strong>{issue.costingType === 'EXC_COSTING' ? 'Not Include in Costing' : 'Include in Costing'}:</strong> {modeBanner.text}

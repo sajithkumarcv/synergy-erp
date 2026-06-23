@@ -8,6 +8,7 @@ import { useLookup } from '../LookupContext';
 import ApprovalHistoryTab   from '../approval/ApprovalHistoryTab';
 import ApprovalStatusBanner from '../approval/ApprovalStatusBanner';
 import VoucherPrintModal    from '../common/VoucherPrintModal';
+import ConfirmModal from '../common/ConfirmModal';
 import '../jobs/JobDetail.css';
 import '../procurement/Procurement.css';
 
@@ -399,6 +400,7 @@ const DebitNoteDetail = () => {
     const [showRevise, setShowRevise] = useState(false);
     const [showCancel, setShowCancel] = useState(false);
     const [showPrint,  setShowPrint]  = useState(false);
+    const [confirm,    setConfirm]    = useState(null);
 
     const load = useCallback(() => {
         setLoading(true); setError(null);
@@ -411,19 +413,26 @@ const DebitNoteDetail = () => {
 
     useEffect(() => { load(); }, [load]);
 
-    const deleteDn = async () => {
-        if (!window.confirm('Delete this Draft debit note? This cannot be undone.')) return;
-        setBusy(true);
-        try {
-            const res = await fetch(
-                `${variables.API_URL}debitnote/${id}?modifiedBy=${encodeURIComponent(currentUser)}`,
-                { method: 'DELETE', headers: authHeaders() }
-            );
-            const d = await res.json().catch(() => ({}));
-            if (!res.ok) { setBanner(`✕ ${d?.message || 'Delete failed.'}`); return; }
-            navigate('/debit-notes');
-        } catch { setBanner('✕ Network error.'); }
-        finally { setBusy(false); }
+    const deleteDn = () => {
+        setConfirm({
+            title: 'Delete Debit Note',
+            message: 'Delete this Draft debit note? This cannot be undone.',
+            confirmLabel: 'Delete',
+            onConfirm: async () => {
+                setConfirm(null);
+                setBusy(true);
+                try {
+                    const res = await fetch(
+                        `${variables.API_URL}debitnote/${id}?modifiedBy=${encodeURIComponent(currentUser)}`,
+                        { method: 'DELETE', headers: authHeaders() }
+                    );
+                    const d = await res.json().catch(() => ({}));
+                    if (!res.ok) { setBanner(`✕ ${d?.message || 'Delete failed.'}`); return; }
+                    navigate('/debit-notes');
+                } catch { setBanner('✕ Network error.'); }
+                finally { setBusy(false); }
+            },
+        });
     };
 
     const handleRevise = async (reason, password) => {
@@ -502,6 +511,7 @@ const DebitNoteDetail = () => {
 
     return (
         <div className="jd-page">
+            {confirm && <ConfirmModal {...confirm} onClose={() => setConfirm(null)} />}
 
             {/* HEADER */}
             <div className="jd-header">

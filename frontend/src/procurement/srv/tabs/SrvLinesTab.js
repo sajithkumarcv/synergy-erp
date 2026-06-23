@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { variables, authHeaders } from '../../../Variable';
 import { useCurrentUser } from '../../../AuthContext';
+import ConfirmModal from '../../../common/ConfirmModal';
 import { useLookup } from '../../../LookupContext';
 import { fmt } from '../../procurementConstants';
 import { useFieldConfig } from '../../../FieldConfigContext';
@@ -253,6 +254,7 @@ const SrvLinesTab = ({ srv, onRefresh }) => {
     const [saving,     setSaving]     = useState(false);
     const [deleting,   setDeleting]   = useState(null);
     const [error,      setError]      = useState('');
+    const [confirm,    setConfirm]    = useState(null);
 
     const canEdit = srv.status === 'Draft';
 
@@ -312,15 +314,22 @@ const SrvLinesTab = ({ srv, onRefresh }) => {
         finally { setSaving(false); }
     };
 
-    const deleteLine = async (id) => {
-        if (!window.confirm('Delete this line?')) return;
-        setDeleting(id);
-        try {
-            const res = await fetch(`${variables.API_URL}servicereceipt/lines/${id}`, { method: 'DELETE', headers: authHeaders() });
-            if (!res.ok) { const d = await res.json(); setError(d?.message || 'Failed to delete line.'); return; }
-            loadLines(); onRefresh();
-        } catch { setError('Network error. Please try again.'); }
-        finally { setDeleting(null); }
+    const deleteLine = (id) => {
+        setConfirm({
+            title: 'Delete Line',
+            message: 'Delete this line?',
+            confirmLabel: 'Delete',
+            onConfirm: async () => {
+                setConfirm(null);
+                setDeleting(id);
+                try {
+                    const res = await fetch(`${variables.API_URL}servicereceipt/lines/${id}`, { method: 'DELETE', headers: authHeaders() });
+                    if (!res.ok) { const d = await res.json(); setError(d?.message || 'Failed to delete line.'); return; }
+                    loadLines(); onRefresh();
+                } catch { setError('Network error. Please try again.'); }
+                finally { setDeleting(null); }
+            },
+        });
     };
 
     const handleImported = () => { setShowImport(false); loadLines(); onRefresh(); };
@@ -329,6 +338,7 @@ const SrvLinesTab = ({ srv, onRefresh }) => {
 
     return (
         <div>
+            {confirm && <ConfirmModal {...confirm} onClose={() => setConfirm(null)} />}
             {showImport && srv.poId && <PoImportModal srv={srv} onClose={() => setShowImport(false)} onImported={handleImported} />}
 
             <div className="prd-lines-wrap">

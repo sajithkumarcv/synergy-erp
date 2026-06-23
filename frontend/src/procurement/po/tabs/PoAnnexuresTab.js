@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { variables, authHeaders } from '../../../Variable';
 import { useCurrentUser } from '../../../AuthContext';
 import { usePermission } from '../../../PermissionContext';
+import ConfirmModal from '../../../common/ConfirmModal';
 
 // ── Annexures tab ─────────────────────────────────────────────────────────────
 // Multi-page typed specification documents attached to a PO. Each annexure is
@@ -19,6 +20,7 @@ const PoAnnexuresTab = ({ po, onRefresh }) => {
     const [loading,   setLoading]   = useState(true);
     const [err,       setErr]       = useState('');
     const [expanded,  setExpanded]  = useState({});   // annexureId → bool
+    const [confirm,   setConfirm]   = useState(null);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -83,12 +85,19 @@ const PoAnnexuresTab = ({ po, onRefresh }) => {
         });
     };
 
-    const deleteAnnexure = async (a) => {
-        if (!window.confirm(`Delete Annexure-${a.annexureCode}?`)) return;
-        await fetch(`${variables.API_URL}purchaseorder/annexure/${a.annexureId}?modifiedBy=${encodeURIComponent(currentUser)}`, {
-            method: 'DELETE', headers: authHeaders(),
+    const deleteAnnexure = (a) => {
+        setConfirm({
+            title: 'Delete Annexure',
+            message: `Delete Annexure-${a.annexureCode}?`,
+            confirmLabel: 'Delete',
+            onConfirm: async () => {
+                setConfirm(null);
+                await fetch(`${variables.API_URL}purchaseorder/annexure/${a.annexureId}?modifiedBy=${encodeURIComponent(currentUser)}`, {
+                    method: 'DELETE', headers: authHeaders(),
+                });
+                load();
+            },
         });
-        load();
     };
 
     const addRow = async (a) => {
@@ -139,6 +148,7 @@ const PoAnnexuresTab = ({ po, onRefresh }) => {
 
     return (
         <div className="jd-tab-body">
+            {confirm && <ConfirmModal {...confirm} onClose={() => setConfirm(null)} />}
             {err && <div style={{ padding: '10px 14px', background: '#fee2e2', border: '1px solid #fecaca', color: '#991b1b', borderRadius: 6, marginBottom: 12, fontSize: 13 }}>⚠ {err}</div>}
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>

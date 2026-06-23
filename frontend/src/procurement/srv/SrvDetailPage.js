@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { variables, authHeaders } from '../../Variable';
 import { useCurrentUser } from '../../AuthContext';
+import ConfirmModal from '../../common/ConfirmModal';
 import { useLookup } from '../../LookupContext';
 import { usePermission } from '../../PermissionContext';
 import { fmtDate, fmt, SRV_TABS, statusBadgeCfg } from '../procurementConstants';
@@ -37,6 +38,7 @@ const SrvDetailPage = () => {
 
     const [linesCount, setLinesCount] = useState(null);
     const [alertMsg,   setAlertMsg]   = useState(null);
+    const [confirm,    setConfirm]    = useState(null);
 
     const load = useCallback(() => {
         setLoading(true);
@@ -78,19 +80,27 @@ const SrvDetailPage = () => {
             return;
         }
 
-        if (!window.confirm(`${newStatus === 'Confirmed' ? 'Confirm' : newStatus} this Service Receipt?`)) return;
-        setActionError('');
-        setActBusy(true);
-        try {
-            const res = await fetch(`${variables.API_URL}servicereceipt/${id}/status`, {
-                method: 'POST', headers: authHeaders(),
-                body: JSON.stringify({ status: newStatus, changedBy: currentUser }),
-            });
-            const d = await res.json().catch(() => ({}));
-            if (!res.ok) { setActionError(d?.message || `Status change failed (HTTP ${res.status}).`); return; }
-            load();
-        } catch (e) { setActionError(`Network error — ${e?.message || 'could not reach the server.'}`); }
-        finally { setActBusy(false); }
+        const actionLabel = newStatus === 'Confirmed' ? 'Confirm' : newStatus;
+        setConfirm({
+            title: `${actionLabel} Service Receipt`,
+            message: `${actionLabel} this Service Receipt?`,
+            confirmLabel: actionLabel,
+            onConfirm: async () => {
+                setConfirm(null);
+                setActionError('');
+                setActBusy(true);
+                try {
+                    const res = await fetch(`${variables.API_URL}servicereceipt/${id}/status`, {
+                        method: 'POST', headers: authHeaders(),
+                        body: JSON.stringify({ status: newStatus, changedBy: currentUser }),
+                    });
+                    const d = await res.json().catch(() => ({}));
+                    if (!res.ok) { setActionError(d?.message || `Status change failed (HTTP ${res.status}).`); return; }
+                    load();
+                } catch (e) { setActionError(`Network error — ${e?.message || 'could not reach the server.'}`); }
+                finally { setActBusy(false); }
+            },
+        });
     };
 
     if (loading) return (
@@ -114,6 +124,7 @@ const SrvDetailPage = () => {
 
     return (
         <div className="jd-page">
+            {confirm && <ConfirmModal {...confirm} onClose={() => setConfirm(null)} />}
 
             {/* ── HEADER ── */}
             <div className="jd-header">

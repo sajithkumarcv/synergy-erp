@@ -433,10 +433,10 @@ const UomTab = ({ itemId }) => {
 // ─────────────────────────────────────────────────────────────
 // EDIT SLIDE-OVER
 // ─────────────────────────────────────────────────────────────
-const ItemEditSlideOver = ({ item, categories, itemTypes, uoms, onClose, onSaved }) => {
+const ItemEditSlideOver = ({ item, categories, itemTypes, uoms, budgetCategories = [], onClose, onSaved }) => {
   const currentUser = useCurrentUser();
   const { isReq: isReqItem } = useFieldConfig('ITEM');
-  const [form,   setForm]   = useState({ ...item, categoryId: item.categoryId ?? '', itemTypeId: item.itemTypeId ?? '', baseUomId: item.baseUomId ?? '', purchaseUomId: item.purchaseUomId ?? '', salesUomId: item.salesUomId ?? '' });
+  const [form,   setForm]   = useState({ ...item, categoryId: item.categoryId ?? '', itemTypeId: item.itemTypeId ?? '', baseUomId: item.baseUomId ?? '', purchaseUomId: item.purchaseUomId ?? '', salesUomId: item.salesUomId ?? '', budgetCategoryId: item.budgetCategoryId ?? '' });
   const [saving, setSaving] = useState(false);
   const [alertMsg, setAlertMsg] = useState(null);
   const handle = (e) => { const { name, value, type, checked } = e.target; setForm(p => ({ ...p, [name]: type === 'checkbox' ? checked : value })); };
@@ -467,7 +467,7 @@ const ItemEditSlideOver = ({ item, categories, itemTypes, uoms, onClose, onSaved
     try {
       const res = await fetch(`${variables.API_URL}item/save`, {
         method: 'POST', headers: authHeaders(),
-        body: JSON.stringify({ ...form, categoryId: form.categoryId ? Number(form.categoryId) : null, itemTypeId: form.itemTypeId ? Number(form.itemTypeId) : null, baseUomId: form.baseUomId ? Number(form.baseUomId) : null, purchaseUomId: form.purchaseUomId ? Number(form.purchaseUomId) : null, salesUomId: form.salesUomId ? Number(form.salesUomId) : null, modifiedBy: currentUser })
+        body: JSON.stringify({ ...form, categoryId: form.categoryId ? Number(form.categoryId) : null, itemTypeId: form.itemTypeId ? Number(form.itemTypeId) : null, baseUomId: form.baseUomId ? Number(form.baseUomId) : null, purchaseUomId: form.purchaseUomId ? Number(form.purchaseUomId) : null, salesUomId: form.salesUomId ? Number(form.salesUomId) : null, budgetCategoryId: form.budgetCategoryId ? Number(form.budgetCategoryId) : null, modifiedBy: currentUser })
       });
       const d = await res.json();
       if (!res.ok) { setAlertMsg(d?.message || 'Failed to save item.'); return; }
@@ -501,6 +501,9 @@ const ItemEditSlideOver = ({ item, categories, itemTypes, uoms, onClose, onSaved
             <div className="jf-field"><label>Item Type <span className="req">*</span></label><select name="itemTypeId" className="jf-input" value={form.itemTypeId} onChange={handle}><option value="">-- Select --</option>{itemTypes.map(t => <option key={t.itemTypeId} value={t.itemTypeId}>{t.typeName}</option>)}</select></div>
             <div className="jf-field"><label>Category</label><select className="jf-input" value={parentCatId} onChange={handleParentCat}><option value="">-- Select --</option>{parentCats.map(c => <option key={c.categoryId} value={c.categoryId}>{c.categoryName}</option>)}</select></div>
             <div className="jf-field"><label>Sub-Category</label><select name="categoryId" className="jf-input" value={form.categoryId} onChange={handle} disabled={!parentCatId || subCats.length === 0}><option value="">{!parentCatId ? '— select category first —' : subCats.length === 0 ? '— no sub-categories —' : '-- Select --'}</option>{subCats.map(c => <option key={c.categoryId} value={c.categoryId}>{c.categoryName}</option>)}</select></div>
+          </div>
+          <div className="jf-row">
+            <div className="jf-field"><label>Budget Header</label><select name="budgetCategoryId" className="jf-input" value={form.budgetCategoryId} onChange={handle}><option value="">-- Select --</option>{budgetCategories.map(b => <option key={b.id} value={b.id}>{b.code ? `${b.code} — ` : ''}{b.name}</option>)}</select></div>
           </div>
           <Sec label="Units of Measure" />
           <div className="jf-row">
@@ -542,6 +545,7 @@ const ItemDetailPage = () => {
   const [categories,  setCategories]= useState([]);
   const [itemTypes,   setItemTypes] = useState([]);
   const [uoms,        setUoms]      = useState([]);
+  const [budgetCategories, setBudgetCategories] = useState([]);
   const [showEdit,    setShowEdit]  = useState(false);
 
   const loadItem = useCallback(() => {
@@ -558,6 +562,7 @@ const ItemDetailPage = () => {
     fetch(`${variables.API_URL}item/types`,      { headers: authHeaders() }).then(r => r.json()).then(d => setItemTypes(Array.isArray(d)  ? d : [])).catch(console.error);
     fetch(`${variables.API_URL}item/categories`, { headers: authHeaders() }).then(r => r.json()).then(d => setCategories(Array.isArray(d) ? d : [])).catch(console.error);
     fetch(`${variables.API_URL}item/uoms`,       { headers: authHeaders() }).then(r => r.json()).then(d => setUoms(Array.isArray(d)       ? d : [])).catch(console.error);
+    fetch(`${variables.API_URL}Lookup/budgetcategories`, { headers: authHeaders() }).then(r => r.json()).then(d => setBudgetCategories(Array.isArray(d) ? d : [])).catch(console.error);
   }, []);
 
   const renderTab = () => {
@@ -639,7 +644,7 @@ const ItemDetailPage = () => {
       {/* EDIT SLIDE-OVER */}
       {showEdit && (
         <ItemEditSlideOver
-          item={item} categories={categories} itemTypes={itemTypes} uoms={uoms}
+          item={item} categories={categories} itemTypes={itemTypes} uoms={uoms} budgetCategories={budgetCategories}
           onClose={() => setShowEdit(false)}
           onSaved={() => { setShowEdit(false); loadItem(); }}
         />

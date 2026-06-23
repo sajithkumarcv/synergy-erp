@@ -10,6 +10,8 @@ namespace ERPWEB.Models.Finance
         public int      CustomerId        { get; set; }
         public string?  CustomerName      { get; set; }
         public string?  JobId             { get; set; }
+        public string?  JobDescription    { get; set; }
+        public string?  JobTitle          { get; set; }
         public string?  DeliveryAddress   { get; set; }
         public int?     ContactId             { get; set; }
         public string?  ContactName           { get; set; }
@@ -59,6 +61,13 @@ namespace ERPWEB.Models.Finance
         public string?  LpoNo        { get; set; }
         public decimal? TotalAmount  { get; set; }
         public string   Status       { get; set; } = string.Empty;
+    }
+
+    public class JobForDelivery
+    {
+        public string    JobId       { get; set; } = string.Empty;
+        public string?   ProjectName { get; set; }
+        public DateTime? JobDate     { get; set; }
     }
 
     public class InvoiceLineForDelivery

@@ -238,6 +238,23 @@ namespace ERPWEB.Controllers.Finance
             }
         }
 
+        // ── JOBS FOR CUSTOMER ─────────────────────────────────────────────────
+        [HttpGet("jobs/{customerId:int}")]
+        public async Task<IActionResult> GetJobsForCustomer(int customerId)
+        {
+            try
+            {
+                var rows = await _dbcon.QueryAsync<JobForDelivery>("sp_GetJobsForCustomer",
+                    new { CustomerId = customerId });
+                return Ok(rows?.ToList() ?? new List<JobForDelivery>());
+            }
+            catch (Exception ex)
+            {
+                await _dbcon.WriteLog(ex, controller: "Delivery", action: "GetJobsForCustomer", requestPath: HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Error fetching jobs." });
+            }
+        }
+
         // ── INVOICE LINES FOR DELIVERY ────────────────────────────────────────
         [HttpGet("invoicelines/{invoiceId:int}")]
         public async Task<IActionResult> GetInvoiceLinesForDelivery(int invoiceId)

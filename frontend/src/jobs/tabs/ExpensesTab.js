@@ -7,6 +7,7 @@ import { STATUS, canEdit, fmt, fmtDate } from '../jobConstants';
 import { useFieldConfig } from '../../FieldConfigContext';
 import { usePermission } from '../../PermissionContext';
 import AlertModal from '../../common/AlertModal';
+import FinancialGuardModal from '../../common/FinancialGuardModal';
 
 const ExpensesTab = ({ job, onRefresh }) => {
     const currentUser     = useCurrentUser();
@@ -18,7 +19,6 @@ const ExpensesTab = ({ job, onRefresh }) => {
     const [expenses,   setExpenses]   = useState([]);
     const [categories, setCategories] = useState([]);
     const [form,       setForm]       = useState(null);
-    const [saving,     setSaving]     = useState(false);
     const [loading,    setLoading]    = useState(true);
     const [alertMsg,   setAlertMsg]   = useState(null);
 
@@ -31,6 +31,11 @@ const ExpensesTab = ({ job, onRefresh }) => {
     const [deleteTarget, setDeleteTarget] = useState(null);  // expense object | null
     const [deleting,     setDeleting]     = useState(false);
     const [deleteError,  setDeleteError]  = useState('');
+
+    // ── Financial-edit guard (save) ───────────────────────────────
+    const [saveGuard,    setSaveGuard]    = useState(false);
+    const [saveBusy,     setSaveBusy]     = useState(false);
+    const [saveGuardErr, setSaveGuardErr] = useState('');
 
     const editable      = canEdit(job?.jobStatusId);
     const canApprove    = canDo('/jobs', 'APPROVE_EXPENSE');
@@ -86,12 +91,17 @@ const ExpensesTab = ({ job, onRefresh }) => {
         }
     };
 
-    const save = async () => {
+    // Editing/adding an expense changes job financials → gated by password + reason.
+    const save = () => {
         if (!form.expenseCategoryId) { setAlertMsg('Category is required.'); return; }
         if (!form.expenseAmount || Number(form.expenseAmount) === 0) { setAlertMsg('Amount cannot be zero.'); return; }
         if (!form.exchangeRate || isNaN(Number(form.exchangeRate)) || Number(form.exchangeRate) <= 0)
             { setAlertMsg('Exchange rate must be a number greater than 0.'); return; }
-        setSaving(true);
+        setSaveGuardErr(''); setSaveGuard(true);
+    };
+
+    const runSave = async (password, reason) => {
+        setSaveBusy(true); setSaveGuardErr('');
         const isEdit = form.expenseId > 0;
         try {
             const res = await fetch(`${variables.API_URL}job/${encodeURIComponent(job.jobId)}/expenses`, {
@@ -103,13 +113,15 @@ const ExpensesTab = ({ job, onRefresh }) => {
                     currencyId:        form.currencyId ? Number(form.currencyId) : null,
                     exchangeRate:      Number(form.exchangeRate),
                     modifiedBy:        isEdit ? currentUser : null,
+                    createdBy:         currentUser,
+                    password, reason,
                 })
             });
-            const d = await res.json();
-            if (!res.ok) { setAlertMsg(d?.message || 'Failed to save expense.'); return; }
-            load(); setForm(null); if (onRefresh) onRefresh();
-        } catch { setAlertMsg('Network error. Please try again.'); }
-        finally { setSaving(false); }
+            const d = await res.json().catch(() => ({}));
+            if (!res.ok) { setSaveGuardErr(d?.message || 'Failed to save expense.'); return; }
+            setSaveGuard(false); load(); setForm(null); if (onRefresh) onRefresh();
+        } catch { setSaveGuardErr('Network error. Please try again.'); }
+        finally { setSaveBusy(false); }
     };
 
     const confirmApprove = async () => {
@@ -134,17 +146,18 @@ const ExpensesTab = ({ job, onRefresh }) => {
         } finally { setApproving(false); }
     };
 
-    const confirmDelete = async () => {
+    const confirmDelete = async (password, reason) => {
         if (!deleteTarget) return;
         setDeleting(true);
         setDeleteError('');
         try {
+            const qs = `modifiedBy=${encodeURIComponent(currentUser)}&password=${encodeURIComponent(password)}&reason=${encodeURIComponent(reason)}`;
             const res = await fetch(
-                `${variables.API_URL}job/${encodeURIComponent(job.jobId)}/expenses/${deleteTarget.expenseId}`,
+                `${variables.API_URL}job/${encodeURIComponent(job.jobId)}/expenses/${deleteTarget.expenseId}?${qs}`,
                 { method: 'DELETE', headers: authHeaders() }
             );
             if (!res.ok) {
-                const d = await res.json();
+                const d = await res.json().catch(() => ({}));
                 setDeleteError(d?.message || 'Failed to delete expense.');
                 return;
             }
@@ -257,8 +270,8 @@ const ExpensesTab = ({ job, onRefresh }) => {
                     </div>
                     <div className="tab-form-actions">
                         <button className="tab-btn-sec" onClick={() => setForm(null)}>Cancel</button>
-                        <button className={form.expenseId > 0 ? 'tab-btn-amber' : 'tab-btn-pri'} onClick={save} disabled={saving}>
-                            {saving ? 'Saving…' : (form.expenseId > 0 ? 'Update Expense' : 'Save Expense')}
+                        <button className={form.expenseId > 0 ? 'tab-btn-amber' : 'tab-btn-pri'} onClick={save} disabled={saveBusy}>
+                            {form.expenseId > 0 ? 'Update Expense' : 'Save Expense'}
                         </button>
                     </div>
                 </div>
@@ -458,104 +471,25 @@ const ExpensesTab = ({ job, onRefresh }) => {
         )}
 
         {/* ── Delete confirmation modal ── */}
-        {deleteTarget && ReactDOM.createPortal(
-            <div style={{
-                position: 'fixed', inset: 0, zIndex: 9999,
-                background: 'rgba(15,23,42,0.45)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}
-                onMouseDown={e => { e.currentTarget.dataset.md = e.target === e.currentTarget ? '1' : '0'; }}
-                onClick={e => { if (e.currentTarget.dataset.md === '1' && e.target === e.currentTarget && !deleting) setDeleteTarget(null); }}>
-                <div style={{
-                    background: '#fff', borderRadius: 12, padding: '28px 32px',
-                    minWidth: 380, maxWidth: 460, width: '90%',
-                    boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
-                    display: 'flex', flexDirection: 'column', gap: 16,
-                }}>
-                    {/* Header */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <span style={{ fontSize: 22 }}>🗑️</span>
-                        <span style={{ fontWeight: 700, fontSize: 16, color: '#0f172a' }}>Delete Expense?</span>
-                    </div>
-
-                    {/* Expense details */}
-                    <div style={{
-                        background: '#fef2f2', borderRadius: 8,
-                        border: '1px solid #fecaca', padding: '14px 16px',
-                        display: 'flex', flexDirection: 'column', gap: 7, fontSize: 13,
-                    }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span style={{ color: '#64748b' }}>Date</span>
-                            <span style={{ fontWeight: 600 }}>{fmtDate(deleteTarget.expenseDate)}</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span style={{ color: '#64748b' }}>Category</span>
-                            <span style={{ fontWeight: 600 }}>{deleteTarget.categoryName}</span>
-                        </div>
-                        {deleteTarget.expenseDescription && (
-                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}>
-                                <span style={{ color: '#64748b', flexShrink: 0 }}>Description</span>
-                                <span style={{ textAlign: 'right' }}>{deleteTarget.expenseDescription}</span>
-                            </div>
-                        )}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 6, borderTop: '1px solid #fecaca', marginTop: 2 }}>
-                            <span style={{ color: '#64748b' }}>Amount</span>
-                            <span style={{ fontWeight: 700, fontSize: 15, color: '#991b1b' }}>
-                                {fmt(deleteTarget.expenseAmount)} {deleteTarget.currencyName || ''}
-                            </span>
-                        </div>
-                    </div>
-
-                    <p style={{ margin: 0, fontSize: 13, color: '#475569' }}>
-                        The record will be removed from this job. This cannot be undone.
-                    </p>
-
-                    {/* Error */}
-                    {deleteError && (
-                        <div style={{
-                            background: '#fef2f2', border: '1px solid #fca5a5',
-                            borderRadius: 6, padding: '8px 12px', fontSize: 12, color: '#b91c1c',
-                        }}>
-                            {deleteError}
-                        </div>
-                    )}
-
-                    {/* Buttons */}
-                    <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 4 }}>
-                        <button
-                            onClick={() => { setDeleteTarget(null); setDeleteError(''); }}
-                            disabled={deleting}
-                            style={{
-                                padding: '8px 20px', borderRadius: 7, border: '1px solid #cbd5e1',
-                                background: '#fff', color: '#374151', cursor: 'pointer', fontSize: 13, fontWeight: 500,
-                            }}>
-                            Cancel
-                        </button>
-                        <button
-                            onClick={confirmDelete}
-                            disabled={deleting}
-                            style={{
-                                padding: '8px 22px', borderRadius: 7, border: 'none',
-                                background: deleting ? '#fca5a5' : '#ef4444',
-                                color: '#fff', cursor: deleting ? 'default' : 'pointer',
-                                fontSize: 13, fontWeight: 600,
-                                display: 'flex', alignItems: 'center', gap: 6,
-                            }}>
-                            {deleting ? (
-                                <>
-                                    <span style={{
-                                        width: 13, height: 13, border: '2px solid rgba(255,255,255,0.4)',
-                                        borderTopColor: '#fff', borderRadius: '50%',
-                                        display: 'inline-block', animation: 'spin 0.7s linear infinite',
-                                    }} />
-                                    Deleting…
-                                </>
-                            ) : '🗑 Confirm Delete'}
-                        </button>
-                    </div>
-                </div>
-            </div>,
-            document.body
+        {deleteTarget && (
+            <FinancialGuardModal
+                title="Delete expense"
+                message={`Removing ${fmt(deleteTarget.expenseAmount)} ${deleteTarget.currencyName || ''} — ${deleteTarget.categoryName}${deleteTarget.expenseDescription ? ` (${deleteTarget.expenseDescription})` : ''} changes the job financials. Enter the budget password and a reason — both are recorded in the job audit.`}
+                busy={deleting}
+                error={deleteError}
+                onCancel={() => { if (!deleting) { setDeleteTarget(null); setDeleteError(''); } }}
+                onConfirm={confirmDelete}
+            />
+        )}
+        {saveGuard && (
+            <FinancialGuardModal
+                title={form?.expenseId > 0 ? 'Confirm expense change' : 'Confirm new expense'}
+                message="This changes the job financials. Enter the budget password and a reason — both are recorded in the job audit."
+                busy={saveBusy}
+                error={saveGuardErr}
+                onCancel={() => { if (!saveBusy) { setSaveGuard(false); setSaveGuardErr(''); } }}
+                onConfirm={runSave}
+            />
         )}
         {alertMsg && <AlertModal message={alertMsg} onClose={() => setAlertMsg(null)} />}
         </div>

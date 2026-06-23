@@ -1,7 +1,7 @@
 import React from 'react';
 import { fmtDate, fmtDateTime } from './deliveryConstants';
 import useOwnerCompany from '../hooks/useOwnerCompany';
-import { CompanyHeaderBand } from '../components/print/PrintCompanyHeader';
+import { CompanyHeaderBand, DraftWatermark, PreviewBanner } from '../components/print/PrintCompanyHeader';
 import { openPrintWindow } from '../utils/printWindow';
 import '../procurement/po/PoPrint.css';
 
@@ -10,8 +10,13 @@ const dash = (v) => (v != null && v !== '') ? v : '—';
 const DeliveryPrintModal = ({ delivery, lines = [], onClose }) => {
     const { company, loading: coLoading } = useOwnerCompany();
 
+    // Until the note is Dispatched (or Delivered) it is only a preview — not a
+    // valid carrier copy. Print it watermarked, like a Draft PO.
+    const preview = !['Dispatched', 'Delivered'].includes(delivery.status);
+
     const handleBackdrop = (e) => { if (e.target === e.currentTarget) onClose(); };
-    const handlePrint    = () => openPrintWindow('.po-print-doc', `Delivery Note - ${delivery.deliveryNo}`);
+    const handlePrint    = () => openPrintWindow('.po-print-doc',
+        `Delivery Note${preview ? ' (DRAFT)' : ''} - ${delivery.deliveryNo}`);
 
     const hasConsignee = delivery.consignee || delivery.consigneeAddress ||
                          delivery.consigneeLpoNo || delivery.consigneeTrn;
@@ -35,8 +40,11 @@ const DeliveryPrintModal = ({ delivery, lines = [], onClose }) => {
             {/* ── A4 Document ── */}
             <div className="po-print-doc" style={{ display: 'flex', flexDirection: 'column' }}>
 
+                {preview && <DraftWatermark />}
+                {preview && <PreviewBanner text="PREVIEW ONLY — NOT VALID FOR DISPATCH · NOT A CARRIER COPY" />}
+
                 {/* 1. Company Header */}
-                <CompanyHeaderBand company={company} loading={coLoading} />
+                <CompanyHeaderBand company={company} loading={coLoading} hideLogo={preview} nameOnly={preview} />
 
                 {/* 2. Document title band */}
                 <div style={{ display: 'flex', justifyContent: 'space-between',
@@ -332,6 +340,8 @@ const DeliveryPrintModal = ({ delivery, lines = [], onClose }) => {
                         <div className="pop-sig-sub">Name / Signature &amp; Date</div>
                     </div>
                 </div>
+
+                {preview && <PreviewBanner text="PREVIEW ONLY — NOT VALID FOR DISPATCH · NOT A CARRIER COPY" />}
 
                 <div className="pop-print-footer-note">
                     This is a computer-generated delivery note.

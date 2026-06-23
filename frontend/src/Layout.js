@@ -18,6 +18,7 @@ import SupplierList       from './supplier/SupplierList';
 import SupplierDetailPage from './supplier/SupplierDetailPage';
 import { Job } from './jobs/Job';
 import JobDetailPage from './jobs/JobDetailPage';
+import JobBudgetPage from './jobs/JobBudgetPage';
 import JobOverview  from './jobs/JobOverview';
 import JobAnalysis  from './jobs/JobAnalysis';
 import { Item } from './items/Item';
@@ -39,6 +40,8 @@ import { Rtv } from './procurement/rtv/Rtv';
 import RtvDetailPage from './procurement/rtv/RtvDetailPage';
 import { Srv } from './procurement/srv/Srv';
 import SrvDetailPage from './procurement/srv/SrvDetailPage';
+import { Subcontract } from './procurement/subcontract/Subcontract';
+import SubcontractDetailPage from './procurement/subcontract/SubcontractDetailPage';
 import DocumentSeries       from './settings/DocumentSeries';
 import DocumentStatus       from './settings/DocumentStatus';
 import BudgetPassword          from './settings/BudgetPassword';
@@ -57,6 +60,8 @@ import { Adjustment } from './inventory/adjustment/Adjustment';
 import AdjustmentDetailPage from './inventory/adjustment/AdjustmentDetailPage';
 import StockBalance from './inventory/balance/StockBalance';
 import StockByJob   from './inventory/stockbyjob/StockByJob';
+import StockTransfer           from './inventory/transfer/StockTransfer';
+import StockTransferDetailPage from './inventory/transfer/StockTransferDetailPage';
 import ItemPriceAnalysis from './inventory/priceanalysis/ItemPriceAnalysis';
 import StockAlerts  from './inventory/alerts/StockAlerts';
 import { Invoice } from './invoice/Invoice';
@@ -89,6 +94,7 @@ import PoReport             from './reports/PoReport';
 import InventoryGrnReport   from './reports/InventoryGrnReport';
 import StockBalanceReport   from './reports/StockBalanceReport';
 import StockAdjustmentReport from './reports/StockAdjustmentReport';
+import InHouseStockReport    from './reports/InHouseStockReport';
 import SupplierInvoiceReport from './reports/SupplierInvoiceReport';
 import PaymentVoucherReport  from './reports/PaymentVoucherReport';
 import ManhourReport         from './reports/ManhourReport';
@@ -637,7 +643,8 @@ const Layout = () => {
             <Route path="/suppliers"          element={<SupplierList />} />
             <Route path="/suppliers/:supplierId" element={<SupplierDetailPage />} />
             <Route path="/jobs"             element={<Job />} />
-            <Route path="/jobs/:jobId"      element={<JobDetailPage />} />
+            <Route path="/jobs/:jobId"        element={<JobDetailPage />} />
+            <Route path="/jobs/:jobId/budget" element={<JobBudgetPage />} />
             <Route path="/job-overview"     element={<JobOverview />} />
             <Route path="/job-analysis"     element={<JobAnalysis />} />
             <Route path="/job-mom"          element={<JobMom />} />
@@ -658,6 +665,8 @@ const Layout = () => {
             <Route path="/rtv/:rtvId"                 element={<RtvDetailPage />} />
             <Route path="/service-receipts"           element={<Srv />} />
             <Route path="/service-receipts/:id"       element={<SrvDetailPage />} />
+            <Route path="/subcontracts"               element={<Subcontract />} />
+            <Route path="/subcontracts/:id"           element={<SubcontractDetailPage />} />
             <Route path="/settings/document-series"   element={<DocumentSeries />} />
             <Route path="/settings/document-status"   element={<DocumentStatus />} />
             <Route path="/settings/budget-password"          element={<BudgetPassword />} />
@@ -676,6 +685,8 @@ const Layout = () => {
             <Route path="/inventory-adjustment/:id"         element={<AdjustmentDetailPage />} />
             <Route path="/inventory-balance"                element={<StockBalance />} />
             <Route path="/inventory-stock-by-job"           element={<StockByJob />} />
+            <Route path="/inventory-transfer"               element={<StockTransfer />} />
+            <Route path="/inventory-transfer/:id"           element={<StockTransferDetailPage />} />
             <Route path="/item-price-analysis"              element={<ItemPriceAnalysis />} />
             <Route path="/inventory-alerts"                 element={<StockAlerts />} />
             <Route path="/invoices"                   element={<Invoice />} />
@@ -729,6 +740,7 @@ const Layout = () => {
             <Route path="/reports/inventory-grn"    element={<InventoryGrnReport />} />
             <Route path="/reports/stock-balance"    element={<StockBalanceReport />} />
             <Route path="/reports/stock-adjustment" element={<StockAdjustmentReport />} />
+            <Route path="/reports/inhouse-stock"    element={<InHouseStockReport />} />
             <Route path="/reports/supplier-invoice" element={<SupplierInvoiceReport />} />
             <Route path="/reports/payment-voucher"  element={<PaymentVoucherReport />} />
             <Route path="/reports/manhour"          element={<ManhourReport />} />

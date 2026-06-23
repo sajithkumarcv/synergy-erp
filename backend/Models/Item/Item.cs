@@ -23,6 +23,9 @@ namespace ERPWEB.Models.Item
         public bool?   IsSaleable        { get; set; }
         public bool?   IsPurchasable     { get; set; }
         public bool    IsActive          { get; set; } = true;
+        public int?    BudgetCategoryId   { get; set; }
+        public string? BudgetCategoryName { get; set; }
+        public string? BudgetCategoryCode { get; set; }
         public string? CreatedBy         { get; set; }
         public DateTime? CreatedDate     { get; set; }
         public string? ModifiedBy        { get; set; }

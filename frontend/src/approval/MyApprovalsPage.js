@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { variables, authHeaders } from '../Variable';
 import { useCurrentUserId, useCurrentUser } from '../AuthContext';
+import ConfirmModal from '../common/ConfirmModal';
 import { useFilters } from '../FilterContext';
 import DocPreviewDrawer from './DocPreviewDrawer';
 import '../procurement/Procurement.css';
@@ -422,6 +423,8 @@ const MyApprovalsPage = () => {
     // ── Budget-override modal state ───────────────────────────────
     const [budgetOverride, setBudgetOverride] = useState(null);    // { item, remarks, message } | null
 
+    const [confirm, setConfirm] = useState(null);
+
     const appliedRef = useRef(applied);
     useEffect(() => { appliedRef.current = applied; }, [applied]);
 
@@ -526,9 +529,16 @@ const MyApprovalsPage = () => {
 
     // ── Single action (used by individual rows) ──────────────────
     // `override` = { budgetPassword, overrideReason } when re-trying past a budget block
-    const doAction = async (item, action, remarks, override = null) => {
-        if (action === 'Reject' && !remarks?.trim()) {
-            if (!window.confirm('Reject without remarks?')) return;
+    const doAction = async (item, action, remarks, override = null, skipRejectGuard = false) => {
+        if (action === 'Reject' && !remarks?.trim() && !skipRejectGuard) {
+            setConfirm({
+                title: 'Confirm Rejection',
+                message: 'Reject without remarks?',
+                confirmLabel: 'Reject',
+                confirmStyle: { background: '#dc2626', color: '#fff' },
+                onConfirm: () => { setConfirm(null); doAction(item, action, remarks, override, true); },
+            });
+            return;
         }
         setActing(item.transactionId);
         try {
@@ -620,6 +630,7 @@ const MyApprovalsPage = () => {
 
     return (
         <div className="po-page">
+            {confirm && <ConfirmModal {...confirm} onClose={() => setConfirm(null)} />}
             <div className="po-grid-wrap">
                 <div className="po-grid-header">
                     <div className="po-title-row">

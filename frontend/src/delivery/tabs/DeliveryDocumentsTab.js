@@ -3,6 +3,7 @@ import { variables, authHeaders } from '../../Variable';
 import { useCurrentUser } from '../../AuthContext';
 import { usePermission } from '../../PermissionContext';
 import AlertModal from '../../common/AlertModal';
+import ConfirmModal from '../../common/ConfirmModal';
 
 // ── Helpers ───────────────────────────────────────────────────────────
 const fmtSize = (bytes) => {
@@ -51,6 +52,7 @@ const DeliveryDocumentsTab = ({ delivery }) => {
     const [error,     setError]     = useState('');
     const [success,   setSuccess]   = useState('');
     const [alertMsg, setAlertMsg] = useState(null);
+    const [confirm,  setConfirm]  = useState(null);
 
     const load = useCallback(() => {
         setLoading(true);
@@ -116,13 +118,20 @@ const DeliveryDocumentsTab = ({ delivery }) => {
             .finally(() => setUploading(false));
     };
 
-    const del = async (doc) => {
-        if (!window.confirm(`Delete "${doc.fileName}"? This cannot be undone.`)) return;
-        try {
-            const res = await fetch(`${variables.API_URL}document/${doc.documentId}`, { method: 'DELETE', headers: authHeaders() });
-            if (!res.ok) { const d = await res.json(); setError(d?.message || 'Failed to delete document.'); return; }
-            load();
-        } catch { setError('Network error. Please try again.'); }
+    const del = (doc) => {
+        setConfirm({
+            title: 'Delete Document',
+            message: `Delete "${doc.fileName}"? This cannot be undone.`,
+            confirmLabel: 'Delete',
+            onConfirm: async () => {
+                setConfirm(null);
+                try {
+                    const res = await fetch(`${variables.API_URL}document/${doc.documentId}`, { method: 'DELETE', headers: authHeaders() });
+                    if (!res.ok) { const d = await res.json(); setError(d?.message || 'Failed to delete document.'); return; }
+                    load();
+                } catch { setError('Network error. Please try again.'); }
+            },
+        });
     };
 
     const openDoc = (id, fileName) => {
@@ -286,6 +295,7 @@ const DeliveryDocumentsTab = ({ delivery }) => {
                 </div>
             )}
             {alertMsg && <AlertModal message={alertMsg} onClose={() => setAlertMsg(null)} />}
+            {confirm  && <ConfirmModal {...confirm} onClose={() => setConfirm(null)} />}
         </div>
     );
 };

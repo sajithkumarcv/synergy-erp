@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import ReactDOM from "react-dom";
 import { variables, authHeaders } from "./Variable.js";
 import AlertModal from "./common/AlertModal";
+import ConfirmModal from "./common/ConfirmModal";
 
 // ─── Modal ────────────────────────────────────────────────────────────────────
 function DepartmentModal({ show, title, name, onChange, onSave, onClose }) {
@@ -75,6 +76,7 @@ export default function Department() {
   const [currentPage,     setCurrentPage]     = useState(1);
   const [itemsPerPage,    setItemsPerPage]    = useState(10);
   const [alertMsg, setAlertMsg] = useState(null);
+  const [confirm,  setConfirm]  = useState(null);
 
   const refreshList = useCallback(() => {
     fetch(variables.API_URL + "Department", { headers: authHeaders() })
@@ -124,7 +126,14 @@ export default function Department() {
 
   // ── Delete ────────────────────────────────────────────────────────────────────
   const deleteClick = (id) => {
-    if (!window.confirm("Delete this department?")) return;
+    setConfirm({
+      title: 'Delete Department',
+      message: 'Delete this department?',
+      confirmLabel: 'Delete',
+      onConfirm: () => { setConfirm(null); doDeleteDept(id); },
+    });
+  };
+  const doDeleteDept = (id) => {
     fetch(variables.API_URL + "Department/" + id, {
       method: "DELETE",
       headers: authHeaders(),
@@ -141,6 +150,7 @@ export default function Department() {
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
     <div>
+      {confirm && <ConfirmModal {...confirm} onClose={() => setConfirm(null)} />}
       {/* Toolbar */}
       <div className="mb-3 d-flex align-items-center gap-2">
         <label className="mb-0">Rows per page:</label>

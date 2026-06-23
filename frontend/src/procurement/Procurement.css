@@ -228,3 +228,12 @@
 .grn-unreg-alert { padding: 10px 14px; border-radius: 6px; font-size: 13px; line-height: 1.5; }
 .grn-unreg-alert-err  { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
 .grn-unreg-alert-warn { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
+
+/* ── Centered modal ── */
+.po-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 1000; display: flex; align-items: center; justify-content: center; animation: pr-fadeIn .15s ease; }
+.po-modal         { background: #fff; border-radius: 10px; box-shadow: 0 8px 40px rgba(0,0,0,.18); display: flex; flex-direction: column; max-height: 90vh; overflow: hidden; }
+.po-modal-header  { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--side-border, #e2e8f0); font-size: 14px; font-weight: 700; color: var(--main-text, #1e293b); flex-shrink: 0; }
+.po-modal-body    { padding: 20px; overflow-y: auto; flex: 1; }
+.po-modal-footer  { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 20px; border-top: 1px solid var(--side-border, #e2e8f0); flex-shrink: 0; background: #f8fafc; }
+.po-modal-close   { background: none; border: none; font-size: 18px; cursor: pointer; color: var(--side-text, #64748b); line-height: 1; padding: 2px 6px; border-radius: 4px; }
+.po-modal-close:hover { background: var(--fp-group-bg, #f1f5f9); color: #dc2626; }

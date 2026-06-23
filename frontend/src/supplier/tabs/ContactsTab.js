@@ -4,6 +4,7 @@ import { useCurrentUser } from '../../AuthContext';
 import { useLookup } from '../../LookupContext';
 import { initials, avatarColor } from '../supplierConstants';
 import AlertModal from '../../common/AlertModal';
+import ConfirmModal from '../../common/ConfirmModal';
 
 const makeEmpty = (supplierId, userTitles) => ({
     supplierContactId: 0, supplierId,
@@ -95,6 +96,7 @@ const ContactsTab = ({ supplier, onRefresh, canEdit = true }) => {
     const [formRecord, setForm]   = useState(null);
     const [search, setSearch]     = useState('');
     const [alertMsg, setAlertMsg] = useState(null);
+    const [confirm, setConfirm]   = useState(null);
 
     const load = useCallback(() => {
         fetch(variables.API_URL + 'supplier/contacts/' + supplier.supplierId, { headers: authHeaders() })
@@ -105,13 +107,20 @@ const ContactsTab = ({ supplier, onRefresh, canEdit = true }) => {
 
     useEffect(() => { load(); }, [load]);
 
-    const deleteContact = async (id) => {
-        if (!window.confirm('Delete this contact?')) return;
-        try {
-            const res = await fetch(variables.API_URL + 'supplier/contacts/' + id, { method: 'DELETE', headers: authHeaders() });
-            if (!res.ok) { const d = await res.json(); setAlertMsg(d?.message || 'Failed to delete contact.'); return; }
-            load();
-        } catch { setAlertMsg('Network error. Please try again.'); }
+    const deleteContact = (id) => {
+        setConfirm({
+            title: 'Delete Contact',
+            message: 'Delete this contact?',
+            confirmLabel: 'Delete',
+            onConfirm: async () => {
+                setConfirm(null);
+                try {
+                    const res = await fetch(variables.API_URL + 'supplier/contacts/' + id, { method: 'DELETE', headers: authHeaders() });
+                    if (!res.ok) { const d = await res.json(); setAlertMsg(d?.message || 'Failed to delete contact.'); return; }
+                    load();
+                } catch { setAlertMsg('Network error. Please try again.'); }
+            },
+        });
     };
 
     const filtered = contacts.filter(c => !search || (c.contactName || '').toLowerCase().includes(search.toLowerCase()));
@@ -191,6 +200,7 @@ const ContactsTab = ({ supplier, onRefresh, canEdit = true }) => {
                 </table>
             </div>
             {alertMsg && <AlertModal message={alertMsg} onClose={() => setAlertMsg(null)} />}
+            {confirm  && <ConfirmModal {...confirm} onClose={() => setConfirm(null)} />}
         </div>
     );
 };

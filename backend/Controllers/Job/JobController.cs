@@ -154,7 +154,8 @@ namespace ERPWEB.Controllers.Job
                     model.JobAdvanceAmount,
                     model.JobExpectedCompleteDate,
                     model.JobExpectedDeliveryDate,
-                    model.JobPlannedStartDate
+                    model.JobPlannedStartDate,
+                    model.BudgetCategoryId
 
                 };
                 string result = await _dbcon.ExecuteScalarAsync("sp_SetJob", p);
@@ -174,6 +175,12 @@ namespace ERPWEB.Controllers.Job
                     jobId = result,
                     message = isNew ? $"Job created: {result}" : "Job updated"
                 });
+            }
+            catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+            {
+                // Validation errors raised by sp_SetJob (e.g. missing budget header
+                // for a budget-header-linked job type) surface to the user, not a 500.
+                return BadRequest(new { message = sqlEx.Message });
             }
             catch (Exception ex)
             {
@@ -646,6 +653,11 @@ namespace ERPWEB.Controllers.Job
         [HttpPost("{jobId}/expenses")]
         public async Task<IActionResult> SaveExpense(string jobId, [FromBody] JobExpense model)
         {
+            // Financial-edit guard: reason (≥10 chars) + budget password required.
+            var reasonErr = ERPWEB.Security.FinancialGuard.ValidateReason(model.Reason);
+            if (reasonErr != null) return BadRequest(new { message = reasonErr });
+            if (!await ERPWEB.Security.FinancialGuard.VerifyBudgetPasswordAsync(_dbcon, User.Identity?.Name ?? model.ModifiedBy ?? model.CreatedBy, model.Password))
+                return BadRequest(new { message = "Incorrect budget password." });
             try
             {
                 model.JobId = jobId;
@@ -671,7 +683,7 @@ namespace ERPWEB.Controllers.Job
                     JobId = jobId,
                     Action = action,
                     Section = "Expenses",
-                    NewValue = $"{model.ExpenseAmount} — {model.ExpenseDescription}",
+                    NewValue = $"{model.ExpenseAmount} — {model.ExpenseDescription} (reason: {model.Reason?.Trim()})",
                     CreatedBy = model.ModifiedBy ?? model.CreatedBy
                 });
                 return Ok(new { expenseId = result });
@@ -684,11 +696,23 @@ namespace ERPWEB.Controllers.Job
         }
 
         [HttpDelete("{jobId}/expenses/{expenseId}")]
-        public async Task<IActionResult> DeleteExpense(string jobId, int expenseId)
+        public async Task<IActionResult> DeleteExpense(string jobId, int expenseId,
+            [FromQuery] string? modifiedBy = null, [FromQuery] string? password = null, [FromQuery] string? reason = null)
         {
+            // Financial-edit guard: reason (≥10 chars) + budget password required.
+            var reasonErr = ERPWEB.Security.FinancialGuard.ValidateReason(reason);
+            if (reasonErr != null) return BadRequest(new { message = reasonErr });
+            if (!await ERPWEB.Security.FinancialGuard.VerifyBudgetPasswordAsync(_dbcon, User.Identity?.Name ?? modifiedBy, password))
+                return BadRequest(new { message = "Incorrect budget password." });
             try
             {
                 await _dbcon.ExecuteScalarAsync("sp_DeleteJobExpense", new { ExpenseId = expenseId, JobId = jobId });
+                await _dbcon.ExecuteScalarAsync("sp_AddJobAudit", new
+                {
+                    JobId = jobId, Action = "EXPENSE_DELETED", Section = "Expenses",
+                    NewValue = $"Expense #{expenseId} removed (reason: {reason?.Trim()})",
+                    CreatedBy = modifiedBy
+                });
                 return Ok(new { message = "Expense deleted" });
             }
             catch (Exception ex)
@@ -908,9 +932,15 @@ namespace ERPWEB.Controllers.Job
                     model.JobCategoryId,
                     model.QualityLevelId,
                     model.TotalUnits,
+                    model.DeliveredUnit,
                     ModifiedBy     = model.ModifiedBy
                 });
                 return Ok(new { message = "Job meta saved." });
+            }
+            catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+            {
+                // Surface validation errors (e.g. total < delivered) to the client.
+                return BadRequest(new { message = sqlEx.Message });
             }
             catch (Exception ex)
             {
@@ -1018,9 +1048,10 @@ namespace ERPWEB.Controllers.Job
         {
             public int     BayId          { get; set; }
             public int     JobCategoryId  { get; set; }
-            public int     QualityLevelId { get; set; }
-            public decimal TotalUnits     { get; set; }
-            public string  ModifiedBy     { get; set; } = "";
+            public int      QualityLevelId { get; set; }
+            public decimal  TotalUnits     { get; set; }
+            public decimal? DeliveredUnit  { get; set; }
+            public string   ModifiedBy     { get; set; } = "";
         }
 
         public class UpdateFinanceRequest
@@ -1056,6 +1087,7 @@ namespace ERPWEB.Controllers.Job
             public string JobTypeName      { get; set; } = "";
             public bool   IsCostingRequired  { get; set; }
             public bool   RequiresParentJob  { get; set; }
+            public bool   IsBudgetHeaderLinked { get; set; }
             public int    NextSeries          { get; set; }
         }
     }

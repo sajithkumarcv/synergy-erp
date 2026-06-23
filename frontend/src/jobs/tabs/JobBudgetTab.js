@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { variables, authHeaders } from '../../Variable';
 import { useCurrentUser } from '../../AuthContext';
 import { useLookup } from '../../LookupContext';
@@ -6,6 +7,9 @@ import { usePermission } from '../../PermissionContext';
 import { fmt } from '../jobConstants';
 import AmountInput from '../../common/AmountInput';
 import AlertModal from '../../common/AlertModal';
+import ConfirmModal from '../../common/ConfirmModal';
+import FinancialGuardModal from '../../common/FinancialGuardModal';
+import BudgetImportModal from './BudgetImportModal';
 
 // ── Variance colour ───────────────────────────────────────────
 const varianceStyle = (v, budgeted) => {
@@ -107,11 +111,11 @@ const PasswordModal = ({ title, message, onCancel, onConfirm, busy }) => {
                 <label style={{ fontSize: 11.5, fontWeight: 600, color: '#374151', display: 'block', margin: '12px 0 4px' }}>
                     Budget password <span style={{ color: '#dc2626' }}>*</span>
                 </label>
-                <input type="password" className="pf-input"
+                <input type="password" className="pf-input" name="budget-action-pwd"
                     style={{ width: '100%', padding: '7px 10px', fontSize: 13 }}
                     value={pwd} onChange={e => setPwd(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && submit()}
-                    disabled={busy} autoComplete="current-password" />
+                    disabled={busy} autoComplete="new-password" />
 
                 {err && <div style={{ color: '#dc2626', fontSize: 11.5, marginTop: 8 }}>{err}</div>}
                 <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'flex-end' }}>
@@ -326,7 +330,7 @@ const EditableCell = ({ row, canEdit, uoms, currencies, job, baseCurrencyCode, b
 };
 
 // ─────────────────────────────────────────────────────────────
-const JobBudgetTab = ({ job }) => {
+const JobBudgetEditor = ({ job }) => {
     const currentUser       = useCurrentUser();
     const { lookups, baseCurrency, baseCurrencyCode } = useLookup();
     const { canDo }         = usePermission();
@@ -336,23 +340,150 @@ const JobBudgetTab = ({ job }) => {
     const [header,  setHeader]  = useState({ currentRvNo: 0, isApproved: false, approvedBy: null, approvedDate: null, totalRevisions: 0 });
     const [rows,    setRows]    = useState([]);
     const [loading, setLoading] = useState(true);
+    const [revisions, setRevisions] = useState([]);
+    const [viewRv,    setViewRv]    = useState(null);   // null = latest; else a specific revision
     const [pwdAction, setPwdAction] = useState(null);  // 'approve' | 'revise' | null
     const [pwdBusy,   setPwdBusy]   = useState(false);
     const [banner,    setBanner]    = useState('');
     const [alertMsg,  setAlertMsg]  = useState(null);
+    const [confirm,   setConfirm]   = useState(null);
+
+    // ── Budget item lines (per header) — drives the BOM on approval ──
+    const itemsLookup = lookups.items || [];
+    const [expandedCat, setExpandedCat] = useState(null);
+    const [allItems,    setAllItems]    = useState([]);   // every budget item line for the revision
+    const [itemDraft,   setItemDraft]   = useState({ budgetItemId: 0, itemId: '', qty: '', unitPrice: '' });
+    // Filters (BOM-detail style)
+    const [headerFilter, setHeaderFilter] = useState('');
+    const [searchText,   setSearchText]   = useState('');
+    const [createdBy,    setCreatedBy]    = useState('');
+    const [showLog,      setShowLog]      = useState(false);
+    const [logRows,      setLogRows]      = useState([]);
+
+    const [logRvOnly,    setLogRvOnly]    = useState(false);   // false = whole job history, true = current revision only
+    const [logItemId,    setLogItemId]    = useState(null);    // when set, log is filtered to a single item
+    const [logItemLabel, setLogItemLabel] = useState('');
+    const [logAction,    setLogAction]    = useState('');      // ADD | INCREASE | DECREASE | UPDATE | DELETE | '' (all)
+    const [logSearch,    setLogSearch]    = useState('');      // free-text item / header search within the log
+
+    const fetchLog = async (rvOnly, itemId = logItemId) => {
+        const params = [];
+        if (rvOnly) params.push(`rvNo=${header.currentRvNo}`);
+        if (itemId) params.push(`itemId=${itemId}`);
+        const qs = params.length ? `?${params.join('&')}` : '';
+        try {
+            const r = await fetch(`${variables.API_URL}jobbudget/${encodeURIComponent(job.jobId)}/item-log${qs}`,
+                { headers: authHeaders() });
+            setLogRows(r.ok ? await r.json() : []);
+        } catch { setLogRows([]); }
+    };
+
+    const openLog = async () => {
+        setLogRvOnly(false); setLogItemId(null); setLogItemLabel(''); setLogAction(''); setLogSearch('');
+        await fetchLog(false, null);
+        setShowLog(true);
+    };
+
+    const openItemLog = async (it) => {
+        setLogRvOnly(false); setLogAction(''); setLogSearch('');
+        setLogItemId(it.itemId);
+        setLogItemLabel(`${it.itemCode ? `[${it.itemCode}] ` : ''}${it.itemName || ''}`);
+        await fetchLog(false, it.itemId);
+        setShowLog(true);
+    };
+
+    const loadAllItems = useCallback(() => {
+        fetch(`${variables.API_URL}jobbudget/${encodeURIComponent(job.jobId)}/items?rvNo=${header.currentRvNo}`,
+            { headers: authHeaders() })
+            .then(r => r.json())
+            .then(d => setAllItems(Array.isArray(d) ? d : []))
+            .catch(console.error);
+    }, [job.jobId, header.currentRvNo]);
+
+    useEffect(() => { loadAllItems(); }, [loadAllItems]);
+
+    const itemsByCat = React.useMemo(() => {
+        const m = {};
+        allItems.forEach(it => { (m[it.costCategoryId] = m[it.costCategoryId] || []).push(it); });
+        return m;
+    }, [allItems]);
+
+    const blankDraft = { budgetItemId: 0, itemId: '', qty: '', unitPrice: '' };
+
+    const toggleItems = (catId) => {
+        setItemDraft(blankDraft);
+        setExpandedCat(prev => prev === catId ? null : catId);
+    };
+
+    const editBudgetItem = (it) => setItemDraft({
+        budgetItemId: it.budgetItemId,
+        itemId: String(it.itemId),
+        qty: it.qty != null ? String(it.qty) : '',
+        unitPrice: it.unitPrice != null ? String(it.unitPrice) : '',
+    });
+
+    // ── Financial-edit guard (password + reason) ──────────────────
+    // Budget line add/edit/delete change a money amount, so they are gated:
+    // the action is staged here, then run from runGuarded() after the user
+    // supplies the budget password + a reason.
+    const [guard,     setGuard]     = useState(null);   // { kind:'save'|'delete', catId, budgetItemId }
+    const [guardBusy, setGuardBusy] = useState(false);
+    const [guardErr,  setGuardErr]  = useState('');
+
+    const saveBudgetItem = (catId) => {
+        if (!itemDraft.itemId || !(Number(itemDraft.qty) > 0)) { setAlertMsg('Pick an item and enter a quantity.'); return; }
+        setGuardErr(''); setGuard({ kind: 'save', catId });
+    };
+
+    const deleteBudgetItem = (catId, budgetItemId) => {
+        setGuardErr(''); setGuard({ kind: 'delete', catId, budgetItemId });
+    };
+
+    const runGuarded = async (password, reason) => {
+        if (!guard) return;
+        setGuardBusy(true); setGuardErr('');
+        try {
+            let res;
+            if (guard.kind === 'save') {
+                res = await fetch(`${variables.API_URL}jobbudget/item/save`, {
+                    method: 'POST', headers: authHeaders(),
+                    body: JSON.stringify({
+                        budgetItemId: itemDraft.budgetItemId || 0, jobId: job.jobId, rvNo: header.currentRvNo, costCategoryId: guard.catId,
+                        itemId: Number(itemDraft.itemId), qty: Number(itemDraft.qty),
+                        unitPrice: Number(itemDraft.unitPrice) || 0, createdBy: currentUser, modifiedBy: currentUser,
+                        password, reason,
+                    }),
+                });
+            } else {
+                res = await fetch(`${variables.API_URL}jobbudget/item/${guard.budgetItemId}?modifiedBy=${encodeURIComponent(currentUser)}&password=${encodeURIComponent(password)}&reason=${encodeURIComponent(reason)}`,
+                    { method: 'DELETE', headers: authHeaders() });
+            }
+            const d = await res.json().catch(() => ({}));
+            if (!res.ok) { setGuardErr(d?.message || 'Action failed.'); return; }
+            setGuard(null);
+            if (guard.kind === 'save') setItemDraft(blankDraft);
+            loadAllItems();
+            load();   // refresh header amounts (auto-synced from item sum)
+        } catch { setGuardErr('Network error.'); }
+        finally { setGuardBusy(false); }
+    };
 
     // ── Permission flags from TBL_ROLE_MENU_ACTION (via PermissionContext) ──
     const canEditPerm = canDo('/jobs', 'EDIT');
     const canApprove  = canDo('/jobs', 'APPROVE');
     const canRevise   = canDo('/jobs', 'REVISE');
 
-    // canEdit = job not closed AND user has EDIT permission AND budget is not approved
-    const jobOpen   = ![3, 4, 5].includes(Number(job.jobStatusId));
-    const canEdit   = jobOpen && canEditPerm && !header.isApproved;
+    // canEdit = job open, job APPROVED, EDIT permission, budget not approved, AND viewing the latest revision.
+    // The budget can only be built once the job itself has cleared its approval workflow
+    // (Draft → PendingLn → Approved). Until then the page is read-only.
+    const jobOpen     = ![3, 4, 5].includes(Number(job.jobStatusId));
+    const jobApproved = String(job.approvalStatus) === 'Approved';
+    const canEdit     = jobOpen && jobApproved && canEditPerm && !header.isApproved && !header.isHistorical;
 
     const load = useCallback(() => {
         setLoading(true);
-        fetch(`${variables.API_URL}jobbudget/${encodeURIComponent(job.jobId)}`, { headers: authHeaders() })
+        const url = `${variables.API_URL}jobbudget/${encodeURIComponent(job.jobId)}` + (viewRv != null ? `?rvNo=${viewRv}` : '');
+        fetch(url, { headers: authHeaders() })
             .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
             .then(d => {
                 setHeader(d?.header || { currentRvNo: 0, isApproved: false, totalRevisions: 0 });
@@ -360,9 +491,16 @@ const JobBudgetTab = ({ job }) => {
             })
             .catch(e => console.error('Load budget:', e))
             .finally(() => setLoading(false));
-    }, [job.jobId]);
+    }, [job.jobId, viewRv]);
 
     useEffect(() => { load(); }, [load]);
+
+    useEffect(() => {
+        fetch(`${variables.API_URL}jobbudget/${encodeURIComponent(job.jobId)}/revisions`, { headers: authHeaders() })
+            .then(r => r.ok ? r.json() : [])
+            .then(d => setRevisions(Array.isArray(d) ? d : []))
+            .catch(() => setRevisions([]));
+    }, [job.jobId]);
 
     const showBanner = (msg) => {
         setBanner(msg);
@@ -395,17 +533,24 @@ const JobBudgetTab = ({ job }) => {
         } catch { return 'Network error.'; }
     };
 
-    const handleDelete = async (row) => {
+    const handleDelete = (row) => {
         if (!row.jobBudgetId) return;
-        if (!window.confirm(`Clear budget for "${row.categoryName}"?`)) return;
-        try {
-            const res = await fetch(`${variables.API_URL}jobbudget/${row.jobBudgetId}`, {
-                method: 'DELETE', headers: authHeaders(),
-            });
-            const d = await res.json().catch(() => ({}));
-            if (!res.ok) { setAlertMsg(d?.message || 'Delete failed.'); return; }
-            load();
-        } catch { setAlertMsg('Network error.'); }
+        setConfirm({
+            title: 'Clear Budget',
+            message: `Clear budget for "${row.categoryName}"?`,
+            confirmLabel: 'Clear',
+            onConfirm: async () => {
+                setConfirm(null);
+                try {
+                    const res = await fetch(`${variables.API_URL}jobbudget/${row.jobBudgetId}`, {
+                        method: 'DELETE', headers: authHeaders(),
+                    });
+                    const d = await res.json().catch(() => ({}));
+                    if (!res.ok) { setAlertMsg(d?.message || 'Delete failed.'); return; }
+                    load();
+                } catch { setAlertMsg('Network error.'); }
+            },
+        });
     };
 
     // ── Approve / Revise ──────────────────────────────────────
@@ -430,6 +575,24 @@ const JobBudgetTab = ({ job }) => {
         }
     };
 
+    const [showImport, setShowImport] = useState(false);
+
+    // ── Generate BOM from budget items (no approval) — for in-house jobs ──
+    const [bomBusy, setBomBusy] = useState(false);
+    const generateBom = async () => {
+        setBomBusy(true);
+        try {
+            const res = await fetch(`${variables.API_URL}jobbudget/generate-bom`, {
+                method: 'POST', headers: authHeaders(),
+                body: JSON.stringify({ jobId: job.jobId, actedBy: currentUser }),
+            });
+            const d = await res.json().catch(() => ({}));
+            if (!res.ok) { setAlertMsg(d?.message || 'Could not generate BOM.'); return; }
+            showBanner(d?.message || 'BOM generated from budget.');
+        } catch { setAlertMsg('Network error.'); }
+        finally { setBomBusy(false); }
+    };
+
     // Totals — budget lines may be in mixed currencies, so totals are in BASE currency.
     const totalBudget    = rows.reduce((s, r) => s + (r.amountInBaseCurrency || 0), 0);
     const totalActual    = rows.reduce((s, r) => s + (r.actualAmount  || 0), 0);
@@ -438,15 +601,52 @@ const JobBudgetTab = ({ job }) => {
     const setBudgetCount = rows.filter(r => r.budgetedAmount > 0).length;
     const showVersionBadge = header.totalRevisions > 1 || header.isApproved;
 
+    // In-house jobs are tied to ONE cost header → show only that header (one
+    // section of items, one-section BOM). Costed jobs budget across all headers.
+    const visibleRows = (job.isCostingRequired === false && job.budgetCategoryId)
+        ? rows.filter(r => String(r.costCategoryId) === String(job.budgetCategoryId))
+        : rows;
+
+    // Distinct "created by" values across budgeted headers (for the filter).
+    const creators = Array.from(new Set(visibleRows.map(r => r.createdBy).filter(Boolean)));
+
+    // Filters: header dropdown + free-text search (header or its items) + created-by.
+    const filteredRows = visibleRows.filter(r => {
+        if (headerFilter && String(r.costCategoryId) !== String(headerFilter)) return false;
+        if (createdBy && r.createdBy !== createdBy) return false;
+        if (searchText) {
+            const q = searchText.toLowerCase();
+            const inHeader = `${r.categoryName || ''} ${r.categoryCode || ''}`.toLowerCase().includes(q);
+            const inItems  = (itemsByCat[r.costCategoryId] || []).some(it =>
+                `${it.itemCode || ''} ${it.itemName || ''}`.toLowerCase().includes(q));
+            if (!inHeader && !inItems) return false;
+        }
+        return true;
+    });
+    const isFiltering = !!(headerFilter || createdBy || searchText);
+
     if (loading) return <div style={{ padding: 32, textAlign: 'center', color: '#64748b' }}>Loading…</div>;
 
     return (
         <div>
             {alertMsg && <AlertModal message={alertMsg} onClose={() => setAlertMsg(null)} />}
+            {confirm && <ConfirmModal {...confirm} onClose={() => setConfirm(null)} />}
             {/* ── Action banner ── */}
             {banner && (
                 <div style={{ marginBottom: 12, padding: '8px 14px', background: '#dcfce7', color: '#166534', borderRadius: 6, fontSize: 12.5 }}>
                     ✓ {banner}
+                </div>
+            )}
+
+            {/* ── Job-not-approved gate banner ── */}
+            {!jobApproved && (
+                <div style={{ marginBottom: 12, padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderLeft: '4px solid #f59e0b', borderRadius: 7, fontSize: 12.5, color: '#92400e', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                    <span style={{ fontSize: 16, lineHeight: 1 }}>🔒</span>
+                    <div style={{ lineHeight: 1.5 }}>
+                        <strong>Budget is locked until the job is approved.</strong>{' '}
+                        This job's approval status is <strong>{job.approvalStatus || 'Draft'}</strong>. Fill in the job details and submit it for approval — once it is <strong>Approved</strong>, the <strong>Add&nbsp;Budget</strong> controls appear here.
+                        <div style={{ fontSize: 11, marginTop: 3, color: '#78350f' }}>Existing budget lines remain visible in read-only mode.</div>
+                    </div>
                 </div>
             )}
 
@@ -471,6 +671,27 @@ const JobBudgetTab = ({ job }) => {
                             {header.totalRevisions > 1 && ` of ${header.totalRevisions}`}
                         </span>
                     )}
+                    {revisions.length > 1 && (
+                        <select
+                            value={viewRv ?? (revisions.find(r => r.isCurrent)?.rvNo ?? '')}
+                            onChange={e => {
+                                const v = Number(e.target.value);
+                                setViewRv(revisions.find(r => r.rvNo === v)?.isCurrent ? null : v);
+                            }}
+                            title="View an earlier budget revision"
+                            style={{ fontSize: 11.5, padding: '3px 6px', border: '1px solid #cbd5e1', borderRadius: 5 }}>
+                            {revisions.map(rv => (
+                                <option key={rv.rvNo} value={rv.rvNo}>
+                                    Rev {rv.rvNo}{rv.isCurrent ? ' (current)' : ''}{rv.isApproved ? ' · approved' : ' · draft'}
+                                </option>
+                            ))}
+                        </select>
+                    )}
+                    {header.isHistorical && (
+                        <span style={{ fontSize: 11, fontWeight: 600, background: '#e0e7ff', color: '#3730a3', padding: '2px 8px', borderRadius: 10 }}>
+                            Historical — read-only
+                        </span>
+                    )}
                     {header.isApproved && header.approvedBy && (
                         <span style={{ fontSize: 11, color: '#64748b' }}>
                             Approved by <strong>{header.approvedBy}</strong>
@@ -491,8 +712,8 @@ const JobBudgetTab = ({ job }) => {
                             ✓ Approve Budget
                         </button>
                     )}
-                    {/* Revise — only when approved */}
-                    {header.isApproved && canRevise && (
+                    {/* Revise — only when approved (and viewing the current revision) */}
+                    {header.isApproved && canRevise && !header.isHistorical && (
                         <button
                             onClick={() => setPwdAction('revise')}
                             style={{
@@ -501,6 +722,33 @@ const JobBudgetTab = ({ job }) => {
                                 borderRadius: 5, cursor: 'pointer',
                             }}>
                             ↻ Revise Budget
+                        </button>
+                    )}
+                    {/* Import budget items from Excel — when the budget is editable */}
+                    {canEdit && (
+                        <button
+                            onClick={() => setShowImport(true)}
+                            style={{
+                                padding: '6px 14px', fontSize: 12, fontWeight: 600,
+                                background: '#0f766e', color: '#fff', border: 'none',
+                                borderRadius: 5, cursor: 'pointer',
+                            }}>
+                            📥 Import from Excel
+                        </button>
+                    )}
+                    {/* Generate BOM from budget items — in-house jobs only (no approval).
+                        Costed jobs get the BOM automatically when the budget is approved. */}
+                    {setBudgetCount > 0 && canEditPerm && jobApproved && job.isCostingRequired === false && !header.isHistorical && (
+                        <button
+                            onClick={generateBom}
+                            disabled={bomBusy}
+                            title="Create the job BOM from the budget item lines"
+                            style={{
+                                padding: '6px 14px', fontSize: 12, fontWeight: 600,
+                                background: '#1e40af', color: '#fff', border: 'none',
+                                borderRadius: 5, cursor: bomBusy ? 'not-allowed' : 'pointer',
+                            }}>
+                            {bomBusy ? 'Generating…' : '⚙ Generate BOM'}
                         </button>
                     )}
                 </div>
@@ -534,87 +782,182 @@ const JobBudgetTab = ({ job }) => {
                 </div>
             )}
 
-            {/* ── Budget table ── */}
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
-                <thead>
-                    <tr style={{ background: '#f1f5f9' }}>
-                        <th style={TH}>Cost Category</th>
-                        <th style={{ ...TH, textAlign: 'right', minWidth: 180 }}>Budget</th>
-                        <th style={{ ...TH, textAlign: 'right' }}>Actual{baseCurrencyCode ? ` (${baseCurrencyCode})` : ''}</th>
-                        <th style={{ ...TH, textAlign: 'right' }}>Variance{baseCurrencyCode ? ` (${baseCurrencyCode})` : ''}</th>
-                        <th style={{ ...TH, width: 160 }}>Spend</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {rows.map(row => {
-                        const src      = SOURCE_INFO[row.categoryCode] || {};
-                        const spendPct = row.amountInBaseCurrency > 0
-                            ? Math.min((row.actualAmount / row.amountInBaseCurrency) * 100, 100).toFixed(0)
-                            : null;
+            {/* ── Section header ── */}
+            <div style={{ margin: '4px 0 8px' }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#1e293b' }}>Budget by Cost Header</div>
+                <div style={{ fontSize: 11.5, color: '#94a3b8', marginTop: 2 }}>
+                    Expand a header to add items &amp; quantities — the approved budget drives the BOM → PR → PO.
+                </div>
+            </div>
 
-                        return (
-                            <tr key={row.costCategoryId} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                <td style={TD}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                        <span style={{ fontSize: 16 }}>{src.icon || '•'}</span>
-                                        <div>
-                                            <div style={{ fontWeight: 600, color: '#1e293b' }}>{row.categoryName}</div>
-                                            {src.tip && <div style={{ fontSize: 10, color: '#94a3b8' }}>{src.tip}</div>}
-                                        </div>
-                                    </div>
-                                </td>
-                                <td style={{ ...TD, textAlign: 'right' }}>
-                                    <EditableCell
-                                        row={row}
-                                        canEdit={canEdit}
-                                        uoms={uoms}
-                                        currencies={currencies}
-                                        job={job}
-                                        baseCurrencyCode={baseCurrencyCode}
-                                        baseCurrencyId={baseCurrency?.id}
-                                        onSave={(fields) => handleSave(row, fields)}
-                                        onDelete={handleDelete}
-                                    />
-                                </td>
-                                <td style={{ ...TD, textAlign: 'right', fontFamily: 'Courier New', fontWeight: 500, color: row.actualAmount > 0 ? '#1e293b' : '#94a3b8' }}>
-                                    {row.actualAmount > 0 ? fmt(row.actualAmount) : '—'}
-                                </td>
-                                <td style={{ ...TD, textAlign: 'right', fontFamily: 'Courier New', ...varianceStyle(row.variance, row.budgetedAmount) }}>
-                                    {row.budgetedAmount > 0
-                                        ? (row.variance >= 0 ? '' : '− ') + fmt(Math.abs(row.variance))
-                                        : '—'}
-                                </td>
-                                <td style={TD}>
-                                    {spendPct !== null
-                                        ? <div>
-                                            <div style={{ fontSize: 10, color: '#64748b', textAlign: 'right' }}>{spendPct}%</div>
-                                            <SpendBar actual={row.actualAmount} budget={row.amountInBaseCurrency} />
-                                          </div>
-                                        : <span style={{ color: '#cbd5e1', fontSize: 11 }}>—</span>}
-                                </td>
-                            </tr>
-                        );
-                    })}
-                </tbody>
-                <tfoot>
-                    <tr style={{ background: '#1e3a5f', color: '#fff' }}>
-                        <td style={{ ...TD, fontWeight: 700, color: '#fff' }}>TOTAL</td>
-                        <td style={{ ...TD, textAlign: 'right', fontFamily: 'Courier New', fontWeight: 700, color: '#fff' }}>{fmt(totalBudget)}</td>
-                        <td style={{ ...TD, textAlign: 'right', fontFamily: 'Courier New', fontWeight: 700, color: '#fff' }}>{fmt(totalActual)}</td>
-                        <td style={{ ...TD, textAlign: 'right', fontFamily: 'Courier New', fontWeight: 700, color: totalVar >= 0 ? '#86efac' : '#fca5a5' }}>
-                            {(totalVar >= 0 ? '' : '− ') + fmt(Math.abs(totalVar))}
-                        </td>
-                        <td style={TD}>
-                            {totalBudget > 0 && (
+            {/* ── Filter bar ── */}
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center',
+                          padding: '10px 12px', background: '#f8fafc',
+                          border: `1px solid ${isFiltering ? '#93c5fd' : '#e2e8f0'}`, borderRadius: 8, marginBottom: 14 }}>
+                <input value={searchText} onChange={e => setSearchText(e.target.value)}
+                    placeholder="🔍 Search header or item…"
+                    type="search" name="budget-search" autoComplete="off"
+                    data-lpignore="true" data-form-type="other"
+                    style={{ flex: '1 1 200px', minWidth: 160, padding: '6px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 12.5, background: '#fff' }} />
+                {visibleRows.length > 1 && (
+                    <select value={headerFilter} onChange={e => setHeaderFilter(e.target.value)}
+                        style={{ padding: '6px 10px', border: `1px solid ${headerFilter ? '#93c5fd' : '#e2e8f0'}`, borderRadius: 6, fontSize: 12.5, background: '#fff', fontWeight: headerFilter ? 600 : 400 }}>
+                        <option value="">All headers</option>
+                        {visibleRows.map(r => (
+                            <option key={r.costCategoryId} value={r.costCategoryId}>{r.categoryName}{r.categoryCode ? ` (${r.categoryCode})` : ''}</option>
+                        ))}
+                    </select>
+                )}
+                {creators.length > 0 && (
+                    <select value={createdBy} onChange={e => setCreatedBy(e.target.value)}
+                        style={{ padding: '6px 10px', border: `1px solid ${createdBy ? '#93c5fd' : '#e2e8f0'}`, borderRadius: 6, fontSize: 12.5, background: '#fff', fontWeight: createdBy ? 600 : 400 }}>
+                        <option value="">Any creator</option>
+                        {creators.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                )}
+                {isFiltering && (
+                    <>
+                        <span style={{ fontSize: 12, color: filteredRows.length === 0 ? '#dc2626' : '#1e40af', fontWeight: 600 }}>
+                            {filteredRows.length} of {visibleRows.length}
+                        </span>
+                        <button onClick={() => { setSearchText(''); setHeaderFilter(''); setCreatedBy(''); }}
+                            style={{ padding: '5px 12px', border: '1px solid #cbd5e1', borderRadius: 6, background: '#fff', fontSize: 12, cursor: 'pointer', color: '#64748b' }}>
+                            Clear
+                        </button>
+                    </>
+                )}
+                <button onClick={openLog} title="View qty change history for this revision"
+                    style={{ marginLeft: 'auto', padding: '6px 12px', border: '1px solid #cbd5e1', borderRadius: 6, background: '#fff', fontSize: 12, cursor: 'pointer', color: '#475569', fontWeight: 600 }}>
+                    📜 Change log
+                </button>
+            </div>
+
+            {/* ── Accordion: one card per cost header ── */}
+            {filteredRows.length === 0 && (
+                <div style={{ padding: 30, textAlign: 'center', color: '#94a3b8', border: '1px dashed #e2e8f0', borderRadius: 8 }}>
+                    No headers match your filters.
+                </div>
+            )}
+            {filteredRows.map(row => {
+                const src      = SOURCE_INFO[row.categoryCode] || {};
+                const items    = itemsByCat[row.costCategoryId] || [];
+                const expanded = expandedCat === row.costCategoryId;
+                const pickItems = itemsLookup.filter(it => String(it.budgetCategoryId) === String(row.costCategoryId));
+                const spendPct = row.amountInBaseCurrency > 0
+                    ? Math.min((row.actualAmount / row.amountInBaseCurrency) * 100, 100).toFixed(0) : null;
+                const Stat = ({ label, children, alignEditable }) => (
+                    <div style={{ minWidth: alignEditable ? 120 : 92, textAlign: 'right' }}>
+                        <div style={{ fontSize: 9.5, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '.4px' }}>{label}</div>
+                        <div style={{ fontFamily: 'Courier New', fontWeight: 600, color: '#1e293b' }}>{children}</div>
+                    </div>
+                );
+                return (
+                    <div key={row.costCategoryId} style={{ border: `1px solid ${expanded ? '#bfdbfe' : '#e2e8f0'}`, borderRadius: 8, marginBottom: 8, overflow: 'hidden', background: '#fff' }}>
+                        {/* Accordion header */}
+                        <div style={{ display: 'flex', alignItems: 'center', background: expanded ? '#f8fafc' : '#fff' }}>
+                            <div onClick={() => toggleItems(row.costCategoryId)}
+                                 style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', cursor: 'pointer' }}>
+                                <span style={{ fontSize: 12, color: '#64748b', width: 12 }}>{expanded ? '▾' : '▸'}</span>
+                                <span style={{ fontSize: 18 }}>{src.icon || '•'}</span>
                                 <div>
-                                    <div style={{ fontSize: 10, color: '#94a3b8', textAlign: 'right' }}>{budgetUsedPct.toFixed(1)}% used</div>
-                                    <SpendBar actual={totalActual} budget={totalBudget} />
+                                    <div style={{ fontWeight: 600, color: '#1e293b' }}>
+                                        {row.categoryName}
+                                        {row.categoryCode && <span style={{ color: '#94a3b8', fontWeight: 400 }}> ({row.categoryCode})</span>}
+                                    </div>
+                                    <div style={{ fontSize: 10.5, color: '#94a3b8' }}>
+                                        {items.length} item{items.length !== 1 ? 's' : ''}{src.tip ? ` · ${src.tip}` : ''}
+                                    </div>
                                 </div>
-                            )}
-                        </td>
-                    </tr>
-                </tfoot>
-            </table>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 18, padding: '6px 14px' }}>
+                                <Stat label={`Budget${baseCurrencyCode ? ` (${baseCurrencyCode})` : ''}`} alignEditable>
+                                    <EditableCell row={row} canEdit={canEdit} uoms={uoms} currencies={currencies} job={job}
+                                        baseCurrencyCode={baseCurrencyCode} baseCurrencyId={baseCurrency?.id}
+                                        onSave={(fields) => handleSave(row, fields)} onDelete={handleDelete} />
+                                </Stat>
+                                <Stat label="Actual"><span style={{ color: row.actualAmount > 0 ? '#1e293b' : '#cbd5e1' }}>{row.actualAmount > 0 ? fmt(row.actualAmount) : '—'}</span></Stat>
+                                <Stat label="Variance"><span style={varianceStyle(row.variance, row.budgetedAmount)}>{row.budgetedAmount > 0 ? (row.variance >= 0 ? '' : '− ') + fmt(Math.abs(row.variance)) : '—'}</span></Stat>
+                                <div style={{ width: 120 }}>
+                                    {spendPct !== null
+                                        ? <><div style={{ fontSize: 10, color: '#64748b', textAlign: 'right' }}>{spendPct}%</div><SpendBar actual={row.actualAmount} budget={row.amountInBaseCurrency} /></>
+                                        : <span style={{ color: '#cbd5e1', fontSize: 11 }}>—</span>}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Accordion body: items */}
+                        {expanded && (
+                            <div style={{ padding: '10px 14px 14px 38px', background: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                                    <thead><tr style={{ color: '#94a3b8' }}>
+                                        <th style={{ textAlign: 'left', padding: '4px 6px' }}>Item</th>
+                                        <th style={{ textAlign: 'right', padding: '4px 6px', width: 90 }}>Qty</th>
+                                        <th style={{ textAlign: 'right', padding: '4px 6px', width: 110 }}>Unit Price</th>
+                                        <th style={{ textAlign: 'right', padding: '4px 6px', width: 120 }}>Line Total</th>
+                                        <th style={{ width: 60 }}></th>
+                                    </tr></thead>
+                                    <tbody>
+                                        {items.length === 0 && (
+                                            <tr><td colSpan={5} style={{ padding: '6px', color: '#94a3b8' }}>No items yet.</td></tr>
+                                        )}
+                                        {items.map(it => (
+                                            <tr key={it.budgetItemId}>
+                                                <td style={{ padding: '4px 6px' }}>{it.itemCode ? `[${it.itemCode}] ` : ''}{it.itemName}</td>
+                                                <td style={{ padding: '4px 6px', textAlign: 'right' }}>{fmt(it.qty)} {it.uomCode || ''}</td>
+                                                <td style={{ padding: '4px 6px', textAlign: 'right' }}>{fmt(it.unitPrice)}</td>
+                                                <td style={{ padding: '4px 6px', textAlign: 'right', fontWeight: 600 }}>{fmt(it.lineTotal)}</td>
+                                                <td style={{ padding: '4px 6px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                                    <button type="button" title="View qty change history for this item" onClick={() => openItemLog(it)}
+                                                        style={{ background: 'none', border: 0, color: '#64748b', cursor: 'pointer', marginRight: 6 }}>🕘</button>
+                                                    {canEdit && <>
+                                                        <button type="button" title="Edit line" onClick={() => editBudgetItem(it)}
+                                                            style={{ background: 'none', border: 0, color: '#2563eb', cursor: 'pointer', marginRight: 6 }}>✏️</button>
+                                                        <button type="button" title="Delete line" onClick={() => deleteBudgetItem(row.costCategoryId, it.budgetItemId)}
+                                                            style={{ background: 'none', border: 0, color: '#dc2626', cursor: 'pointer' }}>✕</button>
+                                                    </>}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                                {canEdit && (
+                                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 8 }}>
+                                        <select value={itemDraft.itemId} onChange={e => setItemDraft(p => ({ ...p, itemId: e.target.value }))}
+                                            style={{ flex: 1, padding: 6, border: '1px solid #cbd5e1', borderRadius: 5, fontSize: 12, background: '#fff' }}>
+                                            <option value="">{pickItems.length ? '-- Select item --' : '— no items linked to this header —'}</option>
+                                            {pickItems.map(it => <option key={it.id} value={it.id}>{it.code ? `[${it.code}] ` : ''}{it.name}</option>)}
+                                        </select>
+                                        <input type="number" placeholder="Qty" value={itemDraft.qty} onChange={e => setItemDraft(p => ({ ...p, qty: e.target.value }))}
+                                            style={{ width: 80, padding: 6, border: '1px solid #cbd5e1', borderRadius: 5, fontSize: 12 }} />
+                                        <input type="number" placeholder="Unit price" value={itemDraft.unitPrice} onChange={e => setItemDraft(p => ({ ...p, unitPrice: e.target.value }))}
+                                            style={{ width: 100, padding: 6, border: '1px solid #cbd5e1', borderRadius: 5, fontSize: 12 }} />
+                                        <button type="button" onClick={() => saveBudgetItem(row.costCategoryId)} disabled={guardBusy}
+                                            style={{ background: itemDraft.budgetItemId ? '#2563eb' : '#0f766e', color: '#fff', border: 0, borderRadius: 5, padding: '6px 14px', cursor: 'pointer', fontSize: 12 }}>
+                                            {itemDraft.budgetItemId ? 'Update' : 'Add'}
+                                        </button>
+                                        {itemDraft.budgetItemId ? (
+                                            <button type="button" onClick={() => setItemDraft(blankDraft)}
+                                                style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: 5, padding: '6px 10px', cursor: 'pointer', fontSize: 12 }}>Cancel</button>
+                                        ) : null}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                );
+            })}
+
+            {/* ── Totals bar ── */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12,
+                          marginTop: 6, padding: '12px 16px', background: '#1e3a5f', color: '#fff', borderRadius: 8 }}>
+                <span style={{ fontWeight: 700, letterSpacing: '.5px' }}>TOTAL</span>
+                <div style={{ display: 'flex', gap: 26, alignItems: 'center', flexWrap: 'wrap', fontFamily: 'Courier New' }}>
+                    <span>Budget <strong>{fmt(totalBudget)}</strong></span>
+                    <span>Actual <strong>{fmt(totalActual)}</strong></span>
+                    <span style={{ color: totalVar >= 0 ? '#86efac' : '#fca5a5' }}>Variance <strong>{(totalVar >= 0 ? '' : '− ') + fmt(Math.abs(totalVar))}</strong></span>
+                    {totalBudget > 0 && <span style={{ color: '#94a3b8' }}>{budgetUsedPct.toFixed(1)}% used</span>}
+                </div>
+            </div>
 
             <div style={{ marginTop: 12, fontSize: 10.5, color: '#94a3b8' }}>
                 Actual costs: Committed POs + Confirmed SRVs + Confirmed Timesheets + Stock Issues + Approved Expenses
@@ -639,6 +982,134 @@ const JobBudgetTab = ({ job }) => {
                     onConfirm={(pwd, reason) => callBudgetAction('revise', pwd, reason)}
                 />
             )}
+            {showImport && (
+                <BudgetImportModal
+                    job={job}
+                    rvNo={header.currentRvNo}
+                    onClose={() => setShowImport(false)}
+                    onImported={() => { setShowImport(false); load(); }}
+                />
+            )}
+            {guard && (
+                <FinancialGuardModal
+                    title={guard.kind === 'delete' ? 'Confirm budget line removal' : 'Confirm budget change'}
+                    message={guard.kind === 'delete'
+                        ? 'Removing this budget line changes the job budget. Enter the budget password and a reason — both are recorded in the change log.'
+                        : 'This changes the job budget. Enter the budget password and a reason — both are recorded in the change log.'}
+                    busy={guardBusy}
+                    error={guardErr}
+                    onCancel={() => { if (!guardBusy) { setGuard(null); setGuardErr(''); } }}
+                    onConfirm={runGuarded}
+                />
+            )}
+            {showLog && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                     onMouseDown={e => { if (e.target === e.currentTarget) setShowLog(false); }}>
+                    <div onMouseDown={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 12, width: '92%', maxWidth: 860, maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ padding: '16px 22px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                            <div style={{ fontWeight: 700, fontSize: 16, color: '#1e293b' }}>
+                                {logItemId ? 'Item Change History' : `Budget Item Change Log — ${job.jobId}`}
+                                <span style={{ fontWeight: 400, fontSize: 12.5, color: '#94a3b8', marginLeft: 8 }}>
+                                    {logItemId ? logItemLabel : (logRvOnly ? `Rev ${header.currentRvNo} only` : 'all revisions')}
+                                </span>
+                                {logItemId && (
+                                    <button onClick={() => { setLogItemId(null); setLogItemLabel(''); fetchLog(logRvOnly, null); }}
+                                        style={{ marginLeft: 10, fontSize: 11, padding: '2px 8px', border: '1px solid #cbd5e1', borderRadius: 10, background: '#fff', cursor: 'pointer', color: '#475569', fontWeight: 600 }}>
+                                        Show all items
+                                    </button>
+                                )}
+                            </div>
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                <label style={{ fontSize: 12, color: '#475569', display: 'flex', gap: 5, alignItems: 'center', cursor: 'pointer' }}>
+                                    <input type="checkbox" checked={logRvOnly}
+                                        onChange={e => { setLogRvOnly(e.target.checked); fetchLog(e.target.checked); }} />
+                                    This revision only
+                                </label>
+                                <button onClick={() => setShowLog(false)} style={{ background: 'none', border: 0, fontSize: 20, cursor: 'pointer', color: '#64748b' }}>✕</button>
+                            </div>
+                        </div>
+                        {logRows.length > 0 && (() => {
+                            const counts = logRows.reduce((m, l) => { m[l.action] = (m[l.action] || 0) + 1; return m; }, {});
+                            const actions = ['ADD', 'INCREASE', 'DECREASE', 'UPDATE', 'DELETE'].filter(a => counts[a]);
+                            const chipCol = { ADD: ['#dcfce7', '#166534'], INCREASE: ['#dbeafe', '#1e40af'], DECREASE: ['#fef3c7', '#92400e'], UPDATE: ['#e2e8f0', '#475569'], DELETE: ['#fee2e2', '#991b1b'] };
+                            return (
+                                <div style={{ padding: '10px 22px', borderBottom: '1px solid #f1f5f9', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', background: '#fbfcfe' }}>
+                                    <input value={logSearch} onChange={e => setLogSearch(e.target.value)}
+                                        type="search" autoComplete="off" placeholder="🔍 Filter by item or header…"
+                                        style={{ flex: '1 1 200px', minWidth: 150, padding: '5px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 12, background: '#fff' }} />
+                                    <button onClick={() => setLogAction('')}
+                                        style={{ padding: '4px 10px', borderRadius: 14, fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                                                 border: `1px solid ${logAction === '' ? '#94a3b8' : '#e2e8f0'}`, background: logAction === '' ? '#475569' : '#fff', color: logAction === '' ? '#fff' : '#475569' }}>
+                                        All ({logRows.length})
+                                    </button>
+                                    {actions.map(a => {
+                                        const on = logAction === a;
+                                        const [bg, fg] = chipCol[a];
+                                        return (
+                                            <button key={a} onClick={() => setLogAction(on ? '' : a)}
+                                                style={{ padding: '4px 10px', borderRadius: 14, fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                                                         border: `1px solid ${on ? fg : '#e2e8f0'}`, background: on ? bg : '#fff', color: fg }}>
+                                                {a} ({counts[a]})
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            );
+                        })()}
+                        <div style={{ padding: '14px 22px', overflowY: 'auto' }}>
+                            {(() => { const term = logSearch.trim().toLowerCase();
+                              const shown = logRows.filter(l =>
+                                  (!logAction || l.action === logAction) &&
+                                  (!term || `${l.itemCode || ''} ${l.itemName || ''} ${l.budgetHeader || ''}`.toLowerCase().includes(term)));
+                              return logRows.length === 0 ? (
+                                <div style={{ color: '#94a3b8', padding: 12 }}>
+                                    No budget-item changes recorded {logItemId ? 'for this item' : logRvOnly ? `for Rev ${header.currentRvNo}` : 'for this job'} yet.
+                                    <div style={{ fontSize: 11, marginTop: 6 }}>Tracking begins from the first add/edit/delete after this feature was enabled — earlier edits are not back-filled.</div>
+                                </div>
+                              ) : shown.length === 0 ? (
+                                <div style={{ color: '#94a3b8', padding: 12 }}>No changes match the current filters.</div>
+                              ) : (
+                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+                                    <thead><tr style={{ color: '#64748b', background: '#f8fafc' }}>
+                                        <th style={{ textAlign: 'left', padding: '6px 8px' }}>When</th>
+                                        <th style={{ textAlign: 'center', padding: '6px 8px' }}>Rev</th>
+                                        <th style={{ textAlign: 'left', padding: '6px 8px' }}>Item</th>
+                                        <th style={{ textAlign: 'center', padding: '6px 8px' }}>Action</th>
+                                        <th style={{ textAlign: 'right', padding: '6px 8px' }}>Old Qty</th>
+                                        <th style={{ textAlign: 'right', padding: '6px 8px' }}>New Qty</th>
+                                        <th style={{ textAlign: 'right', padding: '6px 8px' }}>Δ</th>
+                                        <th style={{ textAlign: 'left', padding: '6px 8px' }}>By</th>
+                                    </tr></thead>
+                                    <tbody>
+                                        {shown.map(l => {
+                                            const chip = { ADD: ['#dcfce7', '#166534'], INCREASE: ['#dbeafe', '#1e40af'], DECREASE: ['#fef3c7', '#92400e'], UPDATE: ['#e2e8f0', '#475569'], DELETE: ['#fee2e2', '#991b1b'] }[l.action] || ['#e2e8f0', '#475569'];
+                                            return (
+                                                <tr key={l.logId} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                                    <td style={{ padding: '6px 8px', whiteSpace: 'nowrap', color: '#64748b' }}>{l.changedDate ? new Date(l.changedDate).toLocaleString('en-GB') : '—'}</td>
+                                                    <td style={{ padding: '6px 8px', textAlign: 'center', color: '#64748b', fontWeight: 600 }}>{l.rvNo}</td>
+                                                    <td style={{ padding: '6px 8px' }}>{l.itemCode ? `[${l.itemCode}] ` : ''}{l.itemName}<div style={{ fontSize: 10, color: '#94a3b8' }}>{l.budgetHeader}</div></td>
+                                                    <td style={{ padding: '6px 8px', textAlign: 'center' }}>
+                                                        <span style={{ background: chip[0], color: chip[1], padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600 }}>{l.action}</span>
+                                                    </td>
+                                                    <td style={{ padding: '6px 8px', textAlign: 'right', fontFamily: 'Courier New' }}>{l.oldQty != null ? fmt(l.oldQty) : '—'}</td>
+                                                    <td style={{ padding: '6px 8px', textAlign: 'right', fontFamily: 'Courier New', fontWeight: 600 }}>{l.newQty != null ? fmt(l.newQty) : '—'}</td>
+                                                    <td style={{ padding: '6px 8px', textAlign: 'right', fontFamily: 'Courier New', color: (l.qtyDelta || 0) > 0 ? '#16a34a' : (l.qtyDelta || 0) < 0 ? '#dc2626' : '#94a3b8' }}>
+                                                        {(l.qtyDelta || 0) > 0 ? '+' : ''}{fmt(l.qtyDelta || 0)}
+                                                    </td>
+                                                    <td style={{ padding: '6px 8px', color: '#64748b' }}>
+                                                        {l.changedBy || '—'}
+                                                        {l.reason && <div style={{ fontSize: 10, color: '#94a3b8', fontStyle: 'italic', maxWidth: 200, whiteSpace: 'normal' }} title={l.reason}>“{l.reason}”</div>}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                              ); })()}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
@@ -646,4 +1117,108 @@ const JobBudgetTab = ({ job }) => {
 const TH = { padding: '8px 12px', fontWeight: 700, fontSize: 11, textTransform: 'uppercase', letterSpacing: '.4px', color: '#475569', textAlign: 'left', whiteSpace: 'nowrap' };
 const TD = { padding: '10px 12px', verticalAlign: 'middle' };
 
-export default JobBudgetTab;
+// ── Summary-only tab (read-only) — add/edit happens on the dedicated page ──
+const JobBudgetSummaryTab = ({ job }) => {
+    const navigate = useNavigate();
+    const { baseCurrencyCode } = useLookup();
+    const [header,  setHeader]  = useState({ currentRvNo: 0, isApproved: false });
+    const [rows,    setRows]    = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        setLoading(true);
+        fetch(`${variables.API_URL}jobbudget/${encodeURIComponent(job.jobId)}`, { headers: authHeaders() })
+            .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+            .then(d => { setHeader(d?.header || { currentRvNo: 0, isApproved: false }); setRows(Array.isArray(d?.lines) ? d.lines : []); })
+            .catch(e => console.error('Load budget summary:', e))
+            .finally(() => setLoading(false));
+    }, [job.jobId]);
+
+    const totalBudget = rows.reduce((s, r) => s + (r.amountInBaseCurrency || 0), 0);
+    const totalActual = rows.reduce((s, r) => s + (r.actualAmount || 0), 0);
+    const totalVar    = totalBudget - totalActual;
+    const usedPct     = totalBudget > 0 ? Math.min((totalActual / totalBudget) * 100, 999) : 0;
+    const setRowsN    = rows.filter(r => r.budgetedAmount > 0).length;
+    // In-house jobs: scope the summary to the single linked cost header.
+    const visibleRows = (job.isCostingRequired === false && job.budgetCategoryId)
+        ? rows.filter(r => String(r.costCategoryId) === String(job.budgetCategoryId))
+        : rows;
+
+    if (loading) return <div style={{ padding: 32, textAlign: 'center', color: '#64748b' }}>Loading…</div>;
+
+    return (
+        <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
+                <div style={{ fontSize: 13, color: '#475569' }}>
+                    Revision <strong>Rev {header.currentRvNo}</strong>
+                    {header.isApproved
+                        ? <span style={{ marginLeft: 8, background: '#dcfce7', color: '#166534', padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600 }}>🔒 Approved</span>
+                        : <span style={{ marginLeft: 8, background: '#fef9c3', color: '#854d0e', padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600 }}>Draft</span>}
+                    <span style={{ marginLeft: 10, color: '#94a3b8' }}>{setRowsN} of {visibleRows.length} headers budgeted</span>
+                </div>
+                <button onClick={() => navigate(`/jobs/${encodeURIComponent(job.jobId)}/budget`)}
+                    style={{ background: '#1e40af', color: '#fff', border: 0, borderRadius: 7, padding: '8px 16px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+                    Add / Edit Budget →
+                </button>
+            </div>
+
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+                <thead>
+                    <tr style={{ background: '#f1f5f9' }}>
+                        <th style={TH}>Cost Category</th>
+                        <th style={{ ...TH, textAlign: 'right' }}>Budget{baseCurrencyCode ? ` (${baseCurrencyCode})` : ''}</th>
+                        <th style={{ ...TH, textAlign: 'right' }}>Actual{baseCurrencyCode ? ` (${baseCurrencyCode})` : ''}</th>
+                        <th style={{ ...TH, textAlign: 'right' }}>Variance{baseCurrencyCode ? ` (${baseCurrencyCode})` : ''}</th>
+                        <th style={{ ...TH, width: 160 }}>Spend</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {visibleRows.map(row => {
+                        const src      = SOURCE_INFO[row.categoryCode] || {};
+                        const spendPct = row.amountInBaseCurrency > 0
+                            ? Math.min((row.actualAmount / row.amountInBaseCurrency) * 100, 100).toFixed(0) : null;
+                        return (
+                            <tr key={row.costCategoryId} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                <td style={TD}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <span style={{ fontSize: 16 }}>{src.icon || '•'}</span>
+                                        <div style={{ fontWeight: 600, color: '#1e293b' }}>{row.categoryName}</div>
+                                    </div>
+                                </td>
+                                <td style={{ ...TD, textAlign: 'right', fontFamily: 'Courier New', fontWeight: 600, color: row.amountInBaseCurrency > 0 ? '#1e293b' : '#cbd5e1' }}>
+                                    {row.amountInBaseCurrency > 0 ? fmt(row.amountInBaseCurrency) : '—'}
+                                </td>
+                                <td style={{ ...TD, textAlign: 'right', fontFamily: 'Courier New', color: row.actualAmount > 0 ? '#1e293b' : '#94a3b8' }}>
+                                    {row.actualAmount > 0 ? fmt(row.actualAmount) : '—'}
+                                </td>
+                                <td style={{ ...TD, textAlign: 'right', fontFamily: 'Courier New', ...varianceStyle(row.variance, row.budgetedAmount) }}>
+                                    {row.budgetedAmount > 0 ? (row.variance >= 0 ? '' : '− ') + fmt(Math.abs(row.variance)) : '—'}
+                                </td>
+                                <td style={TD}>
+                                    {spendPct !== null
+                                        ? <div><div style={{ fontSize: 10, color: '#64748b', textAlign: 'right' }}>{spendPct}%</div><SpendBar actual={row.actualAmount} budget={row.amountInBaseCurrency} /></div>
+                                        : <span style={{ color: '#cbd5e1', fontSize: 11 }}>—</span>}
+                                </td>
+                            </tr>
+                        );
+                    })}
+                    {visibleRows.length === 0 && <tr><td style={TD} colSpan={5}><span style={{ color: '#94a3b8' }}>No budget set yet. Click <strong>Add / Edit Budget</strong>.</span></td></tr>}
+                </tbody>
+                <tfoot>
+                    <tr style={{ background: '#1e3a5f', color: '#fff' }}>
+                        <td style={{ ...TD, fontWeight: 700, color: '#fff' }}>TOTAL</td>
+                        <td style={{ ...TD, textAlign: 'right', fontFamily: 'Courier New', fontWeight: 700, color: '#fff' }}>{fmt(totalBudget)}</td>
+                        <td style={{ ...TD, textAlign: 'right', fontFamily: 'Courier New', fontWeight: 700, color: '#fff' }}>{fmt(totalActual)}</td>
+                        <td style={{ ...TD, textAlign: 'right', fontFamily: 'Courier New', fontWeight: 700, color: totalVar >= 0 ? '#86efac' : '#fca5a5' }}>
+                            {(totalVar >= 0 ? '' : '− ') + fmt(Math.abs(totalVar))}
+                        </td>
+                        <td style={TD}>{totalBudget > 0 && <div><div style={{ fontSize: 10, color: '#94a3b8', textAlign: 'right' }}>{usedPct.toFixed(1)}% used</div><SpendBar actual={totalActual} budget={totalBudget} /></div>}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    );
+};
+
+export { JobBudgetEditor };
+export default JobBudgetSummaryTab;

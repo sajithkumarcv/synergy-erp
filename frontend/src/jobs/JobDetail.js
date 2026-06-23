@@ -4,6 +4,7 @@ import { useCurrentUser } from '../AuthContext';
 import { useLookup } from '../LookupContext';
 import { useFieldConfig } from '../FieldConfigContext';
 import AlertModal from '../common/AlertModal';
+import ConfirmModal from '../common/ConfirmModal';
 import AmountInput from '../common/AmountInput';
 import './JobDetail.css';
 
@@ -262,6 +263,7 @@ const EngineersTab = ({ jobId }) => {
     const [form,       setForm]      = useState(null);
     const [saving,     setSaving]    = useState(false);
     const [alertMsg,   setAlertMsg]  = useState(null);
+    const [confirm,    setConfirm]   = useState(null);
 
     const load = useCallback(() => {
         fetch(`${variables.API_URL}job/${encodeURIComponent(jobId)}/engineers`, { headers: authHeaders() })
@@ -297,19 +299,28 @@ const EngineersTab = ({ jobId }) => {
         finally { setSaving(false); }
     };
 
-    const del = async (id) => {
-        if (!window.confirm('Remove this engineer from the job?')) return;
-        try {
-            const res = await fetch(`${variables.API_URL}job/${encodeURIComponent(jobId)}/engineers/${id}`, { method: 'DELETE', headers: authHeaders() });
-            if (!res.ok) { const d = await res.json(); setAlertMsg(d?.message || 'Failed to remove engineer.'); return; }
-            load();
-        } catch { setAlertMsg('Network error. Please try again.'); }
+    const del = (id) => {
+        setConfirm({
+            title: 'Remove Engineer',
+            message: 'Remove this engineer from the job?',
+            confirmLabel: 'Remove',
+            confirmStyle: { background: '#92400e', color: '#fff' },
+            onConfirm: async () => {
+                setConfirm(null);
+                try {
+                    const res = await fetch(`${variables.API_URL}job/${encodeURIComponent(jobId)}/engineers/${id}`, { method: 'DELETE', headers: authHeaders() });
+                    if (!res.ok) { const d = await res.json(); setAlertMsg(d?.message || 'Failed to remove engineer.'); return; }
+                    load();
+                } catch { setAlertMsg('Network error. Please try again.'); }
+            },
+        });
     };
 
     const assignedIds = new Set(assigned.map(a => a.engineerId));
 
     return (
         <div className="jd-tab-body">
+            {confirm && <ConfirmModal {...confirm} onClose={() => setConfirm(null)} />}
             <div className="jd-tab-toolbar">
                 <span className="jd-tab-count">{assigned.length} engineer{assigned.length !== 1 ? 's' : ''} assigned</span>
                 {!form && <button className="jd-btn-pri jd-btn-sm" onClick={() => setForm(emptyForm())}>+ Assign Engineer</button>}

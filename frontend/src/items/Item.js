@@ -21,13 +21,13 @@ const SortIcon = ({ col, sortCol, sortDir }) => {
 // ═══════════════════════════════════════════════════════════════
 // NEW ITEM FORM (slide-over)
 // ═══════════════════════════════════════════════════════════════
-const ItemForm = ({ categories, itemTypes, uoms, onClose, onSaved }) => {
+const ItemForm = ({ categories, itemTypes, uoms, budgetCategories = [], onClose, onSaved }) => {
   const currentUser = useCurrentUser();
   const { isReq } = useFieldConfig('ITEM');
 
   const [form, setForm] = useState({
     itemId: 0, itemCode: '', itemName: '', itemNameAr: '', shortDescription: '',
-    categoryId: '', itemTypeId: '',
+    categoryId: '', itemTypeId: '', budgetCategoryId: '',
     baseUomId: '', purchaseUomId: '', salesUomId: '',
     barcode: '', hsCode: '',
     isStockable: false, isSaleable: true, isPurchasable: true, isActive: true,
@@ -65,6 +65,7 @@ const ItemForm = ({ categories, itemTypes, uoms, onClose, onSaved }) => {
           baseUomId:     form.baseUomId     ? Number(form.baseUomId)     : null,
           purchaseUomId: form.purchaseUomId ? Number(form.purchaseUomId) : null,
           salesUomId:    form.salesUomId    ? Number(form.salesUomId)    : null,
+          budgetCategoryId: form.budgetCategoryId ? Number(form.budgetCategoryId) : null,
           createdBy: currentUser,
         })
       });
@@ -141,6 +142,15 @@ const ItemForm = ({ categories, itemTypes, uoms, onClose, onSaved }) => {
                 disabled={!parentCatId || subCats.length === 0}>
                 <option value="">{!parentCatId ? '— select category first —' : subCats.length === 0 ? '— no sub-categories —' : '-- Select --'}</option>
                 {subCats.map(c => <option key={c.categoryId} value={c.categoryId}>{c.categoryName}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="if-row">
+            <div className="if-field">
+              <label>Budget Header</label>
+              <select name="budgetCategoryId" className="if-input" value={form.budgetCategoryId} onChange={handle}>
+                <option value="">-- Select --</option>
+                {budgetCategories.map(b => <option key={b.id} value={b.id}>{b.code ? `${b.code} — ` : ''}{b.name}</option>)}
               </select>
             </div>
           </div>
@@ -224,6 +234,7 @@ export const Item = () => {
   const [categories,setCategories]= useState([]);
   const [itemTypes, setItemTypes] = useState([]);
   const [uoms,      setUoms]      = useState([]);
+  const [budgetCategories, setBudgetCategories] = useState([]);
   const [showForm,   setShowForm]   = useState(false);
   const [showImport, setShowImport] = useState(false);
 
@@ -234,6 +245,7 @@ export const Item = () => {
     fetch(`${variables.API_URL}item/types`,      { headers: authHeaders() }).then(r => r.json()).then(d => setItemTypes(Array.isArray(d)  ? d : [])).catch(console.error);
     fetch(`${variables.API_URL}item/categories`, { headers: authHeaders() }).then(r => r.json()).then(d => setCategories(Array.isArray(d) ? d : [])).catch(console.error);
     fetch(`${variables.API_URL}item/uoms`,       { headers: authHeaders() }).then(r => r.json()).then(d => setUoms(Array.isArray(d)       ? d : [])).catch(console.error);
+    fetch(`${variables.API_URL}Lookup/budgetcategories`, { headers: authHeaders() }).then(r => r.json()).then(d => setBudgetCategories(Array.isArray(d) ? d : [])).catch(console.error);
   }, []);
 
   const load = useCallback((pg, ps, sc, sd, af) => {
@@ -328,7 +340,7 @@ export const Item = () => {
 
       {showForm && (
         <ItemForm
-          categories={categories} itemTypes={itemTypes} uoms={uoms}
+          categories={categories} itemTypes={itemTypes} uoms={uoms} budgetCategories={budgetCategories}
           onClose={() => setShowForm(false)}
           onSaved={(id) => { setShowForm(false); navigate(`/items/${id}`); }}
         />

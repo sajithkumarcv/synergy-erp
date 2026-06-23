@@ -12,6 +12,7 @@ namespace ERPWEB.Models.Job
         public bool    IsActive           { get; set; } = true;
         public bool    IsCostingRequired  { get; set; } = true;
         public bool    RequiresParentJob  { get; set; } = false;
+        public bool    IsBudgetHeaderLinked { get; set; } = false;
         public string  CreatedBy          { get; set; } = "";
         public string? ModifiedBy         { get; set; }
     }

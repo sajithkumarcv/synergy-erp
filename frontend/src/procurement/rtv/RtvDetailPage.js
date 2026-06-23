@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { variables, authHeaders } from '../../Variable';
 import { useCurrentUser } from '../../AuthContext';
 import { usePermission } from '../../PermissionContext';
+import ConfirmModal from '../../common/ConfirmModal';
 import { fmt, fmtDate } from '../procurementConstants';
 import RtvOverviewTab from './tabs/RtvOverviewTab';
 import RtvLinesTab    from './tabs/RtvLinesTab';
@@ -32,6 +33,7 @@ const RtvDetailPage = () => {
     const [deleting,  setDeleting]  = useState(false);
     const [actionErr, setActionErr] = useState('');
     const [linesCount, setLinesCount] = useState(null);
+    const [confirm,    setConfirm]    = useState(null);
 
     const loadRtv = useCallback(() => {
         setLoading(true);
@@ -75,17 +77,24 @@ const RtvDetailPage = () => {
         } finally { setPosting(false); }
     };
 
-    const deleteRtv = async () => {
-        if (!window.confirm('Delete this RTV? This cannot be undone.')) return;
-        setDeleting(true); setActionErr('');
-        try {
-            const res = await fetch(`${variables.API_URL}rtv/${rtvId}`, {
-                method: 'DELETE', headers: authHeaders(),
-            });
-            const d = await res.json();
-            if (!res.ok) { setActionErr(d.message || 'Error deleting RTV.'); setDeleting(false); return; }
-            navigate('/rtv');
-        } catch { setActionErr('Network error.'); setDeleting(false); }
+    const deleteRtv = () => {
+        setConfirm({
+            title: 'Delete RTV',
+            message: 'Delete this RTV? This cannot be undone.',
+            confirmLabel: 'Delete',
+            onConfirm: async () => {
+                setConfirm(null);
+                setDeleting(true); setActionErr('');
+                try {
+                    const res = await fetch(`${variables.API_URL}rtv/${rtvId}`, {
+                        method: 'DELETE', headers: authHeaders(),
+                    });
+                    const d = await res.json();
+                    if (!res.ok) { setActionErr(d.message || 'Error deleting RTV.'); setDeleting(false); return; }
+                    navigate('/rtv');
+                } catch { setActionErr('Network error.'); setDeleting(false); }
+            },
+        });
     };
 
     if (loading) return (
@@ -120,6 +129,7 @@ const RtvDetailPage = () => {
 
     return (
         <div className="jd-page">
+            {confirm && <ConfirmModal {...confirm} onClose={() => setConfirm(null)} />}
             {showPost && (
                 <PostRtvModal
                     rtv={rtv}

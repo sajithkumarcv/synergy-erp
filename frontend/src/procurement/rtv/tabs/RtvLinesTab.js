@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { variables, authHeaders } from '../../../Variable';
 import { useCurrentUser } from '../../../AuthContext';
+import ConfirmModal from '../../../common/ConfirmModal';
 import { useLookup } from '../../../LookupContext';
 import { fmt } from '../../procurementConstants';
 import { useFieldConfig } from '../../../FieldConfigContext';
@@ -15,6 +16,7 @@ const GrnImportModal = ({ rtv, onClose, onImported }) => {
     const [qtyMap,     setQtyMap]     = useState({});
     const [importing,  setImporting]  = useState(false);
     const [error,      setError]      = useState('');
+    const [confirm,    setConfirm]    = useState(null);
 
     useEffect(() => {
         if (!rtv.grnId) { setLoading(false); return; }
@@ -39,25 +41,7 @@ const GrnImportModal = ({ rtv, onClose, onImported }) => {
         setSelected(p => ({ ...p, ...next }));
     };
 
-    const doImport = async () => {
-        const toImport = grnLines.filter(l => selected[l.grnDetailId]);
-        if (!toImport.length) { setError('No lines selected.'); return; }
-        const invalid = toImport.filter(l => !qtyMap[l.grnDetailId] || isNaN(Number(qtyMap[l.grnDetailId])) || Number(qtyMap[l.grnDetailId]) <= 0);
-        if (invalid.length) { setError('All selected lines must have a valid return qty > 0.'); return; }
-        const over = toImport.filter(l => Number(qtyMap[l.grnDetailId]) > l.acceptedQty);
-        if (over.length) { setError('Return qty cannot exceed accepted qty from GRN.'); return; }
-
-        // FE-6: Warn if any item has insufficient current stock — posting will fail later
-        const lowStock = toImport.filter(l => l.itemId && Number(qtyMap[l.grnDetailId]) > l.currentStock);
-        if (lowStock.length) {
-            const names = lowStock.map(l => l.itemCode || l.itemDesc).join(', ');
-            const ok = window.confirm(
-                `Warning: ${lowStock.length} item(s) have current stock lower than the return qty (${names}).\n\n` +
-                `Posting this RTV will fail with "stock would go negative".\n\nImport anyway?`
-            );
-            if (!ok) return;
-        }
-
+    const doImportLines = async (toImport) => {
         setImporting(true); setError('');
         const failedLines = [];
         try {
@@ -90,12 +74,38 @@ const GrnImportModal = ({ rtv, onClose, onImported }) => {
         finally { setImporting(false); }
     };
 
+    const doImport = async () => {
+        const toImport = grnLines.filter(l => selected[l.grnDetailId]);
+        if (!toImport.length) { setError('No lines selected.'); return; }
+        const invalid = toImport.filter(l => !qtyMap[l.grnDetailId] || isNaN(Number(qtyMap[l.grnDetailId])) || Number(qtyMap[l.grnDetailId]) <= 0);
+        if (invalid.length) { setError('All selected lines must have a valid return qty > 0.'); return; }
+        const over = toImport.filter(l => Number(qtyMap[l.grnDetailId]) > l.acceptedQty);
+        if (over.length) { setError('Return qty cannot exceed accepted qty from GRN.'); return; }
+
+        // FE-6: Warn if any item has insufficient current stock — posting will fail later
+        const lowStock = toImport.filter(l => l.itemId && Number(qtyMap[l.grnDetailId]) > l.currentStock);
+        if (lowStock.length) {
+            const names = lowStock.map(l => l.itemCode || l.itemDesc).join(', ');
+            setConfirm({
+                title: 'Low Stock Warning',
+                message: `Warning: ${lowStock.length} item(s) have current stock lower than the return qty (${names}).\n\nPosting this RTV will fail with "stock would go negative".\n\nImport anyway?`,
+                confirmLabel: 'Import Anyway',
+                confirmStyle: { background: '#b45309', color: '#fff' },
+                onConfirm: async () => { setConfirm(null); await doImportLines(toImport); },
+            });
+            return;
+        }
+
+        await doImportLines(toImport);
+    };
+
     const allChecked = grnLines.length > 0 && grnLines.every(l => selected[l.grnDetailId]);
     const selCount   = Object.values(selected).filter(Boolean).length;
 
     return (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 600, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             onClick={e => e.target === e.currentTarget && onClose()}>
+            {confirm && <ConfirmModal {...confirm} onClose={() => setConfirm(null)} />}
             <div style={{ background: '#fff', borderRadius: 10, width: 880, maxWidth: '96vw', maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,.2)' }}>
                 {/* Header */}
                 <div style={{ background: '#0f766e', padding: '14px 20px', borderRadius: '10px 10px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -191,6 +201,7 @@ const RtvLinesTab = ({ rtv, onRefresh }) => {
     const [saving,       setSaving]       = useState(false);
     const [deleting,     setDeleting]     = useState(null);
     const [error,        setError]        = useState('');
+    const [confirm,      setConfirm]      = useState(null);
 
     // Item typeahead
     const [itemSearch,   setItemSearch]   = useState('');
@@ -289,25 +300,33 @@ const RtvLinesTab = ({ rtv, onRefresh }) => {
     };
 
     const deleteLine = id => {
-        if (!window.confirm('Delete this return line?')) return;
-        setDeleting(id);
-        fetch(`${variables.API_URL}rtv/lines/${id}`, { method: 'DELETE', headers: authHeaders() })
-            .then(async res => {
-                if (!res.ok) {
-                    const d = await res.json().catch(() => ({}));
-                    setError(d.message || 'Error deleting line.');
-                    return;
-                }
-                load(); onRefresh();
-            })
-            .catch(() => setError('Network error deleting line.'))
-            .finally(() => setDeleting(null));
+        setConfirm({
+            title: 'Delete Return Line',
+            message: 'Delete this return line?',
+            confirmLabel: 'Delete',
+            onConfirm: () => {
+                setConfirm(null);
+                setDeleting(id);
+                fetch(`${variables.API_URL}rtv/lines/${id}`, { method: 'DELETE', headers: authHeaders() })
+                    .then(async res => {
+                        if (!res.ok) {
+                            const d = await res.json().catch(() => ({}));
+                            setError(d.message || 'Error deleting line.');
+                            return;
+                        }
+                        load(); onRefresh();
+                    })
+                    .catch(() => setError('Network error deleting line.'))
+                    .finally(() => setDeleting(null));
+            },
+        });
     };
 
     const grandTotal = lines.reduce((s, l) => s + (l.lineTotal || 0), 0);
 
     return (
         <div>
+            {confirm   && <ConfirmModal {...confirm} onClose={() => setConfirm(null)} />}
             {showImport && <GrnImportModal rtv={rtv} onClose={() => setShowImport(false)} onImported={() => { setShowImport(false); load(); onRefresh(); }} />}
 
             <div className="prd-lines-wrap">

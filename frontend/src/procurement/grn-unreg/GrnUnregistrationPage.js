@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { variables, authHeaders } from '../../Variable';
 import { useCurrentUser } from '../../AuthContext';
+import ConfirmModal from '../../common/ConfirmModal';
 import { useCanDo } from '../../PermissionContext';
 import { fmtDate, fmt } from '../procurementConstants';
 import '../Procurement.css';
@@ -29,6 +30,7 @@ const GrnUnregistrationPage = () => {
     const [clearingInvoice, setClearingInvoice] = useState(false);
     const [result,          setResult]          = useState(null);
     const [error,           setError]           = useState(null);
+    const [confirm,         setConfirm]         = useState(null);
 
     const loadEligible = useCallback(() => {
         setLoadingList(true); setError(null);
@@ -51,41 +53,52 @@ const GrnUnregistrationPage = () => {
             .finally(() => setLoadingPrev(false));
     }, [selectedId]);
 
-    const handleExecute = async () => {
+    const handleExecute = () => {
         if (!reason.trim() || reason.trim().length < 5) {
             setError('Please enter a reason (at least 5 characters).');
             return;
         }
-        if (!window.confirm(
-            `Unregister ${preview?.header?.grnNumber}?\n\n` +
-            `This permanently cancels the GRN and reverses received quantities on ${preview?.header?.poNumber}.`
-        )) return;
-        setSubmitting(true); setError(null);
-        try {
-            const res = await fetch(`${variables.API_URL}grnunregistration/execute`, {
-                method:  'POST', headers: authHeaders(),
-                body: JSON.stringify({ grnId: parseInt(selectedId, 10), cancelledBy: currentUser, cancelReason: reason.trim() }),
-            });
-            const d = await res.json();
-            if (!res.ok) { setError(d?.message || 'Unregistration failed.'); return; }
-            setResult({ grnNumber: preview.header.grnNumber, poNumber: preview.header.poNumber, newPoStatus: d.newPoStatus });
-            setSelectedId(''); setPreview(null); setReason('');
-            loadEligible();
-        } finally { setSubmitting(false); }
+        setConfirm({
+            title: 'Unregister GRN',
+            message: `Unregister ${preview?.header?.grnNumber}?\n\nThis permanently cancels the GRN and reverses received quantities on ${preview?.header?.poNumber}.`,
+            confirmLabel: 'Unregister',
+            onConfirm: async () => {
+                setConfirm(null);
+                setSubmitting(true); setError(null);
+                try {
+                    const res = await fetch(`${variables.API_URL}grnunregistration/execute`, {
+                        method:  'POST', headers: authHeaders(),
+                        body: JSON.stringify({ grnId: parseInt(selectedId, 10), cancelledBy: currentUser, cancelReason: reason.trim() }),
+                    });
+                    const d = await res.json();
+                    if (!res.ok) { setError(d?.message || 'Unregistration failed.'); return; }
+                    setResult({ grnNumber: preview.header.grnNumber, poNumber: preview.header.poNumber, newPoStatus: d.newPoStatus });
+                    setSelectedId(''); setPreview(null); setReason('');
+                    loadEligible();
+                } finally { setSubmitting(false); }
+            },
+        });
     };
 
-    const clearInvoice = async () => {
-        if (!window.confirm(`Remove invoice reference "${h?.invoiceNo}" from ${h?.grnNumber}?`)) return;
-        setClearingInvoice(true); setError(null);
-        try {
-            const res = await fetch(`${variables.API_URL}grn/${selectedId}/clear-invoice?modifiedBy=${encodeURIComponent(currentUser)}`,
-                { method: 'POST', headers: authHeaders() });
-            const d = await res.json();
-            if (!res.ok) { setError(d?.message || 'Failed to clear invoice reference.'); return; }
-            const prev = await fetch(`${variables.API_URL}grnunregistration/${selectedId}/preview`, { headers: authHeaders() });
-            setPreview(await prev.json());
-        } catch { setError('Network error clearing invoice reference.'); }
-        finally { setClearingInvoice(false); }
+    const clearInvoice = () => {
+        setConfirm({
+            title: 'Remove Invoice Reference',
+            message: `Remove invoice reference "${h?.invoiceNo}" from ${h?.grnNumber}?`,
+            confirmLabel: 'Remove',
+            onConfirm: async () => {
+                setConfirm(null);
+                setClearingInvoice(true); setError(null);
+                try {
+                    const res = await fetch(`${variables.API_URL}grn/${selectedId}/clear-invoice?modifiedBy=${encodeURIComponent(currentUser)}`,
+                        { method: 'POST', headers: authHeaders() });
+                    const d = await res.json();
+                    if (!res.ok) { setError(d?.message || 'Failed to clear invoice reference.'); return; }
+                    const prev = await fetch(`${variables.API_URL}grnunregistration/${selectedId}/preview`, { headers: authHeaders() });
+                    setPreview(await prev.json());
+                } catch { setError('Network error clearing invoice reference.'); }
+                finally { setClearingInvoice(false); }
+            },
+        });
     };
 
     const h = preview?.header;
@@ -94,6 +107,7 @@ const GrnUnregistrationPage = () => {
 
     return (
         <div className="prd-page" style={{ maxWidth: '80%', width: '80%' }}>
+            {confirm && <ConfirmModal {...confirm} onClose={() => setConfirm(null)} />}
             <div className="prd-page-header">
                 <div className="prd-page-title">GRN Unregistration</div>
                 <div className="prd-page-subtitle">

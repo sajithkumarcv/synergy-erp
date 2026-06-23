@@ -43,6 +43,9 @@ namespace ERPWEB.Models.Job
         public DateTime? ApprovedDate        { get; set; }
         public string   CreatedBy            { get; set; } = "";
         public string?  ModifiedBy           { get; set; }
+        // ── Financial-edit guard (transient, not persisted) ──
+        public string?  Password             { get; set; }
+        public string?  Reason               { get; set; }
     }
 
     // ── Engineer ──────────────────────────────────────────────

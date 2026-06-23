@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { variables, authHeaders } from '../../Variable';
 import { useCurrentUser } from '../../AuthContext';
+import ConfirmModal from '../../common/ConfirmModal';
 import { IRN_TABS, fmtDate, fmt, statusBadgeCfg } from '../inventoryConstants';
 import { useLookup } from '../../LookupContext';
 import { usePermission } from '../../PermissionContext';
@@ -33,6 +34,7 @@ const IssueReturnDetailPage = () => {
     const [deleting,       setDeleting]     = useState(false);
     const [showPrint,      setShowPrint]    = useState(false);
     const [alertMsg,       setAlertMsg]     = useState(null);
+    const [confirm,        setConfirm]      = useState(null);
     const statusRef = useRef(null);
 
     const loadReturn = useCallback(() => {
@@ -85,20 +87,27 @@ const IssueReturnDetailPage = () => {
         } catch (e) { setActionError(`Network error — ${e?.message || 'could not reach the server.'}`); }
     };
 
-    const deleteReturn = async () => {
-        if (!window.confirm('Delete this Issue Return Note? This cannot be undone.')) return;
-        setActionError('');
-        setDeleting(true);
-        try {
-            const res = await fetch(
-                `${variables.API_URL}stockissuereturn/${id}?modifiedBy=${encodeURIComponent(currentUser)}`,
-                { method: 'DELETE', headers: authHeaders() }
-            );
-            const d = await res.json().catch(() => ({}));
-            if (!res.ok) { setActionError(d?.message || `Delete failed (HTTP ${res.status}).`); return; }
-            navigate('/inventory-issue-return');
-        } catch (e) { setActionError(`Network error — ${e?.message || 'could not reach the server.'}`); }
-        finally { setDeleting(false); }
+    const deleteReturn = () => {
+        setConfirm({
+            title: 'Delete Issue Return',
+            message: 'Delete this Issue Return Note? This cannot be undone.',
+            confirmLabel: 'Delete',
+            onConfirm: async () => {
+                setConfirm(null);
+                setActionError('');
+                setDeleting(true);
+                try {
+                    const res = await fetch(
+                        `${variables.API_URL}stockissuereturn/${id}?modifiedBy=${encodeURIComponent(currentUser)}`,
+                        { method: 'DELETE', headers: authHeaders() }
+                    );
+                    const d = await res.json().catch(() => ({}));
+                    if (!res.ok) { setActionError(d?.message || `Delete failed (HTTP ${res.status}).`); return; }
+                    navigate('/inventory-issue-return');
+                } catch (e) { setActionError(`Network error — ${e?.message || 'could not reach the server.'}`); }
+                finally { setDeleting(false); }
+            },
+        });
     };
 
     if (loading) return (
@@ -129,6 +138,7 @@ const IssueReturnDetailPage = () => {
 
     return (
         <div className="jd-page">
+            {confirm && <ConfirmModal {...confirm} onClose={() => setConfirm(null)} />}
 
             {/* ── HEADER ── */}
             <div className="jd-header">

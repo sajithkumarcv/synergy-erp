@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { variables, authHeaders } from '../Variable';
 import { useCurrentUser } from '../AuthContext';
+import ConfirmModal from '../common/ConfirmModal';
 import { useLookup } from '../LookupContext';
 import { usePermission } from '../PermissionContext';
 import { INVOICE_TABS, fmt, fmtDate, statusBadgeCfg } from './invoiceConstants';
@@ -230,6 +231,7 @@ const InvoiceDetailPage = () => {
     const [showPrint,  setShowPrint]  = useState(false);   // 1 = format1, 2 = format2
     const [fmtOpen,    setFmtOpen]   = useState(false);
     const [approvalTx, setApprovalTx] = useState(null);
+    const [confirm,    setConfirm]    = useState(null);
 
     const loadInvoice = useCallback(() => {
         setLoading(true); setError(null);
@@ -251,20 +253,27 @@ const InvoiceDetailPage = () => {
 
     useEffect(() => { loadInvoice(); loadPayments(); }, [loadInvoice, loadPayments]);
 
-    const deleteInvoice = async () => {
-        if (!window.confirm('Delete this invoice? This cannot be undone.')) return;
-        setActionError('');
-        setDeleting(true);
-        try {
-            const res = await fetch(
-                `${variables.API_URL}invoice/${id}?modifiedBy=${encodeURIComponent(currentUser)}`,
-                { method: 'DELETE', headers: authHeaders() }
-            );
-            const d = await res.json().catch(() => ({}));
-            if (!res.ok) { setActionError(d?.message || `Delete failed (HTTP ${res.status}).`); return; }
-            navigate('/invoices');
-        } catch (e) { setActionError(`Network error — ${e?.message || 'could not reach the server.'}`); }
-        finally { setDeleting(false); }
+    const deleteInvoice = () => {
+        setConfirm({
+            title: 'Delete Invoice',
+            message: 'Delete this invoice? This cannot be undone.',
+            confirmLabel: 'Delete',
+            onConfirm: async () => {
+                setConfirm(null);
+                setActionError('');
+                setDeleting(true);
+                try {
+                    const res = await fetch(
+                        `${variables.API_URL}invoice/${id}?modifiedBy=${encodeURIComponent(currentUser)}`,
+                        { method: 'DELETE', headers: authHeaders() }
+                    );
+                    const d = await res.json().catch(() => ({}));
+                    if (!res.ok) { setActionError(d?.message || `Delete failed (HTTP ${res.status}).`); return; }
+                    navigate('/invoices');
+                } catch (e) { setActionError(`Network error — ${e?.message || 'could not reach the server.'}`); }
+                finally { setDeleting(false); }
+            },
+        });
     };
 
     // Returns true on success, or an error-message string on failure
@@ -343,6 +352,7 @@ const InvoiceDetailPage = () => {
 
     return (
         <div className="jd-page">
+            {confirm && <ConfirmModal {...confirm} onClose={() => setConfirm(null)} />}
 
             {/* ── HEADER ── */}
             <div className="jd-header">

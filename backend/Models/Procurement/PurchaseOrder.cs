@@ -17,9 +17,12 @@ namespace ERPWEB.Models.Procurement
         public string? SupplierAddress     { get; set; }
         public string? JobId    { get; set; }
         public string? JobTitle { get; set; }
-        public int?    ExpenseCategoryId   { get; set; }
-        public string? ExpenseCategoryCode { get; set; }
-        public string? ExpenseCategoryName { get; set; }
+        public int?    ExpenseCategoryId    { get; set; }
+        public string? ExpenseCategoryCode  { get; set; }
+        public string? ExpenseCategoryName  { get; set; }
+        public bool    IsSubcontractOrder   { get; set; }
+        public int?    BudgetHeaderId       { get; set; }
+        public bool    IsBudgetHeaderLinked { get; set; }
 
         // ── Supplier Contact ─────────────────────────────────────
         public int?    SupplierContactId      { get; set; }

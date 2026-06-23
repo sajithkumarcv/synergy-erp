@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { variables, authHeaders } from '../../../Variable';
 import { useCurrentUser } from '../../../AuthContext';
+import ConfirmModal from '../../../common/ConfirmModal';
 import { useLookup } from '../../../LookupContext';
 import { usePermission } from '../../../PermissionContext';
 import { fmt, fmtDate } from '../../procurementConstants';
@@ -385,6 +386,7 @@ const GrnLinesTab = ({ grn, onRefresh }) => {
     const [saving,     setSaving]     = useState(false);
     const [deleting,   setDeleting]   = useState(null);
     const [error,      setError]      = useState('');
+    const [confirm,    setConfirm]    = useState(null);
     const [lineSortKey, setLineSortKey] = useState('');
     const [lineSortDir, setLineSortDir] = useState('asc');
 
@@ -498,15 +500,22 @@ const GrnLinesTab = ({ grn, onRefresh }) => {
             .finally(() => setSaving(false));
     };
 
-    const deleteLine = async (lineId) => {
-        if (!window.confirm('Delete this line? This will reverse the received quantity on the PO.')) return;
-        setDeleting(lineId);
-        try {
-            const res = await fetch(`${variables.API_URL}grn/lines/${lineId}`, { method: 'DELETE', headers: authHeaders() });
-            if (!res.ok) { const d = await res.json(); setError(d?.message || 'Failed to delete line.'); return; }
-            loadLines(); onRefresh();
-        } catch { setError('Network error. Please try again.'); }
-        finally { setDeleting(null); }
+    const deleteLine = (lineId) => {
+        setConfirm({
+            title: 'Delete GRN Line',
+            message: 'Delete this line? This will reverse the received quantity on the PO.',
+            confirmLabel: 'Delete',
+            onConfirm: async () => {
+                setConfirm(null);
+                setDeleting(lineId);
+                try {
+                    const res = await fetch(`${variables.API_URL}grn/lines/${lineId}`, { method: 'DELETE', headers: authHeaders() });
+                    if (!res.ok) { const d = await res.json(); setError(d?.message || 'Failed to delete line.'); return; }
+                    loadLines(); onRefresh();
+                } catch { setError('Network error. Please try again.'); }
+                finally { setDeleting(null); }
+            },
+        });
     };
 
     const handleImported = () => { setShowImport(false); loadLines(); onRefresh(); };
@@ -542,6 +551,7 @@ const GrnLinesTab = ({ grn, onRefresh }) => {
 
     return (
         <div>
+            {confirm && <ConfirmModal {...confirm} onClose={() => setConfirm(null)} />}
             {showImport && (
                 <PoImportModal grn={grn} onClose={() => setShowImport(false)} onImported={handleImported} />
             )}

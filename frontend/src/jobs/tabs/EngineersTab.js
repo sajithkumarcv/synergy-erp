@@ -4,6 +4,7 @@ import { useCurrentUser } from '../../AuthContext';
 import { canEdit, fmtDate } from '../jobConstants';
 import { useFieldConfig } from '../../FieldConfigContext';
 import AlertModal from '../../common/AlertModal';
+import ConfirmModal from '../../common/ConfirmModal';
 
 // Dynamic badge colour from role name
 const ROLE_PALETTE = [
@@ -34,6 +35,7 @@ const EngineersTab = ({ job, onRefresh }) => {
     const [saving,    setSaving]    = useState(false);
     const [loading,   setLoading]   = useState(true);
     const [alertMsg,  setAlertMsg]  = useState(null);
+    const [confirm,   setConfirm]   = useState(null);
 
     const editable = canEdit(job?.jobStatusId);
 
@@ -86,15 +88,22 @@ const EngineersTab = ({ job, onRefresh }) => {
         finally { setSaving(false); }
     };
 
-    const del = async (id) => {
-        if (!window.confirm('Remove this engineer from the job?')) return;
-        try {
-            const res = await fetch(`${variables.API_URL}job/${encodeURIComponent(job.jobId)}/engineers/${id}`, {
-                method: 'DELETE', headers: authHeaders()
-            });
-            if (!res.ok) { const d = await res.json(); setAlertMsg(d?.message || 'Failed to remove engineer.'); return; }
-            load(); if (onRefresh) onRefresh();
-        } catch { setAlertMsg('Network error. Please try again.'); }
+    const del = (id) => {
+        setConfirm({
+            title: 'Remove Engineer',
+            message: 'Remove this engineer from the job?',
+            confirmLabel: 'Remove',
+            onConfirm: async () => {
+                setConfirm(null);
+                try {
+                    const res = await fetch(`${variables.API_URL}job/${encodeURIComponent(job.jobId)}/engineers/${id}`, {
+                        method: 'DELETE', headers: authHeaders()
+                    });
+                    if (!res.ok) { const d = await res.json(); setAlertMsg(d?.message || 'Failed to remove engineer.'); return; }
+                    load(); if (onRefresh) onRefresh();
+                } catch { setAlertMsg('Network error. Please try again.'); }
+            },
+        });
     };
 
     const initials = (name = '') =>
@@ -102,6 +111,7 @@ const EngineersTab = ({ job, onRefresh }) => {
 
     return (
         <div className="tab-section">
+            {confirm && <ConfirmModal {...confirm} onClose={() => setConfirm(null)} />}
             <div className="tab-toolbar">
                 <div className="tab-toolbar-left">
                     <span className="tab-section-title">Assigned Engineers</span>

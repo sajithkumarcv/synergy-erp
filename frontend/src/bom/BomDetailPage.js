@@ -1072,25 +1072,41 @@ const BomDetailPage = () => {
             map.get(key).lines.push(line);
         });
 
-        // Fill in master sections that have no lines yet
-        sections.forEach(s => {
-            const key = s.bomSectionId;
-            if (!map.has(key)) {
-                map.set(key, {
-                    bomSectionId:     s.bomSectionId,
-                    sectionCode:      s.sectionCode,
-                    sectionName:      s.sectionName,
-                    sectionSortOrder: s.sortOrder,
-                    lines:            [],
-                });
-            }
-        });
+        // Fill in master sections that have no lines yet — but NOT for in-house
+        // jobs, which are tied to a single cost header (show only that section).
+        const costedJob = (header?.isCostingRequired ?? true) !== false;
+        if (costedJob) {
+            sections.forEach(s => {
+                const key = s.bomSectionId;
+                if (!map.has(key)) {
+                    map.set(key, {
+                        bomSectionId:     s.bomSectionId,
+                        sectionCode:      s.sectionCode,
+                        sectionName:      s.sectionName,
+                        sectionSortOrder: s.sortOrder,
+                        lines:            [],
+                    });
+                }
+            });
+        }
 
         return Array.from(map.values()).sort((a, b) => a.sectionSortOrder - b.sectionSortOrder);
-    }, [details, sections]);
+    }, [details, sections, header]);
+
+    // For in-house jobs, restrict the Add-Line section picker to the section(s)
+    // actually used by this BOM (its single cost-header section).
+    const inHouseBom = (header?.isCostingRequired ?? true) === false;
+    const sectionChoices = inHouseBom
+        ? sections.filter(s => details.some(d => d.bomSectionId === s.bomSectionId))
+        : sections;
 
     const totalValue = details.reduce((s, r) => s + (r.lineTotal || 0), 0);
     const isApproved = header?.bomStatus === 'Approved';
+    // Costed (standard) jobs: BOM is generated from the approved budget and is
+    // READ-ONLY here — materials change via a budget revision. In-house jobs
+    // (CostingRequired=0) keep the BOM directly editable.
+    const isCostingRequired = (header?.isCostingRequired ?? true) !== false;
+    const linesLocked       = isApproved || isCostingRequired;
 
     // ── Status KPI counts (always over full dataset) ────────────────
     const statusCounts = React.useMemo(() => {
@@ -1343,6 +1359,13 @@ const BomDetailPage = () => {
                                 ✅ This BOM is Approved — lines are read-only. Click <strong>Revise BOM</strong> to make changes.
                             </div>
                         )}
+                        {!isApproved && isCostingRequired && (
+                            <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8,
+                                          padding: '10px 16px', marginBottom: 14, fontSize: 13, color: '#1e40af', fontWeight: 600 }}>
+                                🧾 This BOM is generated from the <strong>approved budget</strong> and is read-only.
+                                To change materials, create a <strong>budget revision</strong> — the BOM regenerates (new version) when the revision is approved.
+                            </div>
+                        )}
 
                         {/* ── Status KPI strip ── */}
                         {details.length > 0 && (() => {
@@ -1466,8 +1489,8 @@ const BomDetailPage = () => {
                                 sectionName={sec.sectionName}
                                 sectionSortOrder={sec.sectionSortOrder}
                                 lines={sec.lines}
-                                isApproved={isApproved}
-                                sections={sections}
+                                isApproved={linesLocked}
+                                sections={sectionChoices}
                                 bomDetailStatuses={bomDetailStatuses}
                                 bomHeaderId={parseInt(id)}
                                 jobId={header.jobId}

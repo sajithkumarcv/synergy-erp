@@ -68,7 +68,17 @@ const JobForm = ({ jobTypes, jobStages, onClose, onSaved }) => {
     jobExpectedDeliveryDate: '',
     parentJobId:             '',   // only required when preview.requiresParentJob
     parentJobLabel:          '',   // display text for selected parent job
+    budgetCategoryId:        '',   // only required when preview.isBudgetHeaderLinked
   });
+
+  // Budget header options (job expense categories flagged UsedForBudget=1)
+  const [budgetCategories, setBudgetCategories] = useState([]);
+  useEffect(() => {
+    fetch(`${variables.API_URL}Lookup/budgetcategories`, { headers: authHeaders() })
+      .then(r => r.ok ? r.json() : [])
+      .then(d => setBudgetCategories(Array.isArray(d) ? d : []))
+      .catch(console.error);
+  }, []);
 
   // Auto-select first stage once stages are available
   useEffect(() => {
@@ -111,6 +121,12 @@ const JobForm = ({ jobTypes, jobStages, onClose, onSaved }) => {
       setParentResults([]);
     }
   }, [preview?.requiresParentJob]); // eslint-disable-line
+
+  // Clear budget header when job type is no longer budget-header-linked
+  useEffect(() => {
+    if (!preview?.isBudgetHeaderLinked)
+      setForm(p => ({ ...p, budgetCategoryId: '' }));
+  }, [preview?.isBudgetHeaderLinked]); // eslint-disable-line
 
   // ── Customer search ───────────────────────────────────────────
   const [errors, setErrors] = useState({});
@@ -164,6 +180,8 @@ const JobForm = ({ jobTypes, jobStages, onClose, onSaved }) => {
     if (!form.jobTypeId)                          e.jobTypeId     = 'Job Type is required.';
     if (preview?.requiresParentJob && !form.parentJobId)
                                                   e.parentJobId   = 'Parent Job is required for this job type.';
+    if (preview?.isBudgetHeaderLinked && !form.budgetCategoryId)
+                                                  e.budgetCategoryId = 'Budget Header is required for this job type.';
     if (!form.jobStageId)                         e.jobStageId    = 'Job Stage is required.';
     if (!form.customerId)                         e.customerId    = 'Customer is required.';
     if (!form.jobDate)                            e.jobDate       = 'Job Date is required.';
@@ -245,6 +263,7 @@ const JobForm = ({ jobTypes, jobStages, onClose, onSaved }) => {
         jobExpectedDeliveryDate:    d2n(form.jobExpectedDeliveryDate),
         parentJobId:                form.parentJobId || null,
         parentJobLabel:             undefined,   // UI-only — strip before sending
+        budgetCategoryId:           form.budgetCategoryId ? Number(form.budgetCategoryId) : null,
       })
     })
     .then(r => r.json().then(d => ({ ok: r.ok, d })))
@@ -381,6 +400,27 @@ const JobForm = ({ jobTypes, jobStages, onClose, onSaved }) => {
               {errors.jobDate && <span className="jf-err-msg">{errors.jobDate}</span>}
             </div>
           </div>
+
+          {/* ── Budget Header (only when job type is budget-header-linked) ── */}
+          {preview?.isBudgetHeaderLinked && (
+            <>
+              <Sec label="Budget Header" />
+              <div className="jf-row">
+                <div className="jf-field jf-f2">
+                  <label>Budget Header <span className="req">*</span></label>
+                  <select name="budgetCategoryId"
+                    className={`jf-input${errors.budgetCategoryId ? ' jf-input-err' : ''}`}
+                    value={form.budgetCategoryId} onChange={handle}>
+                    <option value="">-- Select --</option>
+                    {budgetCategories.map(b => (
+                      <option key={b.id} value={b.id}>{b.code ? `${b.code} — ` : ''}{b.name}</option>
+                    ))}
+                  </select>
+                  {errors.budgetCategoryId && <span className="jf-err-msg">{errors.budgetCategoryId}</span>}
+                </div>
+              </div>
+            </>
+          )}
 
           {/* ── Parent Job (only when job type requires it) ── */}
           {preview?.requiresParentJob && (

@@ -7,7 +7,7 @@ import { canEdit } from '../jobConstants';
 // MetaTab  — Bay / Category / Quality / Total Units
 // Single-record upsert against TBL_JOB_META
 // ─────────────────────────────────────────────────────────────
-const EMPTY = { bayId: '', jobCategoryId: '', qualityLevelId: '', totalUnits: '' };
+const EMPTY = { bayId: '', jobCategoryId: '', qualityLevelId: '', totalUnits: '', deliveredUnit: '' };
 
 const MetaTab = ({ job, onRefresh }) => {
     const currentUser = useCurrentUser();
@@ -59,6 +59,7 @@ const MetaTab = ({ job, onRefresh }) => {
                         jobCategoryId:  String(meta.jobCategoryId  || ''),
                         qualityLevelId: String(meta.qualityLevelId || ''),
                         totalUnits:     meta.totalUnits != null ? String(meta.totalUnits) : '',
+                        deliveredUnit:  meta.deliveredUnit != null ? String(meta.deliveredUnit) : '',
                     });
                 } else {
                     setIsNew(true);
@@ -84,6 +85,8 @@ const MetaTab = ({ job, onRefresh }) => {
         if (!form.qualityLevelId) return setError('Please select a quality level.');
         const units = parseFloat(form.totalUnits);
         if (isNaN(units) || units < 0) return setError('Total units must be a non-negative number.');
+        if (form.deliveredUnit !== '' && units < Number(form.deliveredUnit))
+            return setError(`Total units cannot be less than units already delivered (${form.deliveredUnit}).`);
 
         setSaving(true);
         setError('');
@@ -98,7 +101,7 @@ const MetaTab = ({ job, onRefresh }) => {
                 modifiedBy:     currentUser,
             }),
         })
-        .then(r => { if (!r.ok) throw new Error('Save failed'); return r.json(); })
+        .then(async r => { const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.message || 'Save failed'); return d; })
         .then(() => { setSaved(true); setDirty(false); setIsNew(false); if (onRefresh) onRefresh(); })
         .catch(err => setError(err.message || 'Save failed.'))
         .finally(() => setSaving(false));
@@ -233,6 +236,32 @@ const MetaTab = ({ job, onRefresh }) => {
                             disabled={!editable}
                             placeholder="0"
                         />
+                    </div>
+                </div>
+
+                {/* Delivered Units */}
+                <div className="meta-card">
+                    <div className="meta-card-header">
+                        <span className="meta-icon">📦</span>
+                        <span className="meta-card-title">Delivered</span>
+                    </div>
+                    <div className="meta-field">
+                        <label className="meta-label">Delivered Units</label>
+                        <input
+                            className="meta-input"
+                            type="number"
+                            value={form.deliveredUnit}
+                            readOnly
+                            disabled
+                            placeholder="0"
+                            title="Auto-updated when deliveries are dispatched"
+                        />
+                        <span className="meta-hint">
+                            🚚 Auto-updated when deliveries are dispatched
+                            {form.totalUnits !== '' && form.deliveredUnit !== '' &&
+                                Number(form.deliveredUnit) > Number(form.totalUnits) &&
+                                <span style={{ color: '#b45309' }}> · ⚠ exceeds total units</span>}
+                        </span>
                     </div>
                 </div>
 

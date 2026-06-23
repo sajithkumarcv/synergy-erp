@@ -33,7 +33,9 @@ namespace ERPWEB.Models.Job
     public class JobBudgetHeader
     {
         public string    JobId          { get; set; } = string.Empty;
-        public int       CurrentRvNo    { get; set; }
+        public int       CurrentRvNo    { get; set; }   // the revision being shown
+        public int       LatestRvNo     { get; set; }
+        public bool      IsHistorical   { get; set; }   // true when viewing an older revision
         public bool      IsApproved     { get; set; }
         public string?   ApprovedBy     { get; set; }
         public DateTime? ApprovedDate   { get; set; }

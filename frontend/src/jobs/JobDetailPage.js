@@ -826,9 +826,26 @@ const JobEditSlideOver = ({ job, jobTypes, jobStages, onClose, onSaved }) => {
 
     // Does the current job type require a parent job?
     const requiresParentJob = jobTypes.find(t => t.jobTypeId === job.jobTypeId)?.requiresParentJob || false;
+    // Is the current job type linked to a budget header? Use OR across all signals
+    // (job-type flag, the job's own flag, or an already-set budget category) so the
+    // field reliably shows when editing an in-house job.
+    const jobTypeRow = jobTypes.find(t => String(t.jobTypeId) === String(job.jobTypeId));
+    const isBudgetHeaderLinked = !!(
+        jobTypeRow?.isBudgetHeaderLinked || job.isBudgetHeaderLinked || job.budgetCategoryId
+    );
+
+    // Budget header options (job expense categories flagged UsedForBudget=1)
+    const [budgetCategories, setBudgetCategories] = useState([]);
+    useEffect(() => {
+        fetch(`${variables.API_URL}Lookup/budgetcategories`, { headers: authHeaders() })
+            .then(r => r.ok ? r.json() : [])
+            .then(d => setBudgetCategories(Array.isArray(d) ? d : []))
+            .catch(console.error);
+    }, []);
 
     const [form, setForm] = useState({
         ...job,
+        budgetCategoryId:        job.budgetCategoryId ?? '',
         jobDate:                 job.jobDate                 ? job.jobDate.slice(0, 10)                 : '',
         lpoDate:                 job.lpoDate                 ? job.lpoDate.slice(0, 10)                 : '',
         jobCurrencyId:           job.jobCurrencyId != null   ? String(job.jobCurrencyId)                : '',
@@ -878,6 +895,10 @@ const JobEditSlideOver = ({ job, jobTypes, jobStages, onClose, onSaved }) => {
     };
 
     const save = () => {
+        if (isBudgetHeaderLinked && !form.budgetCategoryId) {
+            setSaveError('Budget Header is required for this job type.');
+            return;
+        }
         setSaving(true);
         setSaveError('');
         const d2n = v => v || null;  // empty string → null for nullable date fields
@@ -901,6 +922,7 @@ const JobEditSlideOver = ({ job, jobTypes, jobStages, onClose, onSaved }) => {
                 jobExpectedCompleteDate: d2n(form.jobExpectedCompleteDate),
                 jobExpectedDeliveryDate: d2n(form.jobExpectedDeliveryDate),
                 parentJobId:             form.parentJobId || null,
+                budgetCategoryId:        form.budgetCategoryId ? Number(form.budgetCategoryId) : null,
             })
         })
             .then(r => r.json().then(d => ({ ok: r.ok, d })))
@@ -954,6 +976,25 @@ const JobEditSlideOver = ({ job, jobTypes, jobStages, onClose, onSaved }) => {
                         </div>
                         <div className="jf-field" style={{ flex:'0 0 150px' }}><label>Job Date</label><input type="date" name="jobDate" className="jf-input" value={form.jobDate} onChange={handle} /></div>
                     </div>
+
+                    {/* ── Budget Header (only for budget-header-linked job types) ── */}
+                    {isBudgetHeaderLinked && (
+                        <>
+                            <Sec label="Budget Header" />
+                            <div className="jf-row">
+                                <div className="jf-field jf-f2">
+                                    <label>Budget Header <span className="req">*</span></label>
+                                    <select name="budgetCategoryId" className="jf-input"
+                                        value={form.budgetCategoryId} onChange={handle}>
+                                        <option value="">-- Select --</option>
+                                        {budgetCategories.map(b => (
+                                            <option key={b.id} value={b.id}>{b.code ? `${b.code} — ` : ''}{b.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+                        </>
+                    )}
 
                     {/* ── Parent Job (only for job types that require it) ── */}
                     {requiresParentJob && (

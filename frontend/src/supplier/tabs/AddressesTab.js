@@ -3,6 +3,7 @@ import { variables, authHeaders } from '../../Variable';
 import { useCurrentUser } from '../../AuthContext';
 import { useLookup } from '../../LookupContext';
 import AlertModal from '../../common/AlertModal';
+import ConfirmModal from '../../common/ConfirmModal';
 
 const makeEmpty = (supplierId, addressTypes, countries) => ({
     supplierAddressId: 0, supplierId,
@@ -107,6 +108,7 @@ const AddressesTab = ({ supplier, onRefresh, canEdit = true }) => {
     const [formRecord, setForm]     = useState(null);
     const [search, setSearch]       = useState('');
     const [alertMsg, setAlertMsg]   = useState(null);
+    const [confirm, setConfirm]     = useState(null);
 
     const load = useCallback(() => {
         fetch(variables.API_URL + 'supplier/addresses/' + supplier.supplierId, { headers: authHeaders() })
@@ -117,13 +119,20 @@ const AddressesTab = ({ supplier, onRefresh, canEdit = true }) => {
 
     useEffect(() => { load(); }, [load]);
 
-    const deleteAddress = async (id) => {
-        if (!window.confirm('Delete this address?')) return;
-        try {
-            const res = await fetch(variables.API_URL + 'supplier/address/' + id, { method: 'DELETE', headers: authHeaders() });
-            if (!res.ok) { const d = await res.json(); setAlertMsg(d?.message || 'Failed to delete address.'); return; }
-            load();
-        } catch { setAlertMsg('Network error. Please try again.'); }
+    const deleteAddress = (id) => {
+        setConfirm({
+            title: 'Delete Address',
+            message: 'Delete this address?',
+            confirmLabel: 'Delete',
+            onConfirm: async () => {
+                setConfirm(null);
+                try {
+                    const res = await fetch(variables.API_URL + 'supplier/address/' + id, { method: 'DELETE', headers: authHeaders() });
+                    if (!res.ok) { const d = await res.json(); setAlertMsg(d?.message || 'Failed to delete address.'); return; }
+                    load();
+                } catch { setAlertMsg('Network error. Please try again.'); }
+            },
+        });
     };
 
     const filtered = addresses.filter(a => !search || (a.addressLine1 || '').toLowerCase().includes(search.toLowerCase()));
@@ -207,6 +216,7 @@ const AddressesTab = ({ supplier, onRefresh, canEdit = true }) => {
                 </table>
             </div>
             {alertMsg && <AlertModal message={alertMsg} onClose={() => setAlertMsg(null)} />}
+            {confirm  && <ConfirmModal {...confirm} onClose={() => setConfirm(null)} />}
         </div>
     );
 };

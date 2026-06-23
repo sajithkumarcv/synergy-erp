@@ -35,6 +35,21 @@ namespace ERPWEB.Controllers.Approval
 
             try
             {
+                // ── Job-specific mandatory-data validation before it enters the workflow ──
+                if (string.Equals(req.ModuleCode, "JOB", StringComparison.OrdinalIgnoreCase))
+                {
+                    var problems = (await _dbcon.QueryAsync<dynamic>("sp_ValidateJobForApproval",
+                        new { JobNumId = req.DocumentId })).ToList();
+                    if (problems.Count > 0)
+                    {
+                        var lines = problems.Select(p => $"• {(string)p.Message}");
+                        var vmsg  = "Cannot submit for approval — please complete the following:\n" + string.Join("\n", lines);
+                        await _dbcon.WriteRawLog(vmsg, controller: "Approval", action: "Submit",
+                            requestPath: HttpContext.Request.Path, userId: req.SubmittedBy, logLevel: "Warning");
+                        return BadRequest(new { message = vmsg, validation = problems.Select(p => new { requirement = (string)p.Requirement, message = (string)p.Message }) });
+                    }
+                }
+
                 // ── Budget-overrun override: validate the budget password first ──
                 // Use the module's own menu so permission is checked against what the
                 // submitter can already do (e.g. a purchaser has EDIT on /purchase-orders

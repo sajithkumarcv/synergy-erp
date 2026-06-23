@@ -27,6 +27,11 @@ namespace ERPWEB.Models.Job
         public string?  JobStatusName   { get; set; }
         public bool     IsClosedStatus  { get; set; }
         public string?  ExternalRef     { get; set; }
+        public bool     IsBudgetHeaderLinked { get; set; }   // from job type — when true the budget header is required
+        public bool     IsCostingRequired    { get; set; } = true;   // from job type — costed (standard) vs in-house
+        public int?     BudgetCategoryId     { get; set; }   // FK → TBL_JOB_EXPENSE_CATEGORY (UsedForBudget=1)
+        public string?  BudgetCategoryName   { get; set; }
+        public string?  BudgetCategoryCode   { get; set; }
         public string?  JobCreatedBy    { get; set; }
         public string?  JobLastModifiedBy { get; set; }
 
@@ -72,6 +77,7 @@ namespace ERPWEB.Models.Job
         public string?   QualityLevelName   { get; set; }
         public string?   QualityDescription { get; set; }
         public decimal   TotalUnits         { get; set; }
+        public decimal?  DeliveredUnit      { get; set; }
         public string?   CreatedBy          { get; set; }
         public DateTime? CreatedDate        { get; set; }
         public string?   ModifiedBy         { get; set; }

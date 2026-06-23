@@ -66,6 +66,8 @@ namespace ERPWEB.Controllers.Item
             [FromQuery] int?    categoryId = null,
             [FromQuery] int?    itemTypeId = null,
             [FromQuery] bool?   isActive   = null,
+            [FromQuery] int?    budgetCategoryId = null,
+            [FromQuery] bool?   isStockable = null,
             [FromQuery] int     page       = 1,
             [FromQuery] int     pageSize   = 20,
             [FromQuery] string  sortCol    = "ItemName",
@@ -79,6 +81,8 @@ namespace ERPWEB.Controllers.Item
                     CategoryId    = categoryId,
                     ItemTypeId    = itemTypeId,
                     IsActive      = isActive,
+                    BudgetCategoryId = budgetCategoryId,
+                    IsStockable   = isStockable,
                     PageNumber    = page < 1 ? 1 : page,
                     PageSize      = pageSize is < 1 or > 500 ? 20 : pageSize,
                     SortColumn    = sortCol,
@@ -132,6 +136,7 @@ namespace ERPWEB.Controllers.Item
                     model.BaseUomId, model.PurchaseUomId, model.SalesUomId,
                     model.Barcode, model.HSCode,
                     model.IsStockable, model.IsSaleable, model.IsPurchasable, model.IsActive,
+                    model.BudgetCategoryId,
                     model.CreatedBy, model.ModifiedBy
                 };
                 string result = await _db.ExecuteScalarAsync("sp_SetItem", p);

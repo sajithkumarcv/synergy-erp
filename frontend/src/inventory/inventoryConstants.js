@@ -61,6 +61,13 @@ export const ADJ_TABS = [
   { key: 'approval', label: 'Approval', icon: '✔',  description: 'Approval status and history' },
 ];
 
+// ── Stock Transfer Tab definitions ───────────────────────────
+export const STR_TABS = [
+  { key: 'overview', label: 'Overview', icon: '📋', description: 'Header info and notes' },
+  { key: 'items',    label: 'Items',    icon: '📦', description: 'Items to transfer',     badge: true },
+  { key: 'approval', label: 'Approval', icon: '✔',  description: 'Approval status and history' },
+];
+
 // ── Today helper ──────────────────────────────────────────────
 export const today = () => new Date().toISOString().slice(0, 10);
 

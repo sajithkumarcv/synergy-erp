@@ -4,6 +4,7 @@ import * as XLSX from 'xlsx';
 import { variables, authHeaders } from '../Variable';
 import { useCurrentUser } from '../AuthContext';
 import { useLookup } from '../LookupContext';
+import ConfirmModal from '../common/ConfirmModal';
 import ApprovalHistoryTab from '../approval/ApprovalHistoryTab';
 import ApprovalStatusBanner from '../approval/ApprovalStatusBanner';
 import './Manhour.css';
@@ -153,6 +154,7 @@ const ManhourDetailPage = () => {
 
     const [saving,         setSaving]       = useState(false);
     const [deletingLineId, setDeletingLineId] = useState(null);
+    const [confirm,        setConfirm]       = useState(null);
     const [lineFilter,     setLineFilter]    = useState({ jobId: '', name: '' });
     const [previewFilter,  setPreviewFilter] = useState('all'); // 'all'|'valid'|'warning'|'error'
     const [toast,          setToast]         = useState([]);
@@ -444,8 +446,18 @@ const ManhourDetailPage = () => {
     };
 
     // ── Delete single line ────────────────────────────────────────────────
-    const handleDeleteLine = async (manhourId) => {
-        if (!window.confirm('Delete this line?')) return;
+    const handleDeleteLine = (manhourId) => {
+        setConfirm({
+            title: 'Delete Line',
+            message: 'Delete this line?',
+            confirmLabel: 'Delete',
+            onConfirm: async () => {
+                setConfirm(null);
+                doDeleteLine(manhourId);
+            },
+        });
+    };
+    const doDeleteLine = async (manhourId) => {
         setDeletingLineId(manhourId);
         try {
             const res = await fetch(
@@ -481,6 +493,7 @@ const ManhourDetailPage = () => {
 
     return (
         <div className="mhd-page">
+            {confirm && <ConfirmModal {...confirm} onClose={() => setConfirm(null)} />}
             {/* Page header */}
             <div className="mhd-header">
                 <div>

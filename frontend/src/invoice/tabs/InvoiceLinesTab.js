@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { variables, authHeaders } from '../../Variable';
 import { useCurrentUser } from '../../AuthContext';
+import ConfirmModal from '../../common/ConfirmModal';
 import { useLookup } from '../../LookupContext';
 import { usePermission } from '../../PermissionContext';
 import { fmt, FormSection } from '../invoiceConstants';
 import '../../procurement/Procurement.css';
 import { useFieldConfig } from '../../FieldConfigContext';
 import { InlineError } from '../../common/InlineError';
+import InvoiceImportModal from '../InvoiceImportModal';
 
 // ── Line Edit Slide-over ─────────────────────────────────────────────
 const BLANK_LINE = {
@@ -218,27 +220,36 @@ const InvoiceLinesTab = ({ invoice, lines = [], onRefresh }) => {
     const { getStatusConfig } = useLookup();
     const [editLine,    setEditLine]    = useState(null);   // null=closed, 0=new, obj=edit
     const [deleting,    setDeleting]    = useState(null);
+    const [showImport,  setShowImport]  = useState(false);
     // Delete-line error surfaces here. (LineModal has its own `error` state for
     // save errors — that one is scoped to the modal and not visible from here.)
     const [deleteError, setDeleteError] = useState('');
+    const [confirm,     setConfirm]     = useState(null);
 
     const { canDo } = usePermission();
     const canEdit = (getStatusConfig('INV', invoice?.status)?.canEdit ?? (invoice?.status === 'Draft')) && canDo('/invoices', 'EDIT');
 
-    const deleteLine = async (line) => {
-        if (!window.confirm(`Delete line "${line.description}"?`)) return;
-        setDeleting(line.invoiceLineId);
-        setDeleteError('');
-        try {
-            const res = await fetch(
-                `${variables.API_URL}invoice/line/${line.invoiceLineId}?modifiedBy=${encodeURIComponent(currentUser)}`,
-                { method: 'DELETE', headers: authHeaders() }
-            );
-            const d = await res.json().catch(() => ({}));
-            if (!res.ok) { setDeleteError(d?.message || `Delete failed (HTTP ${res.status}).`); return; }
-            onRefresh();
-        } catch (e) { setDeleteError(`Network error — ${e?.message || 'could not reach the server.'}`); }
-        finally { setDeleting(null); }
+    const deleteLine = (line) => {
+        setConfirm({
+            title: 'Delete Line',
+            message: `Delete line "${line.description}"?`,
+            confirmLabel: 'Delete',
+            onConfirm: async () => {
+                setConfirm(null);
+                setDeleting(line.invoiceLineId);
+                setDeleteError('');
+                try {
+                    const res = await fetch(
+                        `${variables.API_URL}invoice/line/${line.invoiceLineId}?modifiedBy=${encodeURIComponent(currentUser)}`,
+                        { method: 'DELETE', headers: authHeaders() }
+                    );
+                    const d = await res.json().catch(() => ({}));
+                    if (!res.ok) { setDeleteError(d?.message || `Delete failed (HTTP ${res.status}).`); return; }
+                    onRefresh();
+                } catch (e) { setDeleteError(`Network error — ${e?.message || 'could not reach the server.'}`); }
+                finally { setDeleting(null); }
+            },
+        });
     };
 
     const subTotal   = lines.reduce((s, l) => s + (l.amount    || 0), 0);
@@ -248,9 +259,14 @@ const InvoiceLinesTab = ({ invoice, lines = [], onRefresh }) => {
 
     return (
         <div className="jd-tab-body">
+            {confirm && <ConfirmModal {...confirm} onClose={() => setConfirm(null)} />}
             <InlineError error={deleteError} onDismiss={() => setDeleteError('')} />
             {canEdit && (
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 14 }}>
+                    <button className="po-btn-sec" style={{ fontSize: 13, padding: '7px 16px' }}
+                            onClick={() => setShowImport(true)}>
+                        📥 Import from Excel
+                    </button>
                     <button className="po-btn-pri" style={{ fontSize: 13, padding: '7px 16px' }}
                             onClick={() => setEditLine(0)}>
                         + Add Line
@@ -349,6 +365,13 @@ const InvoiceLinesTab = ({ invoice, lines = [], onRefresh }) => {
                     ccy={invoice.currencyShort || invoice.currencyCode || ''}
                     onSaved={() => { setEditLine(null); onRefresh(); }}
                     onClose={() => setEditLine(null)}
+                />
+            )}
+            {showImport && (
+                <InvoiceImportModal
+                    invoice={invoice}
+                    onClose={() => setShowImport(false)}
+                    onImported={() => { setShowImport(false); onRefresh(); }}
                 />
             )}
         </div>

@@ -54,35 +54,37 @@ namespace ERPWEB.Controllers.Procurement
         // ── SEARCH ───────────────────────────────────────────────────────────
         [HttpGet("search")]
         public async Task<IActionResult> SearchPOs(
-            [FromQuery] string? searchText = null,
-            [FromQuery] string? status     = null,
-            [FromQuery] int?    supplierId = null,
-            [FromQuery] string? jobId      = null,
-            [FromQuery] string? priority   = null,
-            [FromQuery] string? createdBy  = null,
-            [FromQuery] string? dateFrom   = null,
-            [FromQuery] string? dateTo     = null,
-            [FromQuery] int     page       = 1,
-            [FromQuery] int     pageSize   = 20,
-            [FromQuery] string  sortCol    = "PoDate",
-            [FromQuery] string  sortDir    = "DESC")
+            [FromQuery] string? searchText        = null,
+            [FromQuery] string? status            = null,
+            [FromQuery] int?    supplierId        = null,
+            [FromQuery] string? jobId             = null,
+            [FromQuery] string? priority          = null,
+            [FromQuery] string? createdBy         = null,
+            [FromQuery] string? dateFrom          = null,
+            [FromQuery] string? dateTo            = null,
+            [FromQuery] bool?   isSubcontractOnly = null,
+            [FromQuery] int     page              = 1,
+            [FromQuery] int     pageSize          = 20,
+            [FromQuery] string  sortCol           = "PoDate",
+            [FromQuery] string  sortDir           = "DESC")
         {
             try
             {
                 var p = new
                 {
-                    SearchText    = string.IsNullOrWhiteSpace(searchText) ? null : searchText.Trim(),
-                    Status        = string.IsNullOrWhiteSpace(status)     ? null : status,
-                    SupplierId    = supplierId,
-                    JobId         = string.IsNullOrWhiteSpace(jobId)      ? null : jobId.Trim(),
-                    Priority      = string.IsNullOrWhiteSpace(priority)   ? null : priority.Trim(),
-                    CreatedBy     = string.IsNullOrWhiteSpace(createdBy)  ? null : createdBy.Trim(),
-                    DateFrom      = string.IsNullOrWhiteSpace(dateFrom)   ? null : dateFrom,
-                    DateTo        = string.IsNullOrWhiteSpace(dateTo)     ? null : dateTo,
-                    PageNumber    = page < 1 ? 1 : page,
-                    PageSize      = pageSize is < 1 or > 200 ? 20 : pageSize,
-                    SortColumn    = sortCol,
-                    SortDirection = sortDir
+                    SearchText         = string.IsNullOrWhiteSpace(searchText) ? null : searchText.Trim(),
+                    Status             = string.IsNullOrWhiteSpace(status)     ? null : status,
+                    SupplierId         = supplierId,
+                    JobId              = string.IsNullOrWhiteSpace(jobId)      ? null : jobId.Trim(),
+                    Priority           = string.IsNullOrWhiteSpace(priority)   ? null : priority.Trim(),
+                    CreatedBy          = string.IsNullOrWhiteSpace(createdBy)  ? null : createdBy.Trim(),
+                    DateFrom           = string.IsNullOrWhiteSpace(dateFrom)   ? null : dateFrom,
+                    DateTo             = string.IsNullOrWhiteSpace(dateTo)     ? null : dateTo,
+                    IsSubcontractOnly  = isSubcontractOnly,
+                    PageNumber         = page < 1 ? 1 : page,
+                    PageSize           = pageSize is < 1 or > 200 ? 20 : pageSize,
+                    SortColumn         = sortCol,
+                    SortDirection      = sortDir
                 };
 
                 var rows  = await _dbcon.QueryAsync<PurchaseOrder>("sp_SearchPOs", p);

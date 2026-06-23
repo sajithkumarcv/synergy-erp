@@ -232,10 +232,12 @@ const InvoiceImportModal = ({ delivery, onClose, onImported }) => {
 };
 
 // ── Manual Line Form ──────────────────────────────────────────────────
-const ManualLineForm = ({ delivery, editLine, onClose, onSaved }) => {
+const ManualLineForm = ({ delivery, editLine, seedDescription = '', fromJob = false, onClose, onSaved }) => {
     const currentUser = useCurrentUser();
+    // Editing keeps the line's own description; a new line uses the seed the
+    // caller supplies (blank for a manual line, the Job Description when loading from job).
     const [form, setForm] = useState({
-        description: editLine?.description || '',
+        description: editLine ? (editLine.description || '') : seedDescription,
         uomName:     editLine?.uomName     || '',
         qty:         editLine?.qty         != null ? String(editLine.qty) : '',
         remarks:     editLine?.remarks     || '',
@@ -288,12 +290,15 @@ const ManualLineForm = ({ delivery, editLine, onClose, onSaved }) => {
     return (
         <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '16px 18px', marginBottom: 16 }}>
             <div style={{ fontWeight: 600, fontSize: 13, color: '#1e293b', marginBottom: 12 }}>
-                {editLine ? 'Edit Line' : 'Add Line Manually'}
+                {editLine ? 'Edit Line' : fromJob ? '📋 Load from Job Description' : 'Add Line Manually'}
             </div>
             {errMsg && <div style={{ background: '#fee2e2', color: '#991b1b', padding: '7px 12px', borderRadius: 6, marginBottom: 10, fontSize: 13 }}>⚠ {errMsg}</div>}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px 120px 1fr', gap: 10 }}>
                 <div>
-                    <label style={{ fontSize: 12, color: '#64748b', fontWeight: 500, display: 'block', marginBottom: 4 }}>Description <span style={{ color: '#dc2626' }}>*</span></label>
+                    <label style={{ fontSize: 12, color: '#64748b', fontWeight: 500, display: 'block', marginBottom: 4 }}>
+                        Description <span style={{ color: '#dc2626' }}>*</span>
+                        {!editLine && fromJob && delivery?.jobId && <span style={{ color: '#0f766e', fontWeight: 400 }}> · from Job {delivery.jobId}</span>}
+                    </label>
                     <input name="description" value={form.description} onChange={handle}
                         style={{ width: '100%', padding: '7px 10px', border: `1px solid ${errors.description ? '#dc2626' : '#cbd5e1'}`, borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }}
                         placeholder="Item / service description" />
@@ -340,7 +345,10 @@ const DeliveryLinesTab = ({ delivery, lines, onRefresh }) => {
 
     const [showImport,    setShowImport]    = useState(false);
     const [showManual,    setShowManual]    = useState(false);
+    const [manualFromJob, setManualFromJob] = useState(false);
     const [editLine,      setEditLine]      = useState(null);
+
+    const hasJobDescription = !!(delivery.jobId && (delivery.jobDescription || '').trim());
     const [deletingId,    setDeletingId]    = useState(null);
     const [deleteConfirm, setDeleteConfirm] = useState(null);
     const [alertMsg,      setAlertMsg]      = useState(null);
@@ -367,7 +375,13 @@ const DeliveryLinesTab = ({ delivery, lines, onRefresh }) => {
                         style={{ padding: '8px 16px', background: '#1e40af', color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
                         📥 Import from Invoice
                     </button>
-                    <button onClick={() => { setShowManual(true); setEditLine(null); }}
+                    {hasJobDescription && (
+                        <button onClick={() => { setShowManual(true); setManualFromJob(true); setEditLine(null); }}
+                            style={{ padding: '8px 16px', background: '#f0fdfa', color: '#0f766e', border: '1px solid #99f6e4', borderRadius: 7, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+                            📋 Load from Job Description
+                        </button>
+                    )}
+                    <button onClick={() => { setShowManual(true); setManualFromJob(false); setEditLine(null); }}
                         style={{ padding: '8px 16px', background: '#f8fafc', color: '#1e40af', border: '1px solid #bfdbfe', borderRadius: 7, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
                         + Add Line Manually
                     </button>
@@ -379,8 +393,10 @@ const DeliveryLinesTab = ({ delivery, lines, onRefresh }) => {
                 <ManualLineForm
                     delivery={delivery}
                     editLine={editLine}
-                    onClose={() => { setShowManual(false); setEditLine(null); }}
-                    onSaved={() => { setShowManual(false); setEditLine(null); onRefresh(); }}
+                    fromJob={!editLine && manualFromJob}
+                    seedDescription={!editLine && manualFromJob ? (delivery.jobDescription || '') : ''}
+                    onClose={() => { setShowManual(false); setManualFromJob(false); setEditLine(null); }}
+                    onSaved={() => { setShowManual(false); setManualFromJob(false); setEditLine(null); onRefresh(); }}
                 />
             )}
 

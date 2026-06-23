@@ -5,6 +5,7 @@ import { useFilters } from '../FilterContext';
 import { useLookup } from '../LookupContext';
 import { usePermission } from '../PermissionContext';
 import AlertModal from '../common/AlertModal';
+import ConfirmModal from '../common/ConfirmModal';
 
 // ── Formatters ────────────────────────────────────────────────
 const fmtDate = (d) =>
@@ -107,6 +108,7 @@ const JobMom = () => {
     const [users,          setUsers]          = useState([]);
     const [taskRefreshKey, setTaskRefreshKey] = useState(0);
     const [alertMsg,       setAlertMsg]       = useState(null);
+    const [confirm,        setConfirm]        = useState(null);
 
     const appliedRef = useRef(DEFAULT_FILTERS);
     useEffect(() => { appliedRef.current = applied; }, [applied]);
@@ -169,28 +171,37 @@ const JobMom = () => {
 
     const toggleExpand = (momId) => setExpanded(p => ({ ...p, [momId]: !p[momId] }));
 
-    const closeMom = async (momId) => {
-        if (!window.confirm('Close this MOM? It will become read-only.')) return;
-        try {
-            const res = await fetch(`${variables.API_URL}mom/${momId}/close`, {
-                method: 'POST', headers: authHeaders(),
-                body: JSON.stringify({ modifiedBy: currentUser }),
-            });
-            if (!res.ok) {
-                const d = await res.json().catch(() => ({}));
-                setAlertMsg(d?.message || 'Failed to close MOM.');
-                return;
-            }
-            load(appliedRef.current);
-        } catch {
-            setAlertMsg('Network error. Please try again.');
-        }
+    const closeMom = (momId) => {
+        setConfirm({
+            title: 'Close MOM',
+            message: 'Close this MOM? It will become read-only.',
+            confirmLabel: 'Close',
+            confirmStyle: { background: '#374151', color: '#fff' },
+            onConfirm: async () => {
+                setConfirm(null);
+                try {
+                    const res = await fetch(`${variables.API_URL}mom/${momId}/close`, {
+                        method: 'POST', headers: authHeaders(),
+                        body: JSON.stringify({ modifiedBy: currentUser }),
+                    });
+                    if (!res.ok) {
+                        const d = await res.json().catch(() => ({}));
+                        setAlertMsg(d?.message || 'Failed to close MOM.');
+                        return;
+                    }
+                    load(appliedRef.current);
+                } catch {
+                    setAlertMsg('Network error. Please try again.');
+                }
+            },
+        });
     };
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
 
             {alertMsg && <AlertModal message={alertMsg} onClose={() => setAlertMsg(null)} />}
+            {confirm && <ConfirmModal {...confirm} onClose={() => setConfirm(null)} />}
 
             {/* ── Page header ──────────────────────────────────── */}
             <div style={{ padding: '14px 20px', borderBottom: '1px solid #e2e8f0',

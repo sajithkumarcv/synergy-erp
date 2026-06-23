@@ -6,6 +6,7 @@ import { useCurrentUser } from '../AuthContext';
 import { usePermission } from '../PermissionContext';
 import AmountInput from '../common/AmountInput';
 import AlertModal from '../common/AlertModal';
+import ConfirmModal from '../common/ConfirmModal';
 import '../procurement/Procurement.css';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -707,6 +708,7 @@ const JobOverview = () => {
     const [addlLoading,   setAddlLoading]  = useState(false);
     const [variationFinances, setVariationFinances] = useState([]);
     const [alertMsg,      setAlertMsg]     = useState(null);
+    const [confirm,       setConfirm]      = useState(null);
 
     useEffect(() => {
         fetch(`${variables.API_URL}job/types`, { headers: authHeaders() })
@@ -839,18 +841,26 @@ const JobOverview = () => {
         }
     };
 
-    const handleBudgetDelete = async (row) => {
+    const handleBudgetDelete = (row) => {
         if (!row.jobBudgetId) return;
-        if (!window.confirm(`Clear budget for "${row.categoryName}"?`)) return;
-        try {
-            const res = await fetch(`${variables.API_URL}jobbudget/${row.jobBudgetId}`, {
-                method: 'DELETE', headers: authHeaders(),
-            });
-            const d = await res.json().catch(() => ({}));
-            if (!res.ok) { setAlertMsg(d?.message || 'Delete failed.'); return; }
-            loadBudget(selectedJobId);
-            loadOverview(selectedJobId);
-        } catch { setAlertMsg('Network error.'); }
+        setConfirm({
+            title: 'Clear Budget',
+            message: `Clear budget for "${row.categoryName}"?`,
+            confirmLabel: 'Clear',
+            confirmStyle: { background: '#92400e', color: '#fff' },
+            onConfirm: async () => {
+                setConfirm(null);
+                try {
+                    const res = await fetch(`${variables.API_URL}jobbudget/${row.jobBudgetId}`, {
+                        method: 'DELETE', headers: authHeaders(),
+                    });
+                    const d = await res.json().catch(() => ({}));
+                    if (!res.ok) { setAlertMsg(d?.message || 'Delete failed.'); return; }
+                    loadBudget(selectedJobId);
+                    loadOverview(selectedJobId);
+                } catch { setAlertMsg('Network error.'); }
+            },
+        });
     };
 
     const handleJobSelect = e => { const v = e.target.value; setSelectedJobId(v); loadOverview(v); };
@@ -893,6 +903,7 @@ const JobOverview = () => {
     return (
         <div className="po-page">
             {alertMsg && <AlertModal message={alertMsg} onClose={() => setAlertMsg(null)} />}
+            {confirm && <ConfirmModal {...confirm} onClose={() => setConfirm(null)} />}
             {/* ── Filter bar ──────────────────────────────────────────────── */}
             {/* overflow:visible + raised stacking so the customer live-search dropdown
                 is not clipped by .po-grid-wrap's `overflow:hidden` and sits above the

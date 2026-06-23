@@ -167,6 +167,23 @@ namespace ERPWEB.Models.Invoice
         public string? ModifiedBy { get; set; }
     }
 
+    public class InvoiceImportRow
+    {
+        public string? Description { get; set; }
+        public string? UomName     { get; set; }
+        public decimal Qty         { get; set; }
+        public decimal UnitPrice   { get; set; }
+        public decimal VatPercent  { get; set; }
+        public string? Notes       { get; set; }
+    }
+
+    public class InvoiceImportRequest
+    {
+        public int     InvoiceId  { get; set; }
+        public string? ImportedBy { get; set; }
+        public List<InvoiceImportRow> Rows { get; set; } = new();
+    }
+
     public class CopyInvoiceRequest
     {
         public DateTime? NewInvoiceDate { get; set; }

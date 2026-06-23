@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { variables, authHeaders } from '../../../Variable';
 import { useCurrentUser } from '../../../AuthContext';
+import ConfirmModal from '../../../common/ConfirmModal';
 import { useLookup } from '../../../LookupContext';
 import { fmt } from '../../inventoryConstants';
 import { useFieldConfig } from '../../../FieldConfigContext';
@@ -206,6 +207,7 @@ const AdjustmentLinesTab = ({ header, lines, editable, adjustmentId, autoImport,
     const [editId,  setEditId]  = useState(null);
     const [err,     setErr]     = useState('');
     const [importing, setImporting] = useState(false);
+    const [confirm,   setConfirm]   = useState(null);
 
     // One-click "Opening Stock" deep-link: auto-open the importer once when landing
     // on an editable adjustment.
@@ -231,20 +233,28 @@ const AdjustmentLinesTab = ({ header, lines, editable, adjustmentId, autoImport,
         } catch { return 'Network error.'; }
     };
 
-    const deleteLine = async (lineId) => {
-        if (!window.confirm('Remove this line?')) return;
-        const res = await fetch(`${variables.API_URL}stockadjustment/line/${lineId}`, {
-            method: 'DELETE', headers: authHeaders(),
+    const deleteLine = (lineId) => {
+        setConfirm({
+            title: 'Remove Line',
+            message: 'Remove this line?',
+            confirmLabel: 'Remove',
+            onConfirm: async () => {
+                setConfirm(null);
+                const res = await fetch(`${variables.API_URL}stockadjustment/line/${lineId}`, {
+                    method: 'DELETE', headers: authHeaders(),
+                });
+                const d = await res.json().catch(() => ({}));
+                if (!res.ok) { setErr(d?.message || 'Delete failed.'); return; }
+                onRefresh();
+            },
         });
-        const d = await res.json().catch(() => ({}));
-        if (!res.ok) { setErr(d?.message || 'Delete failed.'); return; }
-        onRefresh();
     };
 
     const totalValue = lines.reduce((s, l) => s + (l.lineValue || 0), 0);
 
     return (
         <div className="jd-tab-body">
+            {confirm && <ConfirmModal {...confirm} onClose={() => setConfirm(null)} />}
             {err && (
                 <div style={{ background: '#fee2e2', color: '#991b1b', borderRadius: 6, padding: '8px 14px', fontSize: 12.5, marginBottom: 12 }}>
                     ⚠ {err}
