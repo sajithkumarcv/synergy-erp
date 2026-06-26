@@ -46,7 +46,7 @@ const JobSearch = ({ value, label, onChange, onClear, disabled }) => {
         clearTimeout(timer.current);
         timer.current = setTimeout(() => {
             setLoading(true);
-            fetch(`${variables.API_URL}job/search?searchText=${encodeURIComponent(q)}&pageSize=10`, { headers: authHeaders() })
+            fetch(`${variables.API_URL}job/search?searchText=${encodeURIComponent(q)}&pageSize=10&approvalStatus=Approved`, { headers: authHeaders() })
                 .then(r => r.json())
                 .then(d => { setResults(d.data || []); setOpen(true); })
                 .catch(() => {})

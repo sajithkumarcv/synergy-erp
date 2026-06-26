@@ -160,7 +160,7 @@ const IssueLinesTab = ({ issue, lines, onRefresh }) => {
     // ── Item selected handler ─────────────────────────────────
     const handleItemSelect = async (item) => {
         if (!item) { setForm(f => ({ ...f, item: null, itemDesc: '', unitCost: '' })); setStockAvail(null); setBaseCost(null); setConversions([]); return; }
-        setForm(f => ({ ...f, item, unitCost: '' }));
+        setForm(f => ({ ...f, item, uomId: item.baseUomId ? String(item.baseUomId) : f.uomId, unitCost: '' }));
         setCostLoading(true);
         try {
             // UOM conversions for this item (to express the cost in the issue UOM)

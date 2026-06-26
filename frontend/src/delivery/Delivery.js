@@ -128,6 +128,7 @@ const DeliveryForm = ({ onClose, onSaved }) => {
         const e = {};
         if (!f.customerId)   e.customerId   = 'Customer is required.';
         if (!f.deliveryDate) e.deliveryDate = 'Delivery date is required.';
+        if (!f.jobId)        e.jobId        = 'Job ID is required.';
         return e;
     };
 
@@ -277,19 +278,19 @@ const DeliveryForm = ({ onClose, onSaved }) => {
                             <FieldErr msg={errors.deliveryDate} />
                         </div>
                         <div className="pf-field pf-f2">
-                            <label>Job ID</label>
+                            <label>Job ID <span className="req">*</span></label>
                             {form.jobIdFromInvoice ? (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                     <span className="pf-input" style={{ flex: 1, background: '#fefce8', color: '#854d0e', fontWeight: 600, cursor: 'default' }}>📋 {form.jobId}</span>
                                     <span style={{ fontSize: 10, color: '#92400e', background: '#fef3c7', border: '1px solid #fde68a', borderRadius: 4, padding: '2px 6px', whiteSpace: 'nowrap' }}>from invoice</span>
                                 </div>
                             ) : (
-                                <select className="pf-input" name="jobId" value={form.jobId} onChange={handle}
+                                <select className={`pf-input${errors.jobId ? ' pf-input-err' : ''}`} name="jobId" value={form.jobId} onChange={handle}
                                     disabled={!form.customerId}>
                                     <option value="">
                                         {!form.customerId ? '— Select a customer first —'
                                             : jobOptions.length === 0 ? '— No jobs for this customer —'
-                                            : '— Select job (optional) —'}
+                                            : '— Select job —'}
                                     </option>
                                     {jobOptions.map(j => (
                                         <option key={j.jobId} value={j.jobId}>
@@ -298,6 +299,7 @@ const DeliveryForm = ({ onClose, onSaved }) => {
                                     ))}
                                 </select>
                             )}
+                            <FieldErr msg={errors.jobId} />
                         </div>
                     </div>
                     <div className="pf-row">

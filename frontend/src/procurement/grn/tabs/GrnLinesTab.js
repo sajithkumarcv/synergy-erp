@@ -17,6 +17,7 @@ const PoImportModal = ({ grn, onClose, onImported }) => {
     const [linesLoading, setLinesLoading] = useState(true);
     const [selected,     setSelected]     = useState({});
     const [qtyMap,       setQtyMap]       = useState({});
+    const [rejMap,       setRejMap]       = useState({});
     const [importing,    setImporting]    = useState(false);
     const [error,        setError]        = useState('');
     const [search,       setSearch]       = useState('');
@@ -37,13 +38,16 @@ const PoImportModal = ({ grn, onClose, onImported }) => {
                 // Pre-select all lines, defaulting qty to (orderedQty - receivedQty)
                 const sel = {};
                 const qty = {};
+                const rej = {};
                 list.forEach(l => {
                     const remaining = Math.max(0, (l.orderedQty || 0) - (l.receivedQty || 0));
                     sel[l.poLineId] = remaining > 0;
                     qty[l.poLineId] = remaining > 0 ? String(remaining) : String(l.orderedQty || '');
+                    rej[l.poLineId] = '0';
                 });
                 setSelected(sel);
                 setQtyMap(qty);
+                setRejMap(rej);
             })
             .catch(() => setError('Failed to load PO lines.'))
             .finally(() => setLinesLoading(false));
@@ -87,14 +91,15 @@ const PoImportModal = ({ grn, onClose, onImported }) => {
     }, [displayLines]);
     const toggleGroup = (key) => setExpanded(p => ({ ...p, [key]: !p[key] }));
 
-    const toggle    = (id) => setSelected(p => ({ ...p, [id]: !p[id] }));
+    const toggle    = (id, l) => { if (isFullyRcvd(l)) return; setSelected(p => ({ ...p, [id]: !p[id] })); };
     const toggleAll = () => {
-        const allOn = displayLines.every(l => selected[l.poLineId]);
+        const allOn = selectableLines.every(l => selected[l.poLineId]);
         const next  = {};
-        displayLines.forEach(l => { next[l.poLineId] = !allOn; });
+        selectableLines.forEach(l => { next[l.poLineId] = !allOn; });
         setSelected(p => ({ ...p, ...next }));
     };
     const setQty = (id, val) => setQtyMap(p => ({ ...p, [id]: val }));
+    const setRej = (id, val) => setRejMap(p => ({ ...p, [id]: val }));
 
     const doImport = async () => {
         const toImport = poLines.filter(l => selected[l.poLineId]);
@@ -106,6 +111,8 @@ const PoImportModal = ({ grn, onClose, onImported }) => {
             return Number(qtyMap[l.poLineId]) > remaining;
         });
         if (overReceive.length > 0) { setError('One or more lines have a receive qty that exceeds the remaining ordered qty.'); return; }
+        const overReject = toImport.filter(l => Number(rejMap[l.poLineId] || 0) > Number(qtyMap[l.poLineId] || 0));
+        if (overReject.length > 0) { setError('Rejected qty cannot exceed received qty on one or more lines.'); return; }
         setImporting(true); setError('');
         const errors = [];
         let succeeded = 0;
@@ -123,12 +130,12 @@ const PoImportModal = ({ grn, onClose, onImported }) => {
                         itemDesc:     l.itemDesc || 'Item',
                         orderedQty:   l.orderedQty || 0,
                         receivedQty:  Number(qtyMap[l.poLineId]) || 0,
-                        rejectedQty:  0,
+                        rejectedQty:  Number(rejMap[l.poLineId]) || 0,
                         uomId:        l.uomId    || null,
                         uomName:      l.uomName  || null,
                         unitPrice:    l.unitPrice || 0,
                         taxPct:       l.taxPct    || 0,
-                        qcStatus:     'Pending',
+                        qcStatus:     null,
                         createdBy:    currentUser,
                         modifiedBy:   null,
                     })
@@ -154,7 +161,9 @@ const PoImportModal = ({ grn, onClose, onImported }) => {
         }
     };
 
-    const allChecked = displayLines.length > 0 && displayLines.every(l => selected[l.poLineId]);
+    const isFullyRcvd = (l) => Math.max(0, (l.orderedQty || 0) - (l.receivedQty || 0)) <= 0;
+    const selectableLines = displayLines.filter(l => !isFullyRcvd(l));
+    const allChecked = selectableLines.length > 0 && selectableLines.every(l => selected[l.poLineId]);
     const selCount   = Object.values(selected).filter(Boolean).length;
 
     // Aggregate one group of same-item PO lines
@@ -168,25 +177,28 @@ const PoImportModal = ({ grn, onClose, onImported }) => {
         priceSame: rows.every(l => l.unitPrice === rows[0].unitPrice),
     });
     const toggleGroupSelect = (rows) => {
-        const allSel = rows.every(l => selected[l.poLineId]);
-        setSelected(p => { const n = { ...p }; rows.forEach(l => { n[l.poLineId] = !allSel; }); return n; });
+        const selectable = rows.filter(l => !isFullyRcvd(l));
+        const allSel = selectable.length > 0 && selectable.every(l => selected[l.poLineId]);
+        setSelected(p => { const n = { ...p }; selectable.forEach(l => { n[l.poLineId] = !allSel; }); return n; });
     };
 
     const TD = { padding: '8px 10px', borderBottom: '1px solid #f0f4f8' };
 
     // A single PO line row (used standalone and as a sub-row of a merged group)
     const renderLineRow = (l, isSub = false) => {
-        const remaining = Math.max(0, (l.orderedQty || 0) - (l.receivedQty || 0));
-        const isChecked = !!selected[l.poLineId];
+        const remaining   = Math.max(0, (l.orderedQty || 0) - (l.receivedQty || 0));
+        const fullyRcvd   = remaining <= 0;
+        const isChecked   = !!selected[l.poLineId];
         return (
             <tr key={l.poLineId}
-                style={{ background: isChecked ? '#f0fff4' : (isSub ? '#fafdff' : '#fff'), cursor: 'pointer' }}
-                onClick={() => toggle(l.poLineId)}>
+                style={{ background: fullyRcvd ? '#f8fafc' : (isChecked ? '#f0fff4' : (isSub ? '#fafdff' : '#fff')), cursor: fullyRcvd ? 'default' : 'pointer', opacity: fullyRcvd ? 0.6 : 1 }}
+                onClick={() => !fullyRcvd && toggle(l.poLineId, l)}>
                 <td style={{ ...TD, textAlign: 'center' }}>
                     <input type="checkbox" checked={isChecked}
-                        onChange={() => toggle(l.poLineId)}
+                        disabled={fullyRcvd}
+                        onChange={() => toggle(l.poLineId, l)}
                         onClick={e => e.stopPropagation()}
-                        style={{ cursor: 'pointer', accentColor: '#0f766e' }} />
+                        style={{ cursor: fullyRcvd ? 'not-allowed' : 'pointer', accentColor: '#0f766e' }} />
                 </td>
                 <td style={{ ...TD, color: '#64748b', fontFamily: 'Courier New', fontSize: 11, paddingLeft: isSub ? 28 : 10 }}>
                     {isSub && <span style={{ color: '#cbd5e1', marginRight: 4 }}>↳</span>}{l.lineNum}
@@ -212,9 +224,20 @@ const PoImportModal = ({ grn, onClose, onImported }) => {
                         type="number"
                         value={qtyMap[l.poLineId] || ''}
                         onChange={e => setQty(l.poLineId, e.target.value)}
-                        disabled={!isChecked}
+                        disabled={!isChecked || fullyRcvd}
                         style={{ width: 80, padding: '4px 6px', border: `1px solid ${isChecked ? '#0f766e' : '#d1d5db'}`, borderRadius: 4, fontSize: 12, textAlign: 'right', background: isChecked ? '#fff' : '#f8fafc', color: isChecked ? '#1e293b' : '#94a3b8' }}
                         min="0.01" step="0.01"
+                    />
+                </td>
+                <td style={TD} onClick={e => e.stopPropagation()}>
+                    <input
+                        type="number"
+                        value={rejMap[l.poLineId] || ''}
+                        onChange={e => setRej(l.poLineId, e.target.value)}
+                        disabled={!isChecked || fullyRcvd}
+                        placeholder="0"
+                        style={{ width: 80, padding: '4px 6px', border: `1px solid ${isChecked && Number(rejMap[l.poLineId] || 0) > 0 ? '#dc2626' : (isChecked ? '#cbd5e1' : '#d1d5db')}`, borderRadius: 4, fontSize: 12, textAlign: 'right', background: isChecked ? '#fff' : '#f8fafc', color: isChecked && Number(rejMap[l.poLineId] || 0) > 0 ? '#dc2626' : (isChecked ? '#1e293b' : '#94a3b8') }}
+                        min="0" step="0.01"
                     />
                 </td>
             </tr>
@@ -228,14 +251,15 @@ const PoImportModal = ({ grn, onClose, onImported }) => {
         const isOpen = !!expanded[g.key];
         return (
             <React.Fragment key={g.key}>
-                <tr style={{ background: a.allSel ? '#f0fff4' : (a.someSel ? '#f5fffb' : '#fff'), cursor: 'pointer' }}
+                <tr style={{ background: a.remaining <= 0 ? '#f8fafc' : (a.allSel ? '#f0fff4' : (a.someSel ? '#f5fffb' : '#fff')), cursor: 'pointer', opacity: a.remaining <= 0 ? 0.6 : 1 }}
                     onClick={() => toggleGroup(g.key)}>
                     <td style={{ ...TD, textAlign: 'center' }}>
                         <input type="checkbox" checked={a.allSel}
+                            disabled={a.remaining <= 0}
                             ref={el => { if (el) el.indeterminate = !a.allSel && a.someSel; }}
                             onChange={() => toggleGroupSelect(g.lines)}
                             onClick={e => e.stopPropagation()}
-                            style={{ cursor: 'pointer', accentColor: '#0f766e' }} />
+                            style={{ cursor: a.remaining <= 0 ? 'not-allowed' : 'pointer', accentColor: '#0f766e' }} />
                     </td>
                     <td style={{ ...TD }} onClick={e => { e.stopPropagation(); toggleGroup(g.key); }}>
                         <button style={{ background: '#eef2f8', border: '1px solid #cbd5e1', borderRadius: 4, fontSize: 10.5, color: '#0f766e', fontWeight: 700, cursor: 'pointer', padding: '1px 6px' }}>
@@ -257,6 +281,7 @@ const PoImportModal = ({ grn, onClose, onImported }) => {
                         <span style={{ fontWeight: 600 }}>{fmt(a.selQty)}</span>
                         <span style={{ fontSize: 9.5, color: '#94a3b8', marginLeft: 3 }}>total</span>
                     </td>
+                    <td style={TD} />
                 </tr>
                 {isOpen && g.lines.map(l => renderLineRow(l, true))}
             </React.Fragment>
@@ -328,14 +353,14 @@ const PoImportModal = ({ grn, onClose, onImported }) => {
                                     {['UOM'].map(h => (
                                         <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: '#3a5070', textTransform: 'uppercase', fontSize: 10, letterSpacing: '.4px', borderBottom: '1px solid #d4dce9' }}>{h}</th>
                                     ))}
-                                    {['Unit Price','Rcv. Qty ✎'].map(h => (
+                                    {['Unit Price','Rcv. Qty ✎','Rej. Qty ✎'].map(h => (
                                         <th key={h} style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 600, color: '#3a5070', textTransform: 'uppercase', fontSize: 10, letterSpacing: '.4px', borderBottom: '1px solid #d4dce9' }}>{h}</th>
                                     ))}
                                 </tr>
                             </thead>
                             <tbody>
                                 {displayLines.length === 0 ? (
-                                    <tr><td colSpan={10} style={{ padding: 30, textAlign: 'center', color: '#94a3b8', fontStyle: 'italic' }}>No items match your search.</td></tr>
+                                    <tr><td colSpan={11} style={{ padding: 30, textAlign: 'center', color: '#94a3b8', fontStyle: 'italic' }}>No items match your search.</td></tr>
                                 ) : groupedLines.map(g => (
                                     g.lines.length === 1 ? renderLineRow(g.lines[0]) : renderMergedRow(g)
                                 ))}

@@ -703,6 +703,7 @@ namespace ERPWEB.Controllers.Reports
             [FromQuery] string? dateFrom    = null,
             [FromQuery] string? dateTo      = null,
             [FromQuery] string? jobId       = null,
+            [FromQuery] string? sourceJobId = null,
             [FromQuery] string? status      = null,
             [FromQuery] string? createdBy   = null,
             [FromQuery] string? costingType = null)
@@ -714,6 +715,7 @@ namespace ERPWEB.Controllers.Reports
                     DateFrom    = string.IsNullOrWhiteSpace(dateFrom)    ? null : dateFrom,
                     DateTo      = string.IsNullOrWhiteSpace(dateTo)      ? null : dateTo,
                     JobId       = string.IsNullOrWhiteSpace(jobId)       ? null : jobId.Trim(),
+                    SourceJobId = string.IsNullOrWhiteSpace(sourceJobId) ? null : sourceJobId.Trim(),
                     Status      = string.IsNullOrWhiteSpace(status)      ? null : status,
                     CreatedBy   = string.IsNullOrWhiteSpace(createdBy)   ? null : createdBy.Trim(),
                     CostingType = string.IsNullOrWhiteSpace(costingType) ? null : costingType,
@@ -733,6 +735,7 @@ namespace ERPWEB.Controllers.Reports
                     createdBy   = (string?)r.CreatedBy,
                     lineCount   = (int)r.LineCount,
                     totalValue  = (decimal?)r.TotalValue,
+                    sourceJobId = (string?)r.SourceJobId,
                 });
                 return Ok(result);
             }
@@ -749,6 +752,7 @@ namespace ERPWEB.Controllers.Reports
             [FromQuery] string? dateFrom    = null,
             [FromQuery] string? dateTo      = null,
             [FromQuery] string? jobId       = null,
+            [FromQuery] string? sourceJobId = null,
             [FromQuery] int?    itemId      = null,
             [FromQuery] int?    itemTypeId  = null,
             [FromQuery] int?    categoryId  = null,
@@ -763,6 +767,7 @@ namespace ERPWEB.Controllers.Reports
                     DateFrom    = string.IsNullOrWhiteSpace(dateFrom)    ? null : dateFrom,
                     DateTo      = string.IsNullOrWhiteSpace(dateTo)      ? null : dateTo,
                     JobId       = string.IsNullOrWhiteSpace(jobId)       ? null : jobId.Trim(),
+                    SourceJobId = string.IsNullOrWhiteSpace(sourceJobId) ? null : sourceJobId.Trim(),
                     ItemId      = itemId,
                     ItemTypeId  = itemTypeId,
                     CategoryId  = categoryId,
@@ -774,26 +779,27 @@ namespace ERPWEB.Controllers.Reports
                 var rows   = await _dbcon.QueryAsync<dynamic>("sp_ReportIssueDetails", p);
                 var result = (rows ?? Enumerable.Empty<dynamic>()).Select(r => new
                 {
-                    issueId     = (int)r.IssueId,
-                    issueNo     = (string?)r.IssueNo,
-                    issueDate   = (DateTime?)r.IssueDate,
-                    jobId       = (string?)r.JobId,
-                    projectName = (string?)r.ProjectName,
-                    status      = (string?)r.Status,
-                    costingType = (string?)r.CostingType,
-                    issuedTo    = (string?)r.IssuedTo,
-                    issueLineId = (int)r.IssueLineId,
-                    lineNum     = (int?)r.LineNum,
-                    itemId      = (int?)r.ItemId,
-                    itemCode    = (string?)r.ItemCode,
-                    itemDesc    = (string?)r.ItemDesc,
+                    issueId      = (int)r.IssueId,
+                    issueNo      = (string?)r.IssueNo,
+                    issueDate    = (DateTime?)r.IssueDate,
+                    jobId        = (string?)r.JobId,
+                    projectName  = (string?)r.ProjectName,
+                    status       = (string?)r.Status,
+                    costingType  = (string?)r.CostingType,
+                    issuedTo     = (string?)r.IssuedTo,
+                    issueLineId  = (int)r.IssueLineId,
+                    lineNum      = (int?)r.LineNum,
+                    itemId       = (int?)r.ItemId,
+                    itemCode     = (string?)r.ItemCode,
+                    itemDesc     = (string?)r.ItemDesc,
                     categoryName = (string?)r.CategoryName,
                     itemTypeName = (string?)r.ItemTypeName,
-                    qty         = (decimal?)r.Qty,
-                    uomName     = (string?)r.UomName,
-                    unitCost    = (decimal?)r.UnitCost,
-                    lineTotal   = (decimal?)r.LineTotal,
-                    notes       = (string?)r.Notes,
+                    qty          = (decimal?)r.Qty,
+                    uomName      = (string?)r.UomName,
+                    unitCost     = (decimal?)r.UnitCost,
+                    lineTotal    = (decimal?)r.LineTotal,
+                    notes        = (string?)r.Notes,
+                    sourceJobId  = (string?)r.SourceJobId,
                 });
                 return Ok(result);
             }
@@ -909,6 +915,68 @@ namespace ERPWEB.Controllers.Reports
             {
                 await _dbcon.WriteLog(ex, controller: "Reports", action: "IssueReturnReport", requestPath: HttpContext.Request.Path);
                 return StatusCode(500, new { message = "Error generating Issue Return report." });
+            }
+        }
+
+        // ── ISSUE RETURN DETAILS REPORT (line-level) ─────────────────────────
+        [HttpGet("issue-return-details")]
+        public async Task<IActionResult> IssueReturnDetailsReport(
+            [FromQuery] string? dateFrom      = null,
+            [FromQuery] string? dateTo        = null,
+            [FromQuery] string? jobId         = null,
+            [FromQuery] string? returnToJobId = null,
+            [FromQuery] int?    itemId        = null,
+            [FromQuery] int?    itemTypeId    = null,
+            [FromQuery] int?    categoryId    = null,
+            [FromQuery] string? searchText    = null,
+            [FromQuery] string? status        = null)
+        {
+            try
+            {
+                var p = new
+                {
+                    DateFrom      = string.IsNullOrWhiteSpace(dateFrom)      ? null : dateFrom,
+                    DateTo        = string.IsNullOrWhiteSpace(dateTo)        ? null : dateTo,
+                    JobId         = string.IsNullOrWhiteSpace(jobId)         ? null : jobId.Trim(),
+                    ReturnToJobId = string.IsNullOrWhiteSpace(returnToJobId) ? null : returnToJobId.Trim(),
+                    ItemId        = itemId,
+                    ItemTypeId    = itemTypeId,
+                    CategoryId    = categoryId,
+                    SearchText    = string.IsNullOrWhiteSpace(searchText)    ? null : searchText.Trim(),
+                    Status        = string.IsNullOrWhiteSpace(status)        ? null : status,
+                };
+
+                var rows   = await _dbcon.QueryAsync<dynamic>("sp_ReportIssueReturnDetails", p);
+                var result = (rows ?? Enumerable.Empty<dynamic>()).Select(r => new
+                {
+                    returnId      = (int)r.ReturnId,
+                    returnNo      = (string?)r.ReturnNo,
+                    returnDate    = (DateTime?)r.ReturnDate,
+                    status        = (string?)r.Status,
+                    returnedBy    = (string?)r.ReturnedBy,
+                    issueNo       = (string?)r.IssueNo,
+                    jobId         = (string?)r.JobId,
+                    projectName   = (string?)r.ProjectName,
+                    returnLineId  = (int)r.ReturnLineId,
+                    lineNum       = (int?)r.LineNum,
+                    itemId        = (int?)r.ItemId,
+                    itemCode      = (string?)r.ItemCode,
+                    itemDesc      = (string?)r.ItemDesc,
+                    categoryName  = (string?)r.CategoryName,
+                    itemTypeName  = (string?)r.ItemTypeName,
+                    returnQty     = (decimal?)r.ReturnQty,
+                    uomName       = (string?)r.UomName,
+                    unitCost      = (decimal?)r.UnitCost,
+                    lineTotal     = (decimal?)r.LineTotal,
+                    notes         = (string?)r.Notes,
+                    returnToJobId = (string?)r.ReturnToJobId,
+                });
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                await _dbcon.WriteLog(ex, controller: "Reports", action: "IssueReturnDetailsReport", requestPath: HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Error generating Issue Return Details report." });
             }
         }
 

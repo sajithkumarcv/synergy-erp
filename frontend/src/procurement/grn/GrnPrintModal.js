@@ -58,18 +58,24 @@ const GrnPrintModal = ({ grn, onClose }) => {
             </div>
 
             {/* ── Printable document ── */}
-            <div className="po-print-doc" style={{ display: 'flex', flexDirection: 'column' }}>
+            <div className="po-print-doc" style={{ display: 'flex', flexDirection: 'column', minHeight: '297mm' }}>
 
                 {/* 1. Company Header */}
                 <CompanyHeaderBand company={company} loading={coLoading} />
 
                 {/* 2. Document title band */}
                 <div style={{ display: 'flex', justifyContent: 'space-between',
-                               alignItems: 'center', marginBottom: 20 }}>
+                               alignItems: 'flex-start', marginBottom: 20 }}>
                     <div className="pop-doc-type" style={{ margin: 0 }}>Goods Receipt Note</div>
                     <div style={{ textAlign: 'right' }}>
                         <div className="pop-doc-number">{grn.grnNumber}</div>
                         <div className="pop-doc-status">{grn.status}</div>
+                        {grn.jobId && (
+                            <div style={{ fontSize: 11, color: '#475569', marginTop: 4 }}>
+                                Job: <strong style={{ fontFamily: 'Courier New', color: '#0f4c81' }}>{grn.jobId}</strong>
+                                {grn.jobTitle && <span style={{ color: '#64748b' }}> — {grn.jobTitle}</span>}
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -78,22 +84,27 @@ const GrnPrintModal = ({ grn, onClose }) => {
                     <div className="pop-info-box">
                         <div className="pop-info-box-title">Supplier / Vendor</div>
                         <div className="pop-info-val">{supplierName}</div>
+                        {grn.supplierAddress && (
+                            <div style={{ fontSize: 11, color: '#475569', margin: '2px 0 4px', lineHeight: 1.5 }}>
+                                {grn.supplierAddress}
+                            </div>
+                        )}
+                        {grn.supplierPhone && (
+                            <div className="pop-info-row">
+                                <span className="pop-info-row-label">Phone:</span>
+                                <span className="pop-info-row-val">{grn.supplierPhone}</span>
+                            </div>
+                        )}
+                        {grn.supplierEmail && (
+                            <div className="pop-info-row">
+                                <span className="pop-info-row-label">Email:</span>
+                                <span className="pop-info-row-val">{grn.supplierEmail}</span>
+                            </div>
+                        )}
                         {grn.supplierRef && (
                             <div className="pop-info-row">
                                 <span className="pop-info-row-label">Supplier Ref:</span>
                                 <span className="pop-info-row-val">{grn.supplierRef}</span>
-                            </div>
-                        )}
-                        {grn.invoiceNo && (
-                            <div className="pop-info-row">
-                                <span className="pop-info-row-label">Invoice No:</span>
-                                <span className="pop-info-row-val">{grn.invoiceNo}</span>
-                            </div>
-                        )}
-                        {grn.invoiceDate && (
-                            <div className="pop-info-row">
-                                <span className="pop-info-row-label">Invoice Date:</span>
-                                <span className="pop-info-row-val">{fmtDate(grn.invoiceDate)}</span>
                             </div>
                         )}
                     </div>
@@ -117,12 +128,6 @@ const GrnPrintModal = ({ grn, onClose }) => {
                                 <span className="pop-info-row-val">{grn.doNo}</span>
                             </div>
                         )}
-                        {grn.boeNo && (
-                            <div className="pop-info-row">
-                                <span className="pop-info-row-label">BOE No:</span>
-                                <span className="pop-info-row-val">{grn.boeNo}</span>
-                            </div>
-                        )}
                         {grn.deliveryLocation && (
                             <div className="pop-info-row">
                                 <span className="pop-info-row-label">Location:</span>
@@ -142,6 +147,30 @@ const GrnPrintModal = ({ grn, onClose }) => {
                         <div className="pop-term">
                             <div className="pop-term-label">PO Reference</div>
                             <div className="pop-term-val" style={{ fontFamily: 'Courier New' }}>{grn.poNumber}</div>
+                        </div>
+                    )}
+                    {grn.doNo && (
+                        <div className="pop-term">
+                            <div className="pop-term-label">Delivery Note No</div>
+                            <div className="pop-term-val">{grn.doNo}</div>
+                        </div>
+                    )}
+                    {grn.invoiceNo && (
+                        <div className="pop-term">
+                            <div className="pop-term-label">Invoice No</div>
+                            <div className="pop-term-val">{grn.invoiceNo}</div>
+                        </div>
+                    )}
+                    {grn.invoiceDate && (
+                        <div className="pop-term">
+                            <div className="pop-term-label">Invoice Date</div>
+                            <div className="pop-term-val">{fmtDate(grn.invoiceDate)}</div>
+                        </div>
+                    )}
+                    {grn.boeNo && (
+                        <div className="pop-term">
+                            <div className="pop-term-label">BOE No</div>
+                            <div className="pop-term-val">{grn.boeNo}</div>
                         </div>
                     )}
                     <div className="pop-term">

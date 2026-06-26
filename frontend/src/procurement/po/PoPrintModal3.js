@@ -30,9 +30,10 @@ const KV = ({ label, value, mono }) => !value ? null : (
 // ═════════════════════════════════════════════════════════════
 const PoPrintModal3 = ({ po, onClose, preview }) => {
     const { company, loading: coLoading } = useOwnerCompany();
-    const [lines,   setLines]   = useState([]);
-    const [terms,   setTerms]   = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [lines,     setLines]     = useState([]);
+    const [terms,     setTerms]     = useState([]);
+    const [annexures, setAnnexures] = useState([]);
+    const [loading,   setLoading]   = useState(true);
 
     useEffect(() => {
         fetch(`${variables.API_URL}purchaseorder/lines/${po.poId}`, { headers: authHeaders() })
@@ -42,6 +43,22 @@ const PoPrintModal3 = ({ po, onClose, preview }) => {
         fetch(`${variables.API_URL}purchaseorder/terms`, { headers: authHeaders() })
             .then(r => r.json()).then(d => setTerms(Array.isArray(d) ? d : []))
             .catch(console.error);
+
+        fetch(`${variables.API_URL}purchaseorder/${po.poId}/annexures`, { headers: authHeaders() })
+            .then(r => r.ok ? r.json() : { headers: [], details: [], links: [] })
+            .then(d => {
+                const headers = d.headers || [];
+                const dByA = {};
+                (d.details || []).forEach(x => { (dByA[x.annexureId] ??= []).push(x); });
+                const lByA = {};
+                (d.links || []).forEach(x => { (lByA[x.annexureId] ??= []).push(x.poLineId); });
+                setAnnexures(headers.map(h => ({
+                    ...h,
+                    details:       (dByA[h.annexureId] || []).sort((a, b) => a.lineNum - b.lineNum),
+                    linkedLineIds: lByA[h.annexureId] || [],
+                })));
+            })
+            .catch(() => setAnnexures([]));
     }, [po.poId]);
 
     const handleBackdrop = (e) => { if (e.target === e.currentTarget) onClose(); };
@@ -284,6 +301,17 @@ const PoPrintModal3 = ({ po, onClose, preview }) => {
                                                     {l.remarks}
                                                 </div>
                                             )}
+                                            {(() => {
+                                                const linkedCodes = annexures
+                                                    .filter(a => a.linkedLineIds.includes(l.poLineId))
+                                                    .map(a => a.annexureCode);
+                                                return linkedCodes.length > 0 ? (
+                                                    <div style={{ fontSize: 9.5, color: '#1e40af',
+                                                                  fontStyle: 'italic', marginTop: 2 }}>
+                                                        See Annexure-{linkedCodes.join(', ')}
+                                                    </div>
+                                                ) : null;
+                                            })()}
                                         </td>
                                         <td style={{ padding: '7px 8px', textAlign: 'right' }}>{l.orderedQty}</td>
                                         <td style={{ padding: '7px 8px', textAlign: 'center', color: '#475569' }}>
@@ -408,7 +436,71 @@ const PoPrintModal3 = ({ po, onClose, preview }) => {
                     </div>
                 )}
 
-                {/* ── 9. Authorized footer ── */}
+                {/* ── 9. Annexures — one section per page-break ── */}
+                {annexures.map(a => {
+                    const linkedLineNums = a.linkedLineIds
+                        .map(id => printLines.findIndex(l => l.poLineId === id) + 1)
+                        .filter(n => n > 0)
+                        .sort((x, y) => x - y);
+                    return (
+                        <div key={a.annexureId} style={{
+                            pageBreakBefore: 'always', breakBefore: 'page',
+                            paddingTop: 14, marginTop: 14, borderTop: '1px dashed #cbd5e1',
+                        }}>
+                            <div style={{
+                                background: '#1e3a5f', color: '#fff',
+                                padding: '8px 14px', marginBottom: 12, borderRadius: 4,
+                                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                            }}>
+                                <span style={{ fontWeight: 700, fontSize: 13, letterSpacing: '.04em' }}>
+                                    ANNEXURE-{a.annexureCode}
+                                    {a.title && <span style={{ fontWeight: 500, marginLeft: 8, opacity: .85 }}>— {a.title}</span>}
+                                </span>
+                                <span style={{ fontSize: 10.5, opacity: .8 }}>{po.poNumber}</span>
+                            </div>
+                            {a.notes && (
+                                <div style={{
+                                    padding: '10px 14px', marginBottom: 12,
+                                    border: '1px solid #e2e8f0', background: '#f8fafc',
+                                    borderRadius: 4, fontSize: 12, color: '#334155', whiteSpace: 'pre-wrap',
+                                }}>{a.notes}</div>
+                            )}
+                            {a.details.length > 0 && (
+                                <table className="po3-table" style={{ marginBottom: 12, fontSize: 11.5 }}>
+                                    <thead>
+                                        <tr style={{ background: '#1e3a5f', color: '#fff' }}>
+                                            <th style={{ padding: '7px 10px', width: 40, textAlign: 'center', fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '.04em' }}>#</th>
+                                            <th style={{ padding: '7px 10px', textAlign: 'left', fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '.04em' }}>Description</th>
+                                            <th style={{ padding: '7px 10px', width: 220, textAlign: 'left', fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '.04em' }}>Remarks</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {a.details.map((d, di) => (
+                                            <tr key={d.annexureDetailId}
+                                                style={{ background: di % 2 === 0 ? '#fff' : '#f8fafc', borderBottom: '1px solid #f1f5f9' }}>
+                                                <td style={{ padding: '6px 10px', textAlign: 'center', color: '#64748b' }}>{d.lineNum}</td>
+                                                <td style={{ padding: '6px 10px', whiteSpace: 'pre-wrap' }}>{d.description || '—'}</td>
+                                                <td style={{ padding: '6px 10px', color: '#475569' }}>{d.remarks || '—'}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+                            {linkedLineNums.length > 0 && (
+                                <div style={{
+                                    marginTop: 8, padding: '8px 12px',
+                                    background: '#eff6ff', border: '1px solid #bfdbfe',
+                                    borderRadius: 4, fontSize: 11.5, color: '#1e40af',
+                                }}>
+                                    <strong>Covers PO line{linkedLineNums.length > 1 ? 's' : ''}:</strong>{' '}
+                                    {linkedLineNums.join(', ')}
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
+
+                {/* ── 10. Authorized footer ── */}
                 <div className="po3-footer" style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end',
                     paddingTop: 8, borderTop: '1px solid #e2e8f0', marginTop: 4,

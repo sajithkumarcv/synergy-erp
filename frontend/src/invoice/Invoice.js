@@ -89,7 +89,7 @@ const InvForm = ({ onClose, onSaved }) => {
     useEffect(() => {
         if (!jobSearch.trim()) { setJobResults([]); return; }
         const t = setTimeout(() => {
-            fetch(`${variables.API_URL}job/search?searchText=${encodeURIComponent(jobSearch)}&pageSize=8`, { headers: authHeaders() })
+            fetch(`${variables.API_URL}job/search?searchText=${encodeURIComponent(jobSearch)}&pageSize=8&approvalStatus=Approved`, { headers: authHeaders() })
                 .then(r => r.json()).then(d => setJobResults(d.data || d || [])).catch(console.error);
         }, 280);
         return () => clearTimeout(t);

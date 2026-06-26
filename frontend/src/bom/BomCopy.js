@@ -81,7 +81,7 @@ const JobSearchInput = ({ onChange, error }) => {
             setLoading(true);
             try {
                 const r = await fetch(
-                    `${variables.API_URL}job/search?searchText=${encodeURIComponent(q)}&pageSize=10&page=1&sortCol=JobDate&sortDir=DESC&excludeClosedStatus=true`,
+                    `${variables.API_URL}job/search?searchText=${encodeURIComponent(q)}&pageSize=10&page=1&sortCol=JobDate&sortDir=DESC&excludeClosedStatus=true&approvalStatus=Approved`,
                     { headers: authHeaders() }
                 );
                 const d = await r.json();

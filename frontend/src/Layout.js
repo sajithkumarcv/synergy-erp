@@ -109,7 +109,8 @@ import GrnReport            from './reports/GrnReport';
 import GrnUnregReport       from './reports/GrnUnregReport';
 import RtvReport            from './reports/RtvReport';
 import IssueReport          from './reports/IssueReport';
-import IssueReturnReport    from './reports/IssueReturnReport';
+import IssueReturnReport        from './reports/IssueReturnReport';
+import IssueReturnDetailsReport from './reports/IssueReturnDetailsReport';
 import SrvReport            from './reports/SrvReport';
 import BacklogReport        from './reports/BacklogReport';
 import JobItemLedgerReport  from './reports/JobItemLedgerReport';
@@ -728,7 +729,8 @@ const Layout = () => {
             <Route path="/reports/grn-unreg"    element={<GrnUnregReport />} />
             <Route path="/reports/rtv"          element={<RtvReport />} />
             <Route path="/reports/issue"        element={<IssueReport />} />
-            <Route path="/reports/issue-return" element={<IssueReturnReport />} />
+            <Route path="/reports/issue-return"         element={<IssueReturnReport />} />
+            <Route path="/reports/issue-return-details" element={<IssueReturnDetailsReport />} />
             <Route path="/reports/srv"          element={<SrvReport />} />
             <Route path="/reports/backlog"       element={<BacklogReport />} />
             <Route path="/reports/item-ledger"  element={<JobItemLedgerReport />} />

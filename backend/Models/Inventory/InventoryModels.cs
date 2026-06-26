@@ -262,6 +262,7 @@ namespace ERPWEB.Models.Inventory
         public int      ItemId       { get; set; }
         public string?  ItemCode     { get; set; }
         public string?  ItemName     { get; set; }
+        public int?     BaseUomId    { get; set; }
         public decimal  AvailableQty { get; set; }
         public decimal  LastCost     { get; set; }
     }

@@ -9,25 +9,27 @@ const firstOfMonth = () => { const d = new Date(); d.setDate(1); return d.toISOS
 const PAGE_SIZES   = [20, 50, 100, 500];
 
 const DEFAULT_FILTERS = {
-    jobId: '', dateFrom: firstOfMonth(), dateTo: today(),
+    jobId: '', returnToJobId: '', dateFrom: firstOfMonth(), dateTo: today(),
     itemTypeId: '', categoryId: '', subCategoryId: '',
     itemId: '', status: '',
 };
 
 const exportCsv = (rows) => {
-    const headers = ['#', 'Receipt No', 'Date', 'Type', 'Job', 'Supplier', 'PO No', 'Item Code', 'Description', 'Qty', 'UOM', 'Unit Cost', 'Line Total'];
+    const headers = ['#', 'Return No', 'Date', 'From Job', 'Return To Job (IH)', 'Issue No', 'Item Code', 'Description', 'Return Qty', 'UOM', 'Unit Cost', 'Line Total', 'Status', 'Returned By'];
     const esc = v => { if (v == null) return ''; const s = String(v); return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s; };
     const lines = [
         headers.join(','),
         ...rows.map((r, i) => [
-            i + 1, r.receiptNo, r.receiptDate ? fmtDate(r.receiptDate) : '', r.receiptType, r.jobId,
-            r.supplierName, r.poNumber, r.itemCode, r.itemDesc, r.qty, r.uomName, r.unitCost, r.lineTotal,
+            i + 1, r.returnNo, r.returnDate ? fmtDate(r.returnDate) : '',
+            r.jobId, r.returnToJobId, r.issueNo,
+            r.itemCode, r.itemDesc, r.returnQty, r.uomName, r.unitCost, r.lineTotal,
+            r.status, r.returnedBy,
         ].map(esc).join(','))
     ];
     const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `PurchaseDetails_Report_${today()}.csv`;
+    a.download = `IssueReturnDetails_Report_${today()}.csv`;
     a.click();
 };
 
@@ -58,19 +60,14 @@ const Pagination = ({ page, totalPages, pageSize, totalRows, onPage, onPageSize 
     );
 };
 
-const TYPE_STYLE = {
-    STORE: { bg: '#dbeafe', color: '#1e40af' },
-    JOB:   { bg: '#dcfce7', color: '#166534' },
-};
-
-const PurchaseDetailsReport = () => {
+const IssueReturnDetailsReport = () => {
     const navigate = useNavigate();
 
     const [filters, setFilters]   = useState({ ...DEFAULT_FILTERS });
     const [rows, setRows]         = useState(null);
     const [loading, setLoading]   = useState(false);
     const [error, setError]       = useState('');
-    const [sortCol, setSortCol]   = useState('receiptDate');
+    const [sortCol, setSortCol]   = useState('returnDate');
     const [sortDir, setSortDir]   = useState('desc');
     const [page, setPage]         = useState(1);
     const [pageSize, setPageSize] = useState(50);
@@ -93,9 +90,7 @@ const PurchaseDetailsReport = () => {
     }, []);
 
     const parentCategories = useMemo(
-        () => allCategories
-            .filter(c => !c.parentCategoryId)
-            .sort((a, b) => (a.categoryName || '').localeCompare(b.categoryName || '')),
+        () => allCategories.filter(c => !c.parentCategoryId).sort((a, b) => (a.categoryName || '').localeCompare(b.categoryName || '')),
         [allCategories]
     );
 
@@ -106,8 +101,6 @@ const PurchaseDetailsReport = () => {
             .sort((a, b) => (a.categoryName || '').localeCompare(b.categoryName || ''));
     }, [allCategories, filters.categoryId]);
 
-    // Load items scoped to the selected type / category / sub-category (max 500).
-    // Disabled until at least a type or category is chosen (item master is large).
     useEffect(() => {
         const catId = filters.subCategoryId || filters.categoryId;
         if (!catId && !filters.itemTypeId) { setItems([]); return; }
@@ -132,16 +125,17 @@ const PurchaseDetailsReport = () => {
     const runReport = useCallback(async () => {
         setLoading(true); setError(''); setPage(1);
         const p = new URLSearchParams();
-        if (filters.jobId)       p.set('jobId',       filters.jobId);
-        if (filters.dateFrom)    p.set('dateFrom',    filters.dateFrom);
-        if (filters.dateTo)      p.set('dateTo',      filters.dateTo);
-        if (filters.itemTypeId)  p.set('itemTypeId',  filters.itemTypeId);
+        if (filters.returnToJobId) p.set('returnToJobId', filters.returnToJobId);
+        if (filters.jobId)         p.set('jobId',         filters.jobId);
+        if (filters.dateFrom)      p.set('dateFrom',      filters.dateFrom);
+        if (filters.dateTo)        p.set('dateTo',        filters.dateTo);
+        if (filters.itemTypeId)    p.set('itemTypeId',    filters.itemTypeId);
         const catId = filters.subCategoryId || filters.categoryId;
-        if (catId)               p.set('categoryId',  catId);
-        if (filters.itemId)      p.set('itemId',      filters.itemId);
-        if (filters.status)      p.set('status',      filters.status);
+        if (catId)                 p.set('categoryId',    catId);
+        if (filters.itemId)        p.set('itemId',        filters.itemId);
+        if (filters.status)        p.set('status',        filters.status);
         try {
-            const res  = await fetch(`${variables.API_URL}reports/purchase-details?${p}`, { headers: authHeaders() });
+            const res  = await fetch(`${variables.API_URL}reports/issue-return-details?${p}`, { headers: authHeaders() });
             const data = await res.json();
             if (!res.ok) { setError(data?.message || 'Error loading report.'); setRows([]); return; }
             setRows(data);
@@ -171,11 +165,11 @@ const PurchaseDetailsReport = () => {
     const totals = useMemo(() => {
         if (!rows || rows.length === 0) return null;
         return {
-            lines:    rows.length,
-            qty:      rows.reduce((s, r) => s + (r.qty       || 0), 0),
-            value:    rows.reduce((s, r) => s + (r.lineTotal || 0), 0),
-            items:    new Set(rows.map(r => r.itemId).filter(Boolean)).size,
-            receipts: new Set(rows.map(r => r.receiptId).filter(Boolean)).size,
+            lines: rows.length,
+            qty:   rows.reduce((s, r) => s + (r.returnQty  || 0), 0),
+            value: rows.reduce((s, r) => s + (r.lineTotal   || 0), 0),
+            jobs:  new Set(rows.map(r => r.jobId).filter(Boolean)).size,
+            items: new Set(rows.map(r => r.itemId).filter(Boolean)).size,
         };
     }, [rows]);
 
@@ -188,9 +182,9 @@ const PurchaseDetailsReport = () => {
     return (
         <div className="rpt-page">
             <div className="rpt-header">
-                <div className="rpt-header-icon" style={{ background: 'linear-gradient(135deg,#dcfce7,#bbf7d0)' }}>📥</div>
+                <div className="rpt-header-icon" style={{ background: 'linear-gradient(135deg,#dcfce7,#86efac)' }}>↩️</div>
                 <div>
-                    <div className="rpt-header-title">Purchase Details Report</div>
+                    <div className="rpt-header-title">Issue Return Details Report</div>
                     <div className="rpt-header-sub">
                         {rows == null ? 'Set filters and click Run Report' : `${rows.length} line${rows.length !== 1 ? 's' : ''} found`}
                     </div>
@@ -202,16 +196,27 @@ const PurchaseDetailsReport = () => {
 
             <div className="rpt-filter-card">
                 <div className="rpt-filter-row">
-                    {/* 1. Job No */}
+                    {/* Return To Job (IH) */}
                     <div className="rpt-filter-group w200">
-                        <span className="rpt-filter-label">Job No</span>
+                        <span className="rpt-filter-label">Return To Job (IH)</span>
+                        <select className="rpt-filter-select" value={filters.returnToJobId} onChange={e => setF('returnToJobId', e.target.value)}>
+                            <option value="">All</option>
+                            {jobs.filter(j => j.jobId && j.jobId.startsWith('IH')).map(j => (
+                                <option key={j.jobId} value={j.jobId}>{j.jobId}{j.projectName ? ` — ${j.projectName}` : ''}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* From Job */}
+                    <div className="rpt-filter-group w200">
+                        <span className="rpt-filter-label">From Job</span>
                         <select className="rpt-filter-select" value={filters.jobId} onChange={e => setF('jobId', e.target.value)}>
                             <option value="">All Jobs</option>
                             {jobs.map(j => <option key={j.jobId} value={j.jobId}>{j.jobId}{j.projectName ? ` — ${j.projectName}` : ''}</option>)}
                         </select>
                     </div>
 
-                    {/* 2. Dates */}
+                    {/* Dates */}
                     <div className="rpt-filter-group w160">
                         <span className="rpt-filter-label">Date From</span>
                         <input className="rpt-filter-input" type="date" value={filters.dateFrom} onChange={e => setF('dateFrom', e.target.value)} />
@@ -221,7 +226,7 @@ const PurchaseDetailsReport = () => {
                         <input className="rpt-filter-input" type="date" value={filters.dateTo} onChange={e => setF('dateTo', e.target.value)} />
                     </div>
 
-                    {/* 3. Item Type */}
+                    {/* Item Type */}
                     <div className="rpt-filter-group w180">
                         <span className="rpt-filter-label">Item Type</span>
                         <select className="rpt-filter-select" value={filters.itemTypeId} onChange={e => handleTypeChange(e.target.value)}>
@@ -230,7 +235,7 @@ const PurchaseDetailsReport = () => {
                         </select>
                     </div>
 
-                    {/* 4. Category */}
+                    {/* Category */}
                     <div className="rpt-filter-group w200">
                         <span className="rpt-filter-label">Category</span>
                         <select className="rpt-filter-select" value={filters.categoryId} onChange={e => handleCategoryChange(e.target.value)}>
@@ -239,7 +244,7 @@ const PurchaseDetailsReport = () => {
                         </select>
                     </div>
 
-                    {/* 5. Sub Category */}
+                    {/* Sub Category */}
                     <div className="rpt-filter-group w220">
                         <span className="rpt-filter-label">Sub Category</span>
                         <select className="rpt-filter-select" value={filters.subCategoryId}
@@ -250,7 +255,7 @@ const PurchaseDetailsReport = () => {
                         </select>
                     </div>
 
-                    {/* 6. Item master (dropdown, scoped to type/category) */}
+                    {/* Item */}
                     <div className="rpt-filter-group wflex">
                         <span className="rpt-filter-label">Item</span>
                         <select className="rpt-filter-select" value={filters.itemId}
@@ -292,7 +297,7 @@ const PurchaseDetailsReport = () => {
                 <div className="rpt-summary">
                     <div className="rpt-summary-item"><div className="rpt-summary-label">Lines</div><div className="rpt-summary-val">{totals.lines}</div></div>
                     <div className="rpt-summary-item"><div className="rpt-summary-label">Distinct Items</div><div className="rpt-summary-val">{totals.items}</div></div>
-                    <div className="rpt-summary-item"><div className="rpt-summary-label">Receipts</div><div className="rpt-summary-val">{totals.receipts}</div></div>
+                    <div className="rpt-summary-item"><div className="rpt-summary-label">Jobs</div><div className="rpt-summary-val">{totals.jobs}</div></div>
                     <div className="rpt-summary-item"><div className="rpt-summary-label">Total Qty</div><div className="rpt-summary-val blue">{fmt(totals.qty, 4)}</div></div>
                     <div className="rpt-summary-item"><div className="rpt-summary-label">Total Value</div><div className="rpt-summary-val green">{fmt(totals.value)}</div></div>
                 </div>
@@ -304,7 +309,7 @@ const PurchaseDetailsReport = () => {
                     <div className="rpt-state"><div className="rpt-state-icon">📊</div><span>Set your filters above and click <strong>Run Report</strong></span></div>
                 )}
                 {!loading && rows !== null && rows.length === 0 && (
-                    <div className="rpt-state"><div className="rpt-state-icon">🔍</div><span>No purchase lines match the selected filters.</span></div>
+                    <div className="rpt-state"><div className="rpt-state-icon">🔍</div><span>No return lines match the selected filters.</span></div>
                 )}
                 {!loading && paged.length > 0 && (
                     <>
@@ -313,45 +318,53 @@ const PurchaseDetailsReport = () => {
                                 <thead>
                                     <tr>
                                         <th className="c" style={{ width: 46 }}>#</th>
-                                        <Th col="receiptNo"    label="Receipt No"  />
-                                        <Th col="receiptDate"  label="Date"        />
-                                        <Th col="receiptType"  label="Type"        />
-                                        <Th col="jobId"        label="Job"         />
-                                        <Th col="supplierName" label="Supplier"    />
-                                        <Th col="itemCode"     label="Item Code"   />
-                                        <Th col="itemDesc"     label="Description" />
-                                        <Th col="qty"          label="Qty"      cls="r" />
-                                        <Th col="uomName"      label="UOM"         />
-                                        <Th col="unitCost"     label="Unit Cost" cls="r" />
-                                        <Th col="lineTotal"    label="Line Total" cls="r" />
+                                        <Th col="returnNo"      label="Return No"          />
+                                        <Th col="returnDate"    label="Date"               />
+                                        <Th col="returnToJobId" label="Return To Job"       />
+                                        <Th col="jobId"         label="From Job"            />
+                                        <Th col="issueNo"       label="Issue No"            />
+                                        <Th col="itemCode"      label="Item Code"           />
+                                        <Th col="itemDesc"      label="Description"         />
+                                        <Th col="returnQty"     label="Return Qty"  cls="r" />
+                                        <Th col="uomName"       label="UOM"                 />
+                                        <Th col="unitCost"      label="Unit Cost"   cls="r" />
+                                        <Th col="lineTotal"     label="Line Total"  cls="r" />
+                                        <Th col="status"        label="Status"              />
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {paged.map((r, i) => (
-                                        <tr key={r.receiptLineId} onClick={() => navigate(`/inventory-grn/${r.receiptId}`)}>
+                                        <tr key={r.returnLineId} onClick={() => navigate(`/inventory-issue-return/${r.returnId}`)}>
                                             <td className="c" style={{ color: '#94a3b8', fontSize: 11, fontWeight: 600 }}>{rowOffset + i + 1}</td>
                                             <td>
-                                                <span style={{ fontFamily: 'Courier New', fontWeight: 700, color: '#166534', fontSize: 11.5, background: '#dcfce7', padding: '2px 8px', borderRadius: 4 }}>{r.receiptNo}</span>
+                                                <span style={{ fontFamily: 'Courier New', fontWeight: 700, color: '#166534', fontSize: 11.5, background: '#dcfce7', padding: '2px 8px', borderRadius: 4 }}>{r.returnNo}</span>
                                             </td>
-                                            <td style={{ color: '#475569', fontSize: 12 }}>{fmtDate(r.receiptDate)}</td>
+                                            <td style={{ color: '#475569', fontSize: 12 }}>{fmtDate(r.returnDate)}</td>
                                             <td>
-                                                {(() => {
-                                                    const ts = TYPE_STYLE[r.receiptType] || { bg: '#f1f5f9', color: '#475569' };
-                                                    return <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 10.5, fontWeight: 700, background: ts.bg, color: ts.color }}>{r.receiptType || '—'}</span>;
-                                                })()}
+                                                {r.returnToJobId
+                                                    ? <span style={{ fontFamily: 'Courier New', fontSize: 11, color: '#7c3aed', background: '#ede9fe', padding: '2px 6px', borderRadius: 4 }}>{r.returnToJobId}</span>
+                                                    : <span className="muted">—</span>}
                                             </td>
                                             <td>
                                                 {r.jobId
                                                     ? <span style={{ fontFamily: 'Courier New', fontSize: 11, color: '#0f766e', background: '#ccfbf1', padding: '2px 6px', borderRadius: 4 }}>{r.jobId}</span>
                                                     : <span className="muted">—</span>}
                                             </td>
-                                            <td style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.supplierName || <span className="muted">—</span>}</td>
+                                            <td style={{ fontFamily: 'Courier New', fontSize: 11, color: '#92400e' }}>{r.issueNo || <span className="muted">—</span>}</td>
                                             <td style={{ fontFamily: 'Courier New', fontSize: 11.5, color: '#2563eb' }}>{r.itemCode || <span className="muted">—</span>}</td>
-                                            <td style={{ maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#1e293b' }}>{r.itemDesc}</td>
-                                            <td className="r" style={{ fontFamily: 'monospace', fontWeight: 700, color: '#1e293b' }}>{fmt(r.qty, 4)}</td>
+                                            <td style={{ maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#1e293b' }}>{r.itemDesc}</td>
+                                            <td className="r" style={{ fontFamily: 'monospace', fontWeight: 700, color: '#1e293b' }}>{fmt(r.returnQty, 4)}</td>
                                             <td style={{ fontSize: 12, color: '#64748b' }}>{r.uomName || <span className="muted">—</span>}</td>
                                             <td className="r" style={{ fontFamily: 'monospace', color: '#475569' }}>{fmt(r.unitCost)}</td>
                                             <td className="r" style={{ fontFamily: 'monospace', fontWeight: 700, color: '#166534' }}>{fmt(r.lineTotal)}</td>
+                                            <td>
+                                                <span style={{
+                                                    display: 'inline-block',
+                                                    padding: '2px 9px', borderRadius: 20, fontSize: 10.5, fontWeight: 700,
+                                                    background: r.status === 'Confirmed' ? '#dcfce7' : r.status === 'Cancelled' ? '#fee2e2' : '#f1f5f9',
+                                                    color:      r.status === 'Confirmed' ? '#166534' : r.status === 'Cancelled' ? '#991b1b' : '#475569',
+                                                }}>{r.status}</span>
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -362,6 +375,7 @@ const PurchaseDetailsReport = () => {
                                             <td className="r" style={{ padding: '8px 6px', fontFamily: 'monospace', color: '#1e40af', fontWeight: 700 }}>{fmt(totals.qty, 4)}</td>
                                             <td colSpan={2} />
                                             <td className="r" style={{ padding: '8px 6px', fontFamily: 'monospace', color: '#166534', fontWeight: 700 }}>{fmt(totals.value)}</td>
+                                            <td />
                                         </tr>
                                     </tfoot>
                                 )}
@@ -376,4 +390,4 @@ const PurchaseDetailsReport = () => {
     );
 };
 
-export default PurchaseDetailsReport;
+export default IssueReturnDetailsReport;

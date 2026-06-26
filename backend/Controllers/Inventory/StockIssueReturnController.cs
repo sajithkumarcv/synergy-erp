@@ -2,12 +2,15 @@ using ERPWEB.Dbcontext;
 using ERPWEB.Models.Inventory;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace ERPWEB.Controllers.Inventory
 {
     public class ConfirmIssueReturnRequest
     {
         public string ModifiedBy { get; set; } = string.Empty;
+        public string Password   { get; set; } = string.Empty;
     }
 
     [Authorize]
@@ -17,6 +20,15 @@ namespace ERPWEB.Controllers.Inventory
     {
         private readonly DbCon _db;
         public StockIssueReturnController(DbCon db) { _db = db; }
+
+        private static string Sha256Hex(string raw)
+        {
+            using var sha = SHA256.Create();
+            var bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(raw ?? string.Empty));
+            var sb = new StringBuilder(bytes.Length * 2);
+            foreach (var b in bytes) sb.Append(b.ToString("x2"));
+            return sb.ToString();
+        }
 
         // ── List ──────────────────────────────────────────────────
         [HttpGet("search")]
@@ -171,8 +183,9 @@ namespace ERPWEB.Controllers.Inventory
             {
                 var rows = await _db.QueryAsync<dynamic>("sp_ConfirmIssueReturn", new
                 {
-                    ReturnId   = returnId,
-                    ModifiedBy = req.ModifiedBy
+                    ReturnId     = returnId,
+                    ModifiedBy   = req.ModifiedBy,
+                    PasswordHash = Sha256Hex(req.Password)
                 });
                 var row = rows.FirstOrDefault();
                 return Ok(new { newStatus = (string)row!.NewStatus });

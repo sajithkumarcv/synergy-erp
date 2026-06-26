@@ -208,6 +208,7 @@ const PrForm = ({ onClose, onSaved }) => {
     const [errors,     setErrors]     = useState({});
     const [error,      setError]      = useState('');
     const [previewNo,  setPreviewNo]  = useState('');
+    const [draftWarn,  setDraftWarn]  = useState(null); // [{prId, prNumber, lineCount, createdDate}]
 
     useEffect(() => {
         fetch(`${variables.API_URL}documentseries/preview/PR`, { headers: authHeaders() })
@@ -221,7 +222,7 @@ const PrForm = ({ onClose, onSaved }) => {
         // That's by design — engineers raise PRs to gather quotes that later
         // feed the BOM and the budget. So the dropdown lists every OPEN job
         // (status 1/2 = Active/On Hold), not just ones with an approved BOM.
-        fetch(`${variables.API_URL}job/search?excludeClosedStatus=true&pageSize=500&page=1&sortCol=JobDate&sortDir=DESC`,
+        fetch(`${variables.API_URL}job/search?excludeClosedStatus=true&approvalStatus=Approved&pageSize=500&page=1&sortCol=JobDate&sortDir=DESC`,
             { headers: authHeaders() })
             .then(r => r.json())
             .then(d => setJobs(d.data || []))
@@ -233,6 +234,16 @@ const PrForm = ({ onClose, onSaved }) => {
         const { name, value } = e.target;
         setForm(p => ({ ...p, [name]: value }));
         if (errors[name]) setErrors(p => ({ ...p, [name]: undefined }));
+        if (name === 'jobId' && value) {
+            fetch(`${variables.API_URL}purchaserequest/search?jobId=${encodeURIComponent(value)}&status=Draft&pageSize=50&page=1`, { headers: authHeaders() })
+                .then(r => r.ok ? r.json() : null)
+                .then(d => {
+                    const drafts = (d?.data || []);
+                    if (drafts.length > 0) setDraftWarn(drafts);
+                })
+                .catch(() => {});
+        }
+        if (name === 'jobId' && !value) setDraftWarn(null);
     };
 
     const validate = () => {
@@ -273,6 +284,47 @@ const PrForm = ({ onClose, onSaved }) => {
 
     return (
         <div className="pf-overlay">
+            {/* ── Draft PRs warning modal ── */}
+            {draftWarn && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ background: '#fff', borderRadius: 10, padding: 24, maxWidth: 480, width: '92%', boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                            <span style={{ fontSize: 22 }}>⚠️</span>
+                            <div>
+                                <div style={{ fontWeight: 700, fontSize: 14, color: '#92400e' }}>Draft PRs already exist for this job</div>
+                                <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Consider opening one of these before creating a new PR.</div>
+                            </div>
+                        </div>
+                        <div style={{ borderRadius: 6, border: '1px solid #fde68a', background: '#fffbeb', padding: '8px 0', marginBottom: 16 }}>
+                            {draftWarn.map(r => (
+                                <div key={r.prId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 12px', borderBottom: '1px solid #fef3c7' }}>
+                                    <span style={{ fontFamily: 'Courier New', fontSize: 12, fontWeight: 700, color: '#1e40af', background: '#dbeafe', padding: '2px 7px', borderRadius: 4 }}>
+                                        {r.prNumber}
+                                    </span>
+                                    <span style={{ fontSize: 11, color: '#64748b' }}>
+                                        {(() => { const lc = r.lineCount ?? 0; return lc === 0 ? <span style={{ color: '#dc2626', fontWeight: 600 }}>No lines</span> : `${lc} line${lc !== 1 ? 's' : ''}`; })()}
+                                        {r.prDate ? ` · ${fmtDate(r.prDate)}` : ''}
+                                    </span>
+                                    <a href={`/purchase-requests/${r.prId}`} target="_blank" rel="noreferrer"
+                                        style={{ fontSize: 11, color: '#2563eb', fontWeight: 600, textDecoration: 'none' }}>
+                                        Open ↗
+                                    </a>
+                                </div>
+                            ))}
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                            <button onClick={() => setDraftWarn(null)}
+                                style={{ padding: '6px 18px', borderRadius: 6, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#475569', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>
+                                Create Anyway
+                            </button>
+                            <button onClick={() => { setDraftWarn(null); setForm(p => ({ ...p, jobId: '' })); }}
+                                style={{ padding: '6px 18px', borderRadius: 6, border: 'none', background: '#1e40af', color: '#fff', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
             <div className="pf-panel">
                 <div className="pf-header">
                     <div>
@@ -511,7 +563,7 @@ export const Pr = () => {
                             ) : rows.map(r => {
                                 const priCfg = PRIORITY_CONFIG[r.priority] || {};
                                 return (
-                                    <tr key={r.prId}>
+                                    <tr key={r.prId} style={r.status === 'Draft' ? { background: '#fffbeb' } : undefined}>
                                         <td>
                                             <RowLink className="pr-num-link" to={`/purchase-requests/${r.prId}`}>
                                                 {r.prNumber}

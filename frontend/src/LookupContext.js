@@ -59,7 +59,7 @@ export const LookupProvider = ({ children }) => {
 
             // items endpoint returns paged result; extract .data array and map to id/name/code
             const itemsRaw        = itemsData?.data || (Array.isArray(itemsData) ? itemsData : []);
-            const items           = itemsRaw.map(i => ({ id: i.itemId, name: i.itemName || i.itemNameEn || '', code: i.itemCode || '', isStockable: i.isStockable, budgetCategoryId: i.budgetCategoryId ?? null }));
+            const items           = itemsRaw.map(i => ({ id: i.itemId, name: i.itemName || i.itemNameEn || '', code: i.itemCode || '', isStockable: i.isStockable, budgetCategoryId: i.budgetCategoryId ?? null, lastPurchasePrice: i.lastPurchasePrice ?? null, lastPurchaseCurrencyShort: i.lastPurchaseCurrencyShort ?? null }));
             const uoms            = (Array.isArray(uomsData) ? uomsData : []).map(u => ({ id: u.uomId, name: u.uomName || u.uomCode || '' }));
             const jobStatuses     = (Array.isArray(jobStatusData) ? jobStatusData : []).map(s => ({ id: s.id, name: s.name }));
             const expenseCategories = Array.isArray(expCatData)    ? expCatData    : [];

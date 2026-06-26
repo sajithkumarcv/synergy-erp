@@ -36,6 +36,7 @@ const PoDetailPage = () => {
     // Read query params set by PoForm after creation
     const initialPrId = searchParams.get('prId') || '';
     const initialTab  = searchParams.get('tab')  || 'overview';
+    const autoPrint   = searchParams.get('print') === '1';
 
     const [po,         setPo]        = useState(null);
     const [loading,    setLoading]   = useState(true);
@@ -85,6 +86,7 @@ const PoDetailPage = () => {
     }, [poId]);
 
     useEffect(() => { loadPo(); }, [loadPo]);
+    useEffect(() => { if (po && autoPrint) setShowPrint(1); }, [po, autoPrint]);
 
     const renderTab = () => {
         if (!po) return null;

@@ -23,14 +23,15 @@ const isBudgetBlock = msg => /budget/i.test(msg) && /(exceed|over\s*by)/i.test(m
 const ApprovalActionModal = ({ transactionId, allowedActions = ['Approve','Reject','SendBack'], documentLabel, onDone, onClose }) => {
     const currentUser = useCurrentUser();
     const userId      = useCurrentUserId();
-    const [action,      setAction]      = useState('');
-    const [remarks,     setRemarks]     = useState('');
-    const [saving,      setSaving]      = useState(false);
-    const [error,       setError]       = useState('');
-    const [budgetBlock, setBudgetBlock] = useState('');   // message when server blocks for budget
-    const [ovPassword,  setOvPassword]  = useState('');
-    const [ovReason,    setOvReason]    = useState('');
-    const [ovErr,       setOvErr]       = useState('');
+    const [action,        setAction]      = useState('');
+    const [remarks,       setRemarks]     = useState('');
+    const [loginPassword, setLoginPassword] = useState('');
+    const [saving,        setSaving]      = useState(false);
+    const [error,         setError]       = useState('');
+    const [budgetBlock,   setBudgetBlock] = useState('');   // message when server blocks for budget
+    const [ovPassword,    setOvPassword]  = useState('');
+    const [ovReason,      setOvReason]    = useState('');
+    const [ovErr,         setOvErr]       = useState('');
 
     const meta = action ? ACTION_META[action] : null;
 
@@ -40,14 +41,19 @@ const ApprovalActionModal = ({ transactionId, allowedActions = ['Approve','Rejec
             setError('Remarks are required for this action.');
             return;
         }
+        if (action === 'Approve' && !loginPassword.trim()) {
+            setError('Your login password is required to approve.');
+            return;
+        }
         setError(''); setSaving(true);
         try {
             const body = {
                 transactionId,
                 action,
-                actionBy:     userId,
-                actionByName: currentUser,
-                remarks:      remarks.trim() || null,
+                actionBy:      userId,
+                actionByName:  currentUser,
+                remarks:       remarks.trim() || null,
+                loginPassword: action === 'Approve' ? loginPassword.trim() : null,
             };
             if (budgetPassword) body.budgetPassword = budgetPassword;
             if (overrideReason)  body.overrideReason  = overrideReason;
@@ -175,6 +181,24 @@ const ApprovalActionModal = ({ transactionId, allowedActions = ['Approve','Rejec
                             );
                         })}
                     </div>
+
+                    {/* Login password — required for Approve */}
+                    {action === 'Approve' && (
+                        <div style={{ marginBottom: 16 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>
+                                Your Login Password <span style={{ color: '#dc2626' }}>*</span>
+                            </div>
+                            <input
+                                type="password"
+                                className="pf-input"
+                                placeholder="Enter your login password to confirm…"
+                                value={loginPassword}
+                                autoFocus
+                                onChange={e => { setLoginPassword(e.target.value); setError(''); }}
+                                onKeyDown={e => { if (e.key === 'Enter') submit(); }}
+                            />
+                        </div>
+                    )}
 
                     {/* Remarks */}
                     <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>

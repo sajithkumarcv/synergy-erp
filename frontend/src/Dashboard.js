@@ -10,11 +10,11 @@ import './Dashboard.css';
 const ROLE_CONFIG = {
     'ADMIN': {
         kpis:     ['activeJobs','openPRs','openPOs','pendingApprovals','openInvoices'],
-        sections: ['jobSummary','myApprovals','procurement','inventory','financials','jobCosting'],
+        sections: ['myDrafts','jobSummary','myApprovals','procurement','inventory','financials','jobCosting'],
     },
     'DEPARTMENT HEAD': {
         kpis:     ['activeJobs','openPRs','openPOs','pendingApprovals','openInvoices'],
-        sections: ['jobSummary','myApprovals','procurement','financials','jobCosting'],
+        sections: ['myDrafts','jobSummary','myApprovals','procurement','financials','jobCosting'],
     },
     'FINANCE MANAGER': {
         kpis:     ['openInvoices','pendingApprovals'],
@@ -26,34 +26,34 @@ const ROLE_CONFIG = {
     },
     'PROCUREMENT OFFICER': {
         kpis:     ['openPRs','openPOs','pendingApprovals'],
-        sections: ['myApprovals','procurement','inventory'],
+        sections: ['myDrafts','myApprovals','procurement','inventory'],
     },
     'SR.PROJ.MANAGER': {
         kpis:     ['activeJobs','openPRs','openPOs','pendingApprovals','openInvoices'],
-        sections: ['jobSummary','myApprovals','procurement','financials','jobCosting'],
+        sections: ['myDrafts','jobSummary','myApprovals','procurement','financials','jobCosting'],
     },
     'PROJ.MANAGER': {
         kpis:     ['activeJobs','openPRs','openPOs','pendingApprovals'],
-        sections: ['jobSummary','myApprovals','procurement','jobCosting'],
+        sections: ['myDrafts','jobSummary','myApprovals','procurement','jobCosting'],
     },
     'SR.ENGINEER': {
         kpis:     ['activeJobs','openPRs','pendingApprovals'],
-        sections: ['jobSummary','myApprovals','procurement','jobCosting'],
+        sections: ['myDrafts','jobSummary','myApprovals','procurement','jobCosting'],
     },
     'ENGINEER': {
         kpis:     ['activeJobs','pendingApprovals'],
-        sections: ['jobSummary','myApprovals','jobCosting'],
+        sections: ['myDrafts','jobSummary','myApprovals','jobCosting'],
     },
     'ADMIN CORDINATOR': {
         kpis:     ['activeJobs','openPRs','openPOs','pendingApprovals'],
-        sections: ['jobSummary','myApprovals','procurement'],
+        sections: ['myDrafts','jobSummary','myApprovals','procurement'],
     },
 };
 
 // Fallback — show everything if role not in map
 const DEFAULT_CONFIG = {
     kpis:     ['activeJobs','openPRs','openPOs','pendingApprovals','openInvoices'],
-    sections: ['jobSummary','myApprovals','procurement','inventory','financials','jobCosting'],
+    sections: ['myDrafts','jobSummary','myApprovals','procurement','inventory','financials','jobCosting'],
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -112,6 +112,84 @@ const Donut = ({ pct, color = '#1e40af', size = 100 }) => {
                 {pct.toFixed(1)}%
             </text>
         </svg>
+    );
+};
+
+// ── My Draft Documents widget (self-fetching) ────────────────────────────────
+const DOC_TYPE_CFG = {
+    PR:  { label: 'Purchase Request', route: id => `/purchase-requests/${id}`,  color: '#1e40af', bg: '#dbeafe' },
+    PO:  { label: 'Purchase Order',   route: id => `/purchase-orders/${id}`,    color: '#065f46', bg: '#d1fae5' },
+    GRN: { label: 'GRN',              route: id => `/grn/${id}`,                color: '#7c3aed', bg: '#ede9fe' },
+    ISN: { label: 'Issue Note',       route: id => `/inventory-issue/${id}`,    color: '#b45309', bg: '#fef3c7' },
+};
+
+const MyDraftsWidget = ({ userId }) => {
+    const navigate = useNavigate();
+    const [rows, setRows] = useState(null);
+
+    useEffect(() => {
+        if (!userId) return;
+        fetch(`${variables.API_URL}dashboard/drafts?userId=${userId}`, { headers: authHeaders() })
+            .then(r => r.ok ? r.json() : Promise.reject())
+            .then(d => setRows(Array.isArray(d) ? d : []))
+            .catch(() => setRows('err'));
+    }, [userId]);
+
+    const grouped = rows && rows !== 'err'
+        ? ['PR','PO','GRN','ISN'].map(t => ({ type: t, items: rows.filter(r => r.docType === t) })).filter(g => g.items.length > 0)
+        : [];
+
+    if (rows !== null && rows !== 'err' && rows.length === 0) return null;
+
+    return (
+        <div className="db-card db-card-wide" style={{ borderLeft: '3px solid #f59e0b' }}>
+            <div className="db-card-header">
+                <span className="db-card-icon">📋</span> MY DRAFT DOCUMENTS
+                {rows && rows !== 'err' && rows.length > 0 && (
+                    <span style={{ marginLeft: 8, background: '#fef3c7', color: '#92400e', borderRadius: 10, padding: '1px 8px', fontSize: 11, fontWeight: 700 }}>
+                        {rows.length} draft{rows.length !== 1 ? 's' : ''}
+                    </span>
+                )}
+            </div>
+            <div className="db-card-body">
+                {rows === null && <div style={{ color: '#94a3b8', fontSize: 12 }}>Loading…</div>}
+                {rows === 'err' && <div style={{ color: '#94a3b8', fontSize: 12 }}>Unable to load drafts.</div>}
+                {grouped.map(({ type, items }) => {
+                    const cfg = DOC_TYPE_CFG[type];
+                    return (
+                        <div key={type} style={{ marginBottom: 10 }}>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>
+                                {cfg.label} ({items.length})
+                            </div>
+                            {items.map(r => (
+                                <div key={r.docId} className="db-stat-row"
+                                    style={{ cursor: 'pointer', alignItems: 'center', padding: '4px 0' }}
+                                    onClick={() => navigate(cfg.route(r.docId))}>
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                                        <span style={{ fontFamily: 'Courier New', fontSize: 11, fontWeight: 700, background: cfg.bg, color: cfg.color, padding: '1px 6px', borderRadius: 4, whiteSpace: 'nowrap' }}>
+                                            {r.docNo}
+                                        </span>
+                                        {r.jobId && (
+                                            <span style={{ fontSize: 11, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                {r.jobId}
+                                            </span>
+                                        )}
+                                        {r.lineCount === 0 && (
+                                            <span style={{ fontSize: 10, fontWeight: 700, color: '#dc2626', background: '#fee2e2', padding: '1px 6px', borderRadius: 4, whiteSpace: 'nowrap' }}>
+                                                No lines
+                                            </span>
+                                        )}
+                                    </span>
+                                    <span style={{ fontSize: 11, color: r.daysOld >= 7 ? '#dc2626' : r.daysOld >= 3 ? '#d97706' : '#64748b', fontWeight: r.daysOld >= 3 ? 600 : 400, whiteSpace: 'nowrap' }}>
+                                        {r.daysOld === 0 ? 'today' : `${r.daysOld}d old`}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
     );
 };
 
@@ -264,6 +342,9 @@ const Dashboard = () => {
 
             {/* ── MAIN GRID ── */}
             <div className="db-grid">
+
+                {/* ── My Draft Documents ── */}
+                {showSection('myDrafts') && <MyDraftsWidget userId={userId} />}
 
                 {/* ── Job Summary ── */}
                 {showSection('jobSummary') && (

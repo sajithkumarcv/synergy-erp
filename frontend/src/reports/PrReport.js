@@ -124,7 +124,7 @@ const PrReport = () => {
 
     // ── Load jobs dropdown ───────────────────────────────────────────────
     useEffect(() => {
-        fetch(`${variables.API_URL}job/search?pageSize=500&page=1&sortCol=JobId&sortDir=ASC`, { headers: authHeaders() })
+        fetch(`${variables.API_URL}job/search?pageSize=500&page=1&sortCol=JobId&sortDir=ASC&approvalStatus=Approved`, { headers: authHeaders() })
             .then(r => r.ok ? r.json() : { data: [] })
             .then(d => setJobs(d.data || []))
             .catch(() => {});

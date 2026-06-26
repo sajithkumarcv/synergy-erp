@@ -194,7 +194,7 @@ const ManhourDetailPage = () => {
 
     // ── Load active jobs for validation ────────────────────────────────────
     useEffect(() => {
-        fetch(`${variables.API_URL}job/search?pageSize=500&page=1&excludeClosedStatus=true`, { headers: authHeaders() })
+        fetch(`${variables.API_URL}job/search?pageSize=500&page=1&excludeClosedStatus=true&approvalStatus=Approved`, { headers: authHeaders() })
             .then(r => r.json())
             .then(d => setJobs(d.data || []))
             .catch(console.error);

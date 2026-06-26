@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { variables, authHeaders } from '../../Variable';
 import { useCurrentUser } from '../../AuthContext';
 import ConfirmModal from '../../common/ConfirmModal';
@@ -15,11 +15,12 @@ import ApprovalStatusBanner    from '../../approval/ApprovalStatusBanner';
 import '../../jobs/JobDetail.css';
 import '../Inventory.css';
 import '../../procurement/Procurement.css';
-import AlertModal from '../../common/AlertModal';
 
 const IssueReturnDetailPage = () => {
     const { id }              = useParams();
     const navigate            = useNavigate();
+    const [searchParams]      = useSearchParams();
+    const autoPrint           = searchParams.get('print') === '1';
     const currentUser         = useCurrentUser();
     const { getStatusConfig } = useLookup();
     const { canDo }           = usePermission();
@@ -30,12 +31,9 @@ const IssueReturnDetailPage = () => {
     const [error,          setError]        = useState(null);
     const [activeTab,      setActiveTab]    = useState('overview');
     const [approvalTx,     setApprovalTx]  = useState(null);
-    const [showStatusMenu, setStatusMenu]   = useState(false);
     const [deleting,       setDeleting]     = useState(false);
     const [showPrint,      setShowPrint]    = useState(false);
-    const [alertMsg,       setAlertMsg]     = useState(null);
     const [confirm,        setConfirm]      = useState(null);
-    const statusRef = useRef(null);
 
     const loadReturn = useCallback(() => {
         setLoading(true);
@@ -48,44 +46,9 @@ const IssueReturnDetailPage = () => {
     }, [id]);
 
     useEffect(() => { loadReturn(); }, [loadReturn]);
-
-    // Close status menu on outside click
-    useEffect(() => {
-        if (!showStatusMenu) return;
-        const handler = (e) => {
-            if (statusRef.current && !statusRef.current.contains(e.target)) setStatusMenu(false);
-        };
-        document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
-    }, [showStatusMenu]);
+    useEffect(() => { if (issueReturn && autoPrint) setShowPrint(true); }, [issueReturn, autoPrint]);
 
     const [actionError, setActionError] = useState('');
-
-    const changeStatus = async (newStatus) => {
-        setStatusMenu(false);
-        setActionError('');
-
-        if (newStatus === 'Confirmed' && (!lines || lines.length === 0)) {
-            setAlertMsg(
-                'Cannot confirm this Issue Return Note.\n\n' +
-                'No line items have been added yet.\n\n' +
-                'Add at least one return line on the Lines tab and try again.'
-            );
-            return;
-        }
-
-        try {
-            if (newStatus === 'Confirmed') {
-                const res = await fetch(`${variables.API_URL}stockissuereturn/${id}/confirm`, {
-                    method: 'POST', headers: authHeaders(),
-                    body: JSON.stringify({ modifiedBy: currentUser }),
-                });
-                const d = await res.json().catch(() => ({}));
-                if (!res.ok) { setActionError(d?.message || `Confirm failed (HTTP ${res.status}).`); return; }
-            }
-            loadReturn();
-        } catch (e) { setActionError(`Network error — ${e?.message || 'could not reach the server.'}`); }
-    };
 
     const deleteReturn = () => {
         setConfirm({
@@ -131,8 +94,6 @@ const IssueReturnDetailPage = () => {
 
     const statusData  = getStatusConfig('IRN', issueReturn.status);
     const statusCfg   = statusBadgeCfg(statusData);
-    const transitions = statusData?.allowedTransitions || [];
-    const canEdit     = canDo('/inventory-issue-return', 'EDIT');
     const canDelete   = canDo('/inventory-issue-return', 'DELETE');
     const totalCost   = lines.reduce((s, l) => s + (l.returnQty || 0) * (l.unitCost || 0), 0);
 
@@ -185,22 +146,6 @@ const IssueReturnDetailPage = () => {
                         </button>
                     )}
 
-                    {transitions.length > 0 && canEdit && (
-                        <div className="prd-status-wrap" ref={statusRef}>
-                            <button className="jd-stage-btn" onClick={() => setStatusMenu(o => !o)}>
-                                Change Status ▾
-                            </button>
-                            {showStatusMenu && (
-                                <div className="prd-status-menu">
-                                    {transitions.map(t => (
-                                        <div key={t} className="prd-status-item" onClick={() => changeStatus(t)}>
-                                            → {t}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    )}
                 </div>
             </div>
 
@@ -273,7 +218,6 @@ const IssueReturnDetailPage = () => {
                     onClose={() => setShowPrint(false)}
                 />
             )}
-            {alertMsg && <AlertModal message={alertMsg} onClose={() => setAlertMsg(null)} />}
         </div>
     );
 };

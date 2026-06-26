@@ -43,27 +43,26 @@ const JobDetailPage = () => {
     const [showStageMenu, setStageMenu]  = useState(false);
     const [showEditForm, setShowEditForm] = useState(false);
     const [approvalTx,   setApprovalTx]  = useState(null);
-    const [budgetState,  setBudgetState] = useState(null);   // 'NONE' | 'DRAFT' | 'APPROVED'
 
     const [showReportModal,   setShowReportModal]   = useState(false);
+    const [readiness,         setReadiness]         = useState(null);   // pre-approval checklist
 
     // ── Job lifecycle actions ─────────────────────────────────
-    const [showCompleteModal, setShowCompleteModal] = useState(false);
-    const [showCancelModal,   setShowCancelModal]   = useState(false);
     const [showReviseModal,   setShowReviseModal]   = useState(false);
-    const [completionCheck,   setCompletionCheck]   = useState(null);
-    const [checkLoading,      setCheckLoading]      = useState(false);
     const [reviseReason,      setReviseReason]      = useState('');
     const [revisePassword,    setRevisePassword]    = useState('');
-    // Freeze (Complete → status 3) requires reason + password
-    const [freezeReason,      setFreezeReason]      = useState('');
-    const [freezePassword,    setFreezePassword]    = useState('');
-    // Cancel (status 5) requires reason + password
-    const [cancelReason,      setCancelReason]      = useState('');
-    const [cancelPassword,    setCancelPassword]    = useState('');
     const [actionBusy,        setActionBusy]        = useState(false);
     const [actionError,       setActionError]       = useState('');
     const [alertMsg,          setAlertMsg]          = useState(null);
+
+    // ── Close readiness modal (complete + cancel) ─────────────
+    const [showReadinessModal, setShowReadinessModal] = useState(false);
+    const [readinessAction,    setReadinessAction]    = useState('complete'); // 'complete' | 'cancel'
+    const [readinessChecks,    setReadinessChecks]    = useState([]);
+    const [readinessLoading,   setReadinessLoading]   = useState(false);
+    const [readinessPhase,     setReadinessPhase]     = useState('checks');  // 'checks' | 'confirm'
+    const [closeReason,        setCloseReason]        = useState('');
+    const [closePassword,      setClosePassword]      = useState('');
 
     const loadJob = useCallback(() => {
         setLoading(true);
@@ -72,12 +71,6 @@ const JobDetailPage = () => {
             .then(d => setJob(d))
             .catch(() => navigate('/jobs'))
             .finally(() => setLoading(false));
-        // Budget state lives on a separate, cheap endpoint so it refreshes whenever
-        // the user approves/revises a budget without us having to reload the whole job.
-        fetch(`${variables.API_URL}job/${encodeURIComponent(jobId)}/budget-state`, { headers: authHeaders() })
-            .then(r => r.ok ? r.json() : { state: null })
-            .then(d => setBudgetState(d?.state || null))
-            .catch(() => setBudgetState(null));
     }, [jobId, navigate]);
 
     useEffect(() => { loadJob(); }, [loadJob]);
@@ -86,6 +79,16 @@ const JobDetailPage = () => {
         fetch(`${variables.API_URL}job/types`,  { headers: authHeaders() }).then(r => r.json()).then(d => setJobTypes(Array.isArray(d)  ? d : [])).catch(console.error);
         fetch(`${variables.API_URL}job/stages`, { headers: authHeaders() }).then(r => r.json()).then(d => setJobStages(Array.isArray(d) ? d : [])).catch(console.error);
     }, []);
+
+    // Fetch pre-approval readiness whenever the approval tab is opened or job reloads
+    useEffect(() => {
+        if (activeTab !== 'approval' || !jobId) return;
+        setReadiness(null);
+        fetch(`${variables.API_URL}job/${encodeURIComponent(jobId)}/approval-readiness`, { headers: authHeaders() })
+            .then(r => r.ok ? r.json() : null)
+            .then(d => setReadiness(Array.isArray(d) ? d : null))
+            .catch(console.error);
+    }, [activeTab, jobId]);
 
     // Stages that auto-freeze the job (status → 3 Freezed) when picked.
     // Mirrors the @FreezeStageId list inside sp_ChangeJobStage.
@@ -155,88 +158,52 @@ const JobDetailPage = () => {
         return () => document.removeEventListener('mousedown', handler);
     }, [showStageMenu]);
 
-    // Guard: a main job cannot be Completed or Cancelled while any of its
-    // additional jobs are still active. The user must close those first.
-    // Returns the list of active variations (empty array = OK to proceed).
-    const fetchActiveVariations = async () => {
-        try {
-            const res = await fetch(`${variables.API_URL}job/${encodeURIComponent(jobId)}/additional-jobs`, { headers: authHeaders() });
-            const rows = await res.json();
-            return (Array.isArray(rows) ? rows : []).filter(r => {
-                const s = r.jobStatusId ?? r.JobStatusId;
-                return s !== 5;   // exclude already-cancelled
-            });
-        } catch { return []; }
-    };
-
-    const blockIfHasActiveVariations = async (intent /* 'complete' | 'cancel' */) => {
-        const active = await fetchActiveVariations();
-        if (active.length === 0) return false;   // clear to proceed
-        const list = active.map(r => `• ${r.jobId ?? r.JobId} — ${r.jobDescription ?? r.JobDescription ?? '—'}`).join('\n');
-        setAlertMsg(
-            `Cannot ${intent} this job — ${active.length} active additional job${active.length === 1 ? '' : 's'} must be ` +
-            `cancelled first:\n\n${list}\n\nOpen each additional job and cancel it (reason + password required), ` +
-            `then come back to ${intent} the main job.`
-        );
-        return true;   // blocked
-    };
-
-    // ── Open "Complete Job" — fetch pre-flight check first ────
-    const openCompleteModal = async () => {
-        if (await blockIfHasActiveVariations('complete')) return;
-        setActionError('');
-        setCheckLoading(true);
-        setShowCompleteModal(true);
-        fetch(`${variables.API_URL}job/${encodeURIComponent(jobId)}/completion-check`, { headers: authHeaders() })
+    const loadReadiness = (action) => {
+        setReadinessLoading(true);
+        setReadinessChecks([]);
+        fetch(`${variables.API_URL}job/${encodeURIComponent(jobId)}/close-readiness?action=${action}`, { headers: authHeaders() })
             .then(r => r.json())
-            .then(d => setCompletionCheck(d))
-            .catch(() => setActionError('Could not load completion check data.'))
-            .finally(() => setCheckLoading(false));
+            .then(d => setReadinessChecks(Array.isArray(d) ? d : []))
+            .catch(() => setReadinessChecks([]))
+            .finally(() => setReadinessLoading(false));
     };
 
-    // ── Open "Cancel Job" — same variation guard ──────────────
-    const openCancelModal = async () => {
-        if (await blockIfHasActiveVariations('cancel')) return;
+    const openCloseReadiness = (action) => {
+        setReadinessAction(action);
+        setReadinessPhase('checks');
+        setCloseReason('');
+        setClosePassword('');
         setActionError('');
-        setShowCancelModal(true);
+        setShowReadinessModal(true);
+        loadReadiness(action);
     };
 
-    const confirmComplete = () => {
-        if (!freezeReason.trim())   { setActionError('Reason is required.');   return; }
-        if (!freezePassword.trim()) { setActionError('Password is required.'); return; }
+    const closeReadinessModal = () => {
+        if (actionBusy) return;
+        setShowReadinessModal(false);
+        setReadinessChecks([]);
+        setCloseReason('');
+        setClosePassword('');
+        setActionError('');
+    };
+
+    const confirmClose = () => {
+        if (!closeReason.trim())    { setActionError('Reason is required.');   return; }
+        if (!closePassword.trim())  { setActionError('Password is required.'); return; }
         setActionError('');
         setActionBusy(true);
-        fetch(`${variables.API_URL}job/${encodeURIComponent(jobId)}/complete`, {
+        const endpoint = readinessAction === 'complete' ? 'complete' : 'cancel';
+        fetch(`${variables.API_URL}job/${encodeURIComponent(jobId)}/${endpoint}`, {
             method: 'POST', headers: authHeaders(),
             body: JSON.stringify({
                 oldStatus:  STATUS[job.jobStatusId]?.label || '',
                 modifiedBy: currentUser,
-                reason:     freezeReason.trim(),
-                password:   freezePassword,
+                reason:     closeReason.trim(),
+                password:   closePassword,
             }),
         })
             .then(async r => { const d = await r.json(); if (!r.ok) throw new Error(d.message || 'Error'); return d; })
-            .then(() => { setShowCompleteModal(false); setFreezeReason(''); setFreezePassword(''); loadJob(); })
-            .catch(e => setActionError(e.message))
-            .finally(() => setActionBusy(false));
-    };
-
-    const confirmCancel = () => {
-        if (!cancelReason.trim())   { setActionError('Reason is required.');   return; }
-        if (!cancelPassword.trim()) { setActionError('Password is required.'); return; }
-        setActionError('');
-        setActionBusy(true);
-        fetch(`${variables.API_URL}job/${encodeURIComponent(jobId)}/cancel`, {
-            method: 'POST', headers: authHeaders(),
-            body: JSON.stringify({
-                oldStatus:  STATUS[job.jobStatusId]?.label || '',
-                modifiedBy: currentUser,
-                reason:     cancelReason.trim(),
-                password:   cancelPassword,
-            }),
-        })
-            .then(async r => { const d = await r.json(); if (!r.ok) throw new Error(d.message || 'Error'); return d; })
-            .then(() => { setShowCancelModal(false); setCancelReason(''); setCancelPassword(''); loadJob(); })
+            .then(() => { closeReadinessModal(); loadJob(); })
             .catch(e => setActionError(e.message))
             .finally(() => setActionBusy(false));
     };
@@ -288,21 +255,43 @@ const JobDetailPage = () => {
             case 'expenses':  return <ExpensesTab  job={job} onRefresh={loadJob} />;
             case 'engineers': return <EngineersTab job={job} onRefresh={loadJob} />;
             case 'terms':     return <TermsTab     job={job} onRefresh={loadJob} />;
-            case 'budget':     return <JobBudgetTab  job={job} />;
+            case 'budget':     return (
+                <>
+                    {job.approvalStatus !== 'Approved' && (
+                        <div style={{
+                            background: '#fffbeb', border: '1px solid #fde68a',
+                            borderLeft: '4px solid #f59e0b', borderRadius: 8,
+                            padding: '10px 16px', marginBottom: 12,
+                            fontSize: 12.5, color: '#92400e',
+                            display: 'flex', alignItems: 'center', gap: 10,
+                        }}>
+                            <span style={{ fontSize: 16 }}>🔒</span>
+                            <span>
+                                Budget entry is locked until the job order is approved.
+                                Go to the <strong>Approval</strong> tab, complete all requirements, and submit for approval.
+                            </span>
+                        </div>
+                    )}
+                    <JobBudgetTab job={job} />
+                </>
+            );
             case 'finance':    return <FinanceTab   job={job} />;
             case 'documents':  return <DocumentsTab job={job} />;
             case 'meta':       return <MetaTab           job={job} onRefresh={loadJob} />;
             case 'additional': return <AdditionalJobsTab  job={job} />;
             case 'history':    return <HistoryTab          job={job} />;
             case 'approval':   return (
-                <ApprovalHistoryTab
-                    moduleCode="JOB"
-                    documentId={job.jobNumId}
-                    documentNo={job.jobId}
-                    documentAmount={job.orderValue}
-                    onStatusChange={loadJob}
-                    onTransactionLoad={setApprovalTx}
-                />
+                <>
+                    {readiness && <JobApprovalReadiness items={readiness} />}
+                    <ApprovalHistoryTab
+                        moduleCode="JOB"
+                        documentId={job.jobNumId}
+                        documentNo={job.jobId}
+                        documentAmount={job.orderValue}
+                        onStatusChange={loadJob}
+                        onTransactionLoad={setApprovalTx}
+                    />
+                </>
             );
             default:           return null;
         }
@@ -374,6 +363,24 @@ const JobDetailPage = () => {
                         {status.label}
                     </span>
 
+                    {/* Approval status badge */}
+                    {job.approvalStatus && (() => {
+                        const APPR = {
+                            Draft:           { label: 'Draft',            color: '#475569', bg: '#f1f5f9', dot: '#94a3b8' },
+                            PendingApproval: { label: 'Pending Approval', color: '#92400e', bg: '#fef3c7', dot: '#f59e0b' },
+                            Approved:        { label: 'Job Approved',     color: '#065f46', bg: '#d1fae5', dot: '#10b981' },
+                            Rejected:        { label: 'Rejected',         color: '#991b1b', bg: '#fee2e2', dot: '#ef4444' },
+                        };
+                        const as = APPR[job.approvalStatus] || APPR.Draft;
+                        return (
+                            <span className="jd-status-btn" title="Job order approval status"
+                                style={{ background: as.bg, color: as.color, borderColor: as.dot, cursor: 'default' }}>
+                                <span className="jd-status-dot" style={{ background: as.dot }} />
+                                {as.label}
+                            </span>
+                        );
+                    })()}
+
                     {canDo('/jobs', 'PRINT') && (
                         <button
                             className="jd-edit-btn"
@@ -386,9 +393,10 @@ const JobDetailPage = () => {
 
                     {/* Stage dropdown */}
                     <div className="jd-menu-wrap" onMouseDown={e => e.stopPropagation()}>
-                        <button className="jd-stage-btn" onClick={() => { if (editable) setStageMenu(m => !m); }}>
+                        <button className="jd-stage-btn" onClick={() => { if (editable && job.approvalStatus === 'Approved') setStageMenu(m => !m); }}
+                            title={job.approvalStatus !== 'Approved' ? 'Stage cannot be changed until the job is approved' : undefined}>
                             📍 {job.jobStageName || 'Stage'}
-                            {editable && <span className="jd-chevron">▾</span>}
+                            {editable && job.approvalStatus === 'Approved' && <span className="jd-chevron">▾</span>}
                         </button>
                         {showStageMenu && (
                             <div className="jd-dropdown">
@@ -408,10 +416,10 @@ const JobDetailPage = () => {
                         <button className="jd-edit-btn" onClick={() => setShowEditForm(true)}>✏️ Edit Job</button>
                     )}
 
-                    {/* Complete Job — only when active or on hold */}
-                    {[1, 2].includes(job.jobStatusId) && (
+                    {/* Complete Job — only when active or on hold AND approved */}
+                    {[1, 2].includes(job.jobStatusId) && job.approvalStatus === 'Approved' && (
                         <button className="jd-action-btn jd-action-complete"
-                            onClick={openCompleteModal}>
+                            onClick={() => openCloseReadiness('complete')}>
                             ✅ Complete Job
                         </button>
                     )}
@@ -420,7 +428,7 @@ const JobDetailPage = () => {
                         Freezed jobs (3) can only be reopened via Revise — no direct cancel. */}
                     {[1, 2].includes(job.jobStatusId) && (
                         <button className="jd-action-btn jd-action-cancel"
-                            onClick={openCancelModal}>
+                            onClick={() => openCloseReadiness('cancel')}>
                             ✖ Cancel Job
                         </button>
                     )}
@@ -477,45 +485,6 @@ const JobDetailPage = () => {
 
             {/* TAB CONTENT */}
             <div className="jd-tab-content">
-                {/* Budget-state banner — surfaces the no-budget-no-transaction rule.
-                    Hidden on closed jobs (already locked at a higher level). */}
-                {!isClosedFinal && budgetState && budgetState !== 'APPROVED' && (
-                    <div style={{
-                        background: budgetState === 'NONE' ? '#fef2f2' : '#fffbeb',
-                        border:     `1px solid ${budgetState === 'NONE' ? '#fecaca' : '#fde68a'}`,
-                        borderLeft: `4px solid ${budgetState === 'NONE' ? '#dc2626' : '#f59e0b'}`,
-                        color:      budgetState === 'NONE' ? '#991b1b' : '#92400e',
-                        borderRadius: 8,
-                        padding: '10px 16px',
-                        marginBottom: 12,
-                        fontSize: 12.5,
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: 10,
-                    }}>
-                        <span style={{ fontSize: 16, lineHeight: 1 }}>
-                            {budgetState === 'NONE' ? '⛔' : '⚠'}
-                        </span>
-                        <div style={{ flex: 1, lineHeight: 1.5 }}>
-                            <strong>
-                                {budgetState === 'NONE'
-                                    ? 'No budget exists for this job.'
-                                    : 'Budget exists but is not approved yet.'}
-                            </strong>{' '}
-                            New <strong>Purchase Orders, GRNs, Service Receipts, Returns to Vendor,
-                            Stock Receipts/Issues, Invoices, Job Expenses and Manhours</strong> will be rejected
-                            by the database until the current budget revision is approved.
-                            <br />
-                            <em style={{ color: budgetState === 'NONE' ? '#7f1d1d' : '#78350f' }}>
-                                Purchase Requests, BOMs and Delivery notes are exempt.
-                            </em>
-                            {budgetState === 'NONE'
-                                ? <> Open the <strong>Budget</strong> tab to set one up.</>
-                                : <> Open the <strong>Budget</strong> tab and click <strong>Approve Budget</strong>.</>}
-                        </div>
-                    </div>
-                )}
-
                 {activeTab !== 'approval' && !isClosedFinal && (
                     <ApprovalStatusBanner transaction={approvalTx} />
                 )}
@@ -531,146 +500,135 @@ const JobDetailPage = () => {
                 />
             )}
 
-            {/* ── COMPLETE JOB MODAL ─────────────────────────── */}
-            {showCompleteModal && (
-                <div className="jd-modal-overlay"
-                     onMouseDown={e => { e.currentTarget.dataset.md = e.target === e.currentTarget ? '1' : '0'; }}
-                     onClick={e => { if (e.currentTarget.dataset.md === '1' && e.target === e.currentTarget && !actionBusy) setShowCompleteModal(false); }}>
-                    <div className="jd-modal" onClick={e => e.stopPropagation()}>
-                        <div className="jd-modal-header">
-                            <span className="jd-modal-title">✅ Complete Job — {job.jobId}</span>
-                            <button className="jd-modal-close" onClick={() => setShowCompleteModal(false)} disabled={actionBusy}>✕</button>
-                        </div>
-                        <div className="jd-modal-body">
-                            {checkLoading ? (
-                                <div className="jd-modal-loading">Loading financial check…</div>
-                            ) : completionCheck ? (
-                                <>
-                                    <p className="jd-modal-desc">
-                                        Both checks must pass (≥ 99% threshold) before the job can be completed.
-                                    </p>
-                                    <div className="jd-check-grid">
-                                        <CompletionCheckRow
-                                            label="Invoiced vs Order Value"
-                                            actual={completionCheck.totalInvoiced}
-                                            target={completionCheck.orderValueBase}
-                                            pct={completionCheck.invoicedPct}
-                                            ok={completionCheck.invoiceOk}
-                                            currency={baseCurrencyCode}
+            {/* ── CLOSE READINESS MODAL (Complete + Cancel) ─── */}
+            {showReadinessModal && (() => {
+                const isComplete  = readinessAction === 'complete';
+                const allPassed   = readinessChecks.length > 0 && readinessChecks.every(c => c.Passed);
+                const failCount   = readinessChecks.filter(c => !c.Passed).length;
+                return (
+                    <div className="jd-modal-overlay"
+                         onMouseDown={e => { e.currentTarget.dataset.md = e.target === e.currentTarget ? '1' : '0'; }}
+                         onClick={e => { if (e.currentTarget.dataset.md === '1' && e.target === e.currentTarget) closeReadinessModal(); }}>
+                        <div className="jd-modal" style={{ minWidth: 480, maxWidth: 580 }} onClick={e => e.stopPropagation()}>
+                            <div className="jd-modal-header">
+                                <span className="jd-modal-title">
+                                    {isComplete ? '✅ Complete Job' : '✖ Cancel Job'} — {job.jobId}
+                                </span>
+                                <button className="jd-modal-close" onClick={closeReadinessModal} disabled={actionBusy}>✕</button>
+                            </div>
+                            <div className="jd-modal-body">
+                                {readinessPhase === 'checks' ? (
+                                    <>
+                                        <p className="jd-modal-desc" style={{ marginBottom: 12 }}>
+                                            All checks must pass before the job can be {isComplete ? 'completed' : 'cancelled'}.
+                                        </p>
+                                        {readinessLoading ? (
+                                            <div className="jd-modal-loading">Running checks…</div>
+                                        ) : (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                                {readinessChecks.map(c => (
+                                                    <div key={c.CheckKey} style={{
+                                                        display: 'flex', alignItems: 'flex-start', gap: 10,
+                                                        padding: '8px 12px', borderRadius: 7,
+                                                        background: c.Passed ? '#f0fdf4' : '#fef2f2',
+                                                        border: `1px solid ${c.Passed ? '#bbf7d0' : '#fecaca'}`,
+                                                    }}>
+                                                        <span style={{ fontSize: 16, lineHeight: 1.4, flexShrink: 0 }}>
+                                                            {c.Passed ? '✅' : '❌'}
+                                                        </span>
+                                                        <div>
+                                                            <div style={{ fontWeight: 600, fontSize: 13,
+                                                                color: c.Passed ? '#166534' : '#991b1b' }}>
+                                                                {c.CheckLabel}
+                                                            </div>
+                                                            {c.Detail && (
+                                                                <div style={{ fontSize: 12, color: '#7f1d1d', marginTop: 2 }}>
+                                                                    {c.Detail}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                        {!readinessLoading && !allPassed && failCount > 0 && (
+                                            <div className="jd-modal-warn" style={{ marginTop: 12 }}>
+                                                {failCount} check{failCount > 1 ? 's' : ''} must be resolved before proceeding.
+                                            </div>
+                                        )}
+                                    </>
+                                ) : (
+                                    <>
+                                        <p className="jd-modal-desc" style={{ color: '#166534', fontWeight: 600, marginBottom: 12 }}>
+                                            All checks passed. Provide a reason and your authorisation password to confirm.
+                                        </p>
+                                        <label className="jd-modal-label">
+                                            Reason <span style={{ color: '#dc2626' }}>*</span>
+                                        </label>
+                                        <textarea
+                                            className="jd-modal-textarea"
+                                            rows={2}
+                                            placeholder={isComplete ? 'Why is this job being completed?' : 'Why is this job being cancelled?'}
+                                            value={closeReason}
+                                            onChange={e => setCloseReason(e.target.value)}
+                                            disabled={actionBusy}
+                                            autoFocus
                                         />
-                                        <CompletionCheckRow
-                                            label="Paid vs Total Invoiced"
-                                            actual={completionCheck.totalPaid}
-                                            target={completionCheck.totalInvoiced}
-                                            pct={completionCheck.paidPct}
-                                            ok={completionCheck.paymentOk}
-                                            currency={baseCurrencyCode}
+                                        <label className="jd-modal-label" style={{ marginTop: 8 }}>
+                                            Password <span style={{ color: '#dc2626' }}>*</span>
+                                        </label>
+                                        <input
+                                            type="password"
+                                            className="jd-modal-textarea"
+                                            style={{ height: 34, padding: '6px 10px' }}
+                                            placeholder="Authorisation password"
+                                            value={closePassword}
+                                            onChange={e => setClosePassword(e.target.value)}
+                                            disabled={actionBusy}
+                                            autoComplete="current-password"
                                         />
-                                    </div>
-                                    {!completionCheck.canComplete && (
-                                        <div className="jd-modal-warn">
-                                            ⚠ Job cannot be completed until both checks pass.
-                                        </div>
-                                    )}
-                                </>
-                            ) : null}
-                            {/* Reason + password — required to freeze (complete) the job */}
-                            <label className="jd-modal-label" style={{ marginTop: 12 }}>
-                                Reason <span style={{ color: '#dc2626' }}>*</span>
-                            </label>
-                            <textarea
-                                className="jd-modal-textarea"
-                                rows={2}
-                                placeholder="Why is this job being completed/freezed?"
-                                value={freezeReason}
-                                onChange={e => setFreezeReason(e.target.value)}
-                                disabled={actionBusy}
-                            />
-                            <label className="jd-modal-label" style={{ marginTop: 8 }}>
-                                Password <span style={{ color: '#dc2626' }}>*</span>
-                            </label>
-                            <input
-                                type="password"
-                                className="jd-modal-textarea"
-                                style={{ height: 34, padding: '6px 10px' }}
-                                placeholder="Authorisation password"
-                                value={freezePassword}
-                                onChange={e => setFreezePassword(e.target.value)}
-                                disabled={actionBusy}
-                                autoComplete="current-password"
-                            />
-                            {actionError && <div className="jd-modal-error">{actionError}</div>}
-                        </div>
-                        <div className="jd-modal-footer">
-                            <button className="jd-modal-btn-cancel" onClick={() => { setShowCompleteModal(false); setFreezeReason(''); setFreezePassword(''); }} disabled={actionBusy}>
-                                Cancel
-                            </button>
-                            <button className="jd-modal-btn-confirm"
-                                onClick={confirmComplete}
-                                disabled={actionBusy || checkLoading || !completionCheck?.canComplete || !freezeReason.trim() || !freezePassword.trim()}>
-                                {actionBusy ? 'Completing…' : 'Mark as Completed'}
-                            </button>
+                                        {actionError && <div className="jd-modal-error">{actionError}</div>}
+                                    </>
+                                )}
+                            </div>
+                            <div className="jd-modal-footer">
+                                {readinessPhase === 'checks' ? (
+                                    <>
+                                        <button className="jd-modal-btn-cancel" onClick={closeReadinessModal}>Back</button>
+                                        <button className="jd-modal-btn-secondary"
+                                            onClick={() => loadReadiness(readinessAction)}
+                                            disabled={readinessLoading}>
+                                            {readinessLoading ? 'Checking…' : 'Re-check'}
+                                        </button>
+                                        <button
+                                            className={isComplete ? 'jd-modal-btn-confirm' : 'jd-modal-btn-danger'}
+                                            onClick={() => { setActionError(''); setReadinessPhase('confirm'); }}
+                                            disabled={!allPassed || readinessLoading}>
+                                            Proceed
+                                        </button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <button className="jd-modal-btn-cancel"
+                                            onClick={() => { setReadinessPhase('checks'); setActionError(''); }}
+                                            disabled={actionBusy}>
+                                            Back to Checklist
+                                        </button>
+                                        <button
+                                            className={isComplete ? 'jd-modal-btn-confirm' : 'jd-modal-btn-danger'}
+                                            onClick={confirmClose}
+                                            disabled={actionBusy || !closeReason.trim() || !closePassword.trim()}>
+                                            {actionBusy
+                                                ? (isComplete ? 'Completing…' : 'Cancelling…')
+                                                : (isComplete ? 'Mark as Completed' : 'Yes, Cancel Job')}
+                                        </button>
+                                    </>
+                                )}
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
-
-            {/* ── CANCEL JOB MODAL ───────────────────────────── */}
-            {showCancelModal && (
-                <div className="jd-modal-overlay"
-                     onMouseDown={e => { e.currentTarget.dataset.md = e.target === e.currentTarget ? '1' : '0'; }}
-                     onClick={e => { if (e.currentTarget.dataset.md === '1' && e.target === e.currentTarget && !actionBusy) setShowCancelModal(false); }}>
-                    <div className="jd-modal" onClick={e => e.stopPropagation()}>
-                        <div className="jd-modal-header">
-                            <span className="jd-modal-title">✖ Cancel Job — {job.jobId}</span>
-                            <button className="jd-modal-close" onClick={() => setShowCancelModal(false)} disabled={actionBusy}>✕</button>
-                        </div>
-                        <div className="jd-modal-body">
-                            <p className="jd-modal-desc">
-                                Are you sure you want to cancel <strong>{job.jobId}</strong>?
-                                No new transactions (PR, PO, GRN, Manhour, Stock Issue, SRV, BOM) can be created on a cancelled job.
-                                You can reopen it later using <em>Revise Job</em>.
-                            </p>
-                            {/* Reason + password — required to cancel the job */}
-                            <label className="jd-modal-label">
-                                Reason <span style={{ color: '#dc2626' }}>*</span>
-                            </label>
-                            <textarea
-                                className="jd-modal-textarea"
-                                rows={2}
-                                placeholder="Why is this job being cancelled?"
-                                value={cancelReason}
-                                onChange={e => setCancelReason(e.target.value)}
-                                disabled={actionBusy}
-                            />
-                            <label className="jd-modal-label" style={{ marginTop: 8 }}>
-                                Password <span style={{ color: '#dc2626' }}>*</span>
-                            </label>
-                            <input
-                                type="password"
-                                className="jd-modal-textarea"
-                                style={{ height: 34, padding: '6px 10px' }}
-                                placeholder="Authorisation password"
-                                value={cancelPassword}
-                                onChange={e => setCancelPassword(e.target.value)}
-                                disabled={actionBusy}
-                                autoComplete="current-password"
-                            />
-                            {actionError && <div className="jd-modal-error">{actionError}</div>}
-                        </div>
-                        <div className="jd-modal-footer">
-                            <button className="jd-modal-btn-cancel" onClick={() => { setShowCancelModal(false); setCancelReason(''); setCancelPassword(''); }} disabled={actionBusy}>
-                                Go Back
-                            </button>
-                            <button className="jd-modal-btn-danger"
-                                onClick={confirmCancel}
-                                disabled={actionBusy || !cancelReason.trim() || !cancelPassword.trim()}>
-                                {actionBusy ? 'Cancelling…' : 'Yes, Cancel Job'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+                );
+            })()}
 
             {/* ── REVISE JOB MODAL ───────────────────────────── */}
             {showReviseModal && (
@@ -965,7 +923,7 @@ const JobEditSlideOver = ({ job, jobTypes, jobStages, onClose, onSaved }) => {
                     <Sec label="Classification" />
                     <div className="jf-row">
                         <div className="jf-field"><label>Job Type</label><select name="jobTypeId" className="jf-input" value={form.jobTypeId} onChange={handle}>{jobTypes.map(t => <option key={t.jobTypeId} value={t.jobTypeId}>{t.jobTypeName}</option>)}</select></div>
-                        <div className="jf-field"><label>Stage</label><select name="jobStageId" className="jf-input" value={form.jobStageId} onChange={handle}>{jobStages.map(s => <option key={s.jobStageId} value={s.jobStageId}>{s.jobStageName}</option>)}</select></div>
+                        <div className="jf-field"><label>Stage</label><select name="jobStageId" className="jf-input" value={form.jobStageId} onChange={handle} disabled={job.approvalStatus !== 'Approved'} title={job.approvalStatus !== 'Approved' ? 'Stage cannot be changed until the job is approved' : undefined} style={job.approvalStatus !== 'Approved' ? { opacity: 0.6, cursor: 'not-allowed' } : {}}>{jobStages.map(s => <option key={s.jobStageId} value={s.jobStageId}>{s.jobStageName}</option>)}</select></div>
                         <div className="jf-field">
                             <label>Status</label>
                             <div className="jf-input" style={{ display:'flex', alignItems:'center', gap:6,
@@ -1076,6 +1034,49 @@ const JobEditSlideOver = ({ job, jobTypes, jobStages, onClose, onSaved }) => {
                     <button className="jf-btn-sec" onClick={onClose}>Cancel</button>
                     <button className="jf-btn-pri" onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Update Job'}</button>
                 </div>
+            </div>
+        </div>
+    );
+};
+
+// ── Job approval readiness checklist ──────────────────────────
+// Shows per-requirement status: ✅ met / ❌ missing + message.
+// Rendered above the ApprovalHistoryTab when on the approval tab.
+const READINESS_ICONS = {
+    Finance:   '💰',
+    Engineers: '👷',
+    Terms:     '📄',
+    Documents: '📎',
+    Meta:      '🏷️',
+};
+
+const JobApprovalReadiness = ({ items }) => {
+    const allOk = items.every(i => i.ok);
+    return (
+        <div style={{
+            background: allOk ? '#f0fdf4' : '#fffbeb',
+            border: `1px solid ${allOk ? '#bbf7d0' : '#fde68a'}`,
+            borderLeft: `4px solid ${allOk ? '#22c55e' : '#f59e0b'}`,
+            borderRadius: 8, padding: '12px 16px', marginBottom: 16,
+        }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: allOk ? '#166534' : '#92400e', marginBottom: 10 }}>
+                {allOk
+                    ? '✅ All requirements met — ready to submit for approval'
+                    : '⚠ Complete the following before submitting for approval:'}
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 20px' }}>
+                {items.map(item => (
+                    <div key={item.requirement} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 12.5, minWidth: 200, flex: '1 0 200px' }}>
+                        <span style={{ fontSize: 15, lineHeight: 1.3, flexShrink: 0 }}>{item.ok ? '✅' : '❌'}</span>
+                        <div>
+                            <span style={{ color: '#475569', marginRight: 4 }}>{READINESS_ICONS[item.requirement]}</span>
+                            <strong style={{ color: item.ok ? '#166534' : '#1e293b' }}>{item.requirement}</strong>
+                            {!item.ok && (
+                                <div style={{ color: '#92400e', fontSize: 11.5, marginTop: 1 }}>{item.message}</div>
+                            )}
+                        </div>
+                    </div>
+                ))}
             </div>
         </div>
     );

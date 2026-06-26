@@ -8,7 +8,6 @@ import { fmt } from '../jobConstants';
 import AmountInput from '../../common/AmountInput';
 import AlertModal from '../../common/AlertModal';
 import ConfirmModal from '../../common/ConfirmModal';
-import FinancialGuardModal from '../../common/FinancialGuardModal';
 import BudgetImportModal from './BudgetImportModal';
 
 // ── Variance colour ───────────────────────────────────────────
@@ -422,50 +421,47 @@ const JobBudgetEditor = ({ job }) => {
         unitPrice: it.unitPrice != null ? String(it.unitPrice) : '',
     });
 
-    // ── Financial-edit guard (password + reason) ──────────────────
-    // Budget line add/edit/delete change a money amount, so they are gated:
-    // the action is staged here, then run from runGuarded() after the user
-    // supplies the budget password + a reason.
-    const [guard,     setGuard]     = useState(null);   // { kind:'save'|'delete', catId, budgetItemId }
-    const [guardBusy, setGuardBusy] = useState(false);
-    const [guardErr,  setGuardErr]  = useState('');
+    // ── Budget item save / delete (no password — draft budget is free to edit) ──
+    const [itemBusy, setItemBusy] = useState(false);
+    const [itemErr,  setItemErr]  = useState('');
 
-    const saveBudgetItem = (catId) => {
+    const saveBudgetItem = async (catId) => {
         if (!itemDraft.itemId || !(Number(itemDraft.qty) > 0)) { setAlertMsg('Pick an item and enter a quantity.'); return; }
-        setGuardErr(''); setGuard({ kind: 'save', catId });
+        setItemBusy(true); setItemErr('');
+        try {
+            const res = await fetch(`${variables.API_URL}jobbudget/item/save`, {
+                method: 'POST', headers: authHeaders(),
+                body: JSON.stringify({
+                    budgetItemId: itemDraft.budgetItemId || 0, jobId: job.jobId, rvNo: header.currentRvNo, costCategoryId: catId,
+                    itemId: Number(itemDraft.itemId), qty: Number(itemDraft.qty),
+                    unitPrice: Number(itemDraft.unitPrice) || 0, createdBy: currentUser, modifiedBy: currentUser,
+                }),
+            });
+            const d = await res.json().catch(() => ({}));
+            if (!res.ok) { setItemErr(d?.message || 'Save failed.'); return; }
+            setItemDraft(blankDraft);
+            loadAllItems();
+        } catch { setItemErr('Network error.'); }
+        finally { setItemBusy(false); }
     };
 
     const deleteBudgetItem = (catId, budgetItemId) => {
-        setGuardErr(''); setGuard({ kind: 'delete', catId, budgetItemId });
-    };
-
-    const runGuarded = async (password, reason) => {
-        if (!guard) return;
-        setGuardBusy(true); setGuardErr('');
-        try {
-            let res;
-            if (guard.kind === 'save') {
-                res = await fetch(`${variables.API_URL}jobbudget/item/save`, {
-                    method: 'POST', headers: authHeaders(),
-                    body: JSON.stringify({
-                        budgetItemId: itemDraft.budgetItemId || 0, jobId: job.jobId, rvNo: header.currentRvNo, costCategoryId: guard.catId,
-                        itemId: Number(itemDraft.itemId), qty: Number(itemDraft.qty),
-                        unitPrice: Number(itemDraft.unitPrice) || 0, createdBy: currentUser, modifiedBy: currentUser,
-                        password, reason,
-                    }),
-                });
-            } else {
-                res = await fetch(`${variables.API_URL}jobbudget/item/${guard.budgetItemId}?modifiedBy=${encodeURIComponent(currentUser)}&password=${encodeURIComponent(password)}&reason=${encodeURIComponent(reason)}`,
-                    { method: 'DELETE', headers: authHeaders() });
-            }
-            const d = await res.json().catch(() => ({}));
-            if (!res.ok) { setGuardErr(d?.message || 'Action failed.'); return; }
-            setGuard(null);
-            if (guard.kind === 'save') setItemDraft(blankDraft);
-            loadAllItems();
-            load();   // refresh header amounts (auto-synced from item sum)
-        } catch { setGuardErr('Network error.'); }
-        finally { setGuardBusy(false); }
+        setConfirm({
+            title: 'Remove budget item',
+            message: 'Remove this item from the budget list?',
+            confirmLabel: 'Remove',
+            onConfirm: async () => {
+                setConfirm(null);
+                try {
+                    const res = await fetch(
+                        `${variables.API_URL}jobbudget/item/${budgetItemId}?modifiedBy=${encodeURIComponent(currentUser)}`,
+                        { method: 'DELETE', headers: authHeaders() });
+                    const d = await res.json().catch(() => ({}));
+                    if (!res.ok) { setAlertMsg(d?.message || 'Delete failed.'); return; }
+                    loadAllItems();
+                } catch { setAlertMsg('Network error.'); }
+            },
+        });
     };
 
     // ── Permission flags from TBL_ROLE_MENU_ACTION (via PermissionContext) ──
@@ -567,6 +563,7 @@ const JobBudgetEditor = ({ job }) => {
             if (!res.ok) return d?.message || 'Operation failed.';
             setPwdAction(null);
             showBanner(d?.message || 'Done.');
+            setSearchText(''); setHeaderFilter(''); setCreatedBy('');
             load();
             return true;
         } catch {
@@ -599,6 +596,9 @@ const JobBudgetEditor = ({ job }) => {
     const totalVar       = totalBudget - totalActual;
     const budgetUsedPct  = totalBudget > 0 ? Math.min((totalActual / totalBudget) * 100, 999) : 0;
     const setBudgetCount = rows.filter(r => r.budgetedAmount > 0).length;
+    // For in-house jobs with item-based budgets, category totals may be 0 until prices
+    // are entered — count items as evidence that budget work has begun.
+    const hasAnyBudget   = setBudgetCount > 0 || allItems.length > 0;
     const showVersionBadge = header.totalRevisions > 1 || header.isApproved;
 
     // In-house jobs are tied to ONE cost header → show only that header (one
@@ -700,8 +700,8 @@ const JobBudgetEditor = ({ job }) => {
                     )}
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                    {/* Approve — only when there are lines, not yet approved */}
-                    {!header.isApproved && setBudgetCount > 0 && canApprove && (
+                    {/* Approve — when budget work has begun (items or amounts), not yet approved */}
+                    {!header.isApproved && hasAnyBudget && canApprove && (
                         <button
                             onClick={() => setPwdAction('approve')}
                             style={{
@@ -770,10 +770,10 @@ const JobBudgetEditor = ({ job }) => {
             </div>
 
             {/* ── Hints ── */}
-            {canEdit && setBudgetCount === 0 && (
+            {canEdit && !hasAnyBudget && (
                 <div style={{ marginBottom: 16, padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 7, fontSize: 12.5, color: '#92400e', display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ fontSize: 16 }}>💡</span>
-                    No budget set yet. Click <strong>＋ Set budget</strong> on any row below to enter budget amounts.
+                    No budget set yet. Expand a cost header below to add items, or click <strong>＋ Set budget</strong> on a row to enter a lump-sum amount.
                 </div>
             )}
             {header.isApproved && !canRevise && (
@@ -885,27 +885,40 @@ const JobBudgetEditor = ({ job }) => {
                             </div>
                         </div>
 
-                        {/* Accordion body: items */}
+                        {/* Accordion body: items (BOM list — qty-based, price is indicative only) */}
                         {expanded && (
                             <div style={{ padding: '10px 14px 14px 38px', background: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
+                                <div style={{ fontSize: 10.5, color: '#64748b', marginBottom: 6, fontStyle: 'italic' }}>
+                                    Items below form the material list (BOM) for this cost header.
+                                    The <strong>budget amount is set on the header row above</strong> and is independent of these line quantities.
+                                    Unit price here is indicative only (last purchase price pre-filled as a reference).
+                                </div>
                                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                                     <thead><tr style={{ color: '#94a3b8' }}>
                                         <th style={{ textAlign: 'left', padding: '4px 6px' }}>Item</th>
                                         <th style={{ textAlign: 'right', padding: '4px 6px', width: 90 }}>Qty</th>
-                                        <th style={{ textAlign: 'right', padding: '4px 6px', width: 110 }}>Unit Price</th>
-                                        <th style={{ textAlign: 'right', padding: '4px 6px', width: 120 }}>Line Total</th>
+                                        <th style={{ textAlign: 'right', padding: '4px 6px', width: 130 }}
+                                            title="Indicative unit price — pre-filled from last purchase. Does not affect the budget amount above.">
+                                            Unit Price <span style={{ fontWeight: 400, fontSize: 9 }}>(indicative)</span>
+                                        </th>
                                         <th style={{ width: 60 }}></th>
                                     </tr></thead>
                                     <tbody>
                                         {items.length === 0 && (
-                                            <tr><td colSpan={5} style={{ padding: '6px', color: '#94a3b8' }}>No items yet.</td></tr>
+                                            <tr><td colSpan={4} style={{ padding: '6px', color: '#94a3b8' }}>No items yet.</td></tr>
                                         )}
                                         {items.map(it => (
                                             <tr key={it.budgetItemId}>
                                                 <td style={{ padding: '4px 6px' }}>{it.itemCode ? `[${it.itemCode}] ` : ''}{it.itemName}</td>
                                                 <td style={{ padding: '4px 6px', textAlign: 'right' }}>{fmt(it.qty)} {it.uomCode || ''}</td>
-                                                <td style={{ padding: '4px 6px', textAlign: 'right' }}>{fmt(it.unitPrice)}</td>
-                                                <td style={{ padding: '4px 6px', textAlign: 'right', fontWeight: 600 }}>{fmt(it.lineTotal)}</td>
+                                                <td style={{ padding: '4px 6px', textAlign: 'right' }}
+                                                    title={it.lastPurchasePrice ? `Last purchase: ${fmt(it.lastPurchasePrice)} ${it.lastPurchaseCurrencyShort || ''}` : 'No purchase history'}>
+                                                    {it.unitPrice > 0
+                                                        ? <span style={{ color: '#1e293b' }}>{fmt(it.unitPrice)}</span>
+                                                        : it.lastPurchasePrice
+                                                            ? <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>— (last: {fmt(it.lastPurchasePrice)} {it.lastPurchaseCurrencyShort || ''})</span>
+                                                            : <span style={{ color: '#cbd5e1' }}>—</span>}
+                                                </td>
                                                 <td style={{ padding: '4px 6px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                                                     <button type="button" title="View qty change history for this item" onClick={() => openItemLog(it)}
                                                         style={{ background: 'none', border: 0, color: '#64748b', cursor: 'pointer', marginRight: 6 }}>🕘</button>
@@ -922,18 +935,39 @@ const JobBudgetEditor = ({ job }) => {
                                 </table>
                                 {canEdit && (
                                     <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 8 }}>
-                                        <select value={itemDraft.itemId} onChange={e => setItemDraft(p => ({ ...p, itemId: e.target.value }))}
-                                            style={{ flex: 1, padding: 6, border: '1px solid #cbd5e1', borderRadius: 5, fontSize: 12, background: '#fff' }}>
+                                        <select value={itemDraft.itemId}
+                                            onChange={e => {
+                                                const selId = e.target.value;
+                                                const selItem = pickItems.find(it => String(it.id) === String(selId));
+                                                setItemDraft(p => ({
+                                                    ...p,
+                                                    itemId: selId,
+                                                    // Pre-fill last purchase price as an indicative hint (overridable)
+                                                    unitPrice: selItem?.lastPurchasePrice != null ? String(selItem.lastPurchasePrice) : p.unitPrice,
+                                                }));
+                                            }}
+                                            style={{ flex: 1, minWidth: 0, padding: 6, border: '1px solid #cbd5e1', borderRadius: 5, fontSize: 12, background: '#fff' }}>
                                             <option value="">{pickItems.length ? '-- Select item --' : '— no items linked to this header —'}</option>
-                                            {pickItems.map(it => <option key={it.id} value={it.id}>{it.code ? `[${it.code}] ` : ''}{it.name}</option>)}
+                                            {pickItems.map(it => (
+                                                <option key={it.id} value={it.id}>
+                                                    {it.code ? `[${it.code}] ` : ''}{it.name}
+                                                    {it.lastPurchasePrice ? ` · last: ${fmt(it.lastPurchasePrice)} ${it.lastPurchaseCurrencyShort || ''}` : ''}
+                                                </option>
+                                            ))}
                                         </select>
                                         <input type="number" placeholder="Qty" value={itemDraft.qty} onChange={e => setItemDraft(p => ({ ...p, qty: e.target.value }))}
                                             style={{ width: 80, padding: 6, border: '1px solid #cbd5e1', borderRadius: 5, fontSize: 12 }} />
-                                        <input type="number" placeholder="Unit price" value={itemDraft.unitPrice} onChange={e => setItemDraft(p => ({ ...p, unitPrice: e.target.value }))}
-                                            style={{ width: 100, padding: 6, border: '1px solid #cbd5e1', borderRadius: 5, fontSize: 12 }} />
-                                        <button type="button" onClick={() => saveBudgetItem(row.costCategoryId)} disabled={guardBusy}
+                                        <div style={{ position: 'relative' }}>
+                                            <input type="number" value={itemDraft.unitPrice} onChange={e => setItemDraft(p => ({ ...p, unitPrice: e.target.value }))}
+                                                title="Indicative unit price — pre-filled from last purchase. Optional; does not affect the budget amount set above."
+                                                style={{ width: 110, padding: 6, border: '1px solid #cbd5e1', borderRadius: 5, fontSize: 12,
+                                                         background: itemDraft.unitPrice ? '#fff' : '#fffbeb' }}
+                                                placeholder="Price (opt.)" />
+                                        </div>
+                                        {itemErr && <span style={{ fontSize: 11, color: '#dc2626' }}>{itemErr}</span>}
+                                        <button type="button" onClick={() => saveBudgetItem(row.costCategoryId)} disabled={itemBusy}
                                             style={{ background: itemDraft.budgetItemId ? '#2563eb' : '#0f766e', color: '#fff', border: 0, borderRadius: 5, padding: '6px 14px', cursor: 'pointer', fontSize: 12 }}>
-                                            {itemDraft.budgetItemId ? 'Update' : 'Add'}
+                                            {itemBusy ? '…' : itemDraft.budgetItemId ? 'Update' : 'Add'}
                                         </button>
                                         {itemDraft.budgetItemId ? (
                                             <button type="button" onClick={() => setItemDraft(blankDraft)}
@@ -988,18 +1022,6 @@ const JobBudgetEditor = ({ job }) => {
                     rvNo={header.currentRvNo}
                     onClose={() => setShowImport(false)}
                     onImported={() => { setShowImport(false); load(); }}
-                />
-            )}
-            {guard && (
-                <FinancialGuardModal
-                    title={guard.kind === 'delete' ? 'Confirm budget line removal' : 'Confirm budget change'}
-                    message={guard.kind === 'delete'
-                        ? 'Removing this budget line changes the job budget. Enter the budget password and a reason — both are recorded in the change log.'
-                        : 'This changes the job budget. Enter the budget password and a reason — both are recorded in the change log.'}
-                    busy={guardBusy}
-                    error={guardErr}
-                    onCancel={() => { if (!guardBusy) { setGuard(null); setGuardErr(''); } }}
-                    onConfirm={runGuarded}
                 />
             )}
             {showLog && (
@@ -1156,10 +1178,12 @@ const JobBudgetSummaryTab = ({ job }) => {
                         : <span style={{ marginLeft: 8, background: '#fef9c3', color: '#854d0e', padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600 }}>Draft</span>}
                     <span style={{ marginLeft: 10, color: '#94a3b8' }}>{setRowsN} of {visibleRows.length} headers budgeted</span>
                 </div>
-                <button onClick={() => navigate(`/jobs/${encodeURIComponent(job.jobId)}/budget`)}
-                    style={{ background: '#1e40af', color: '#fff', border: 0, borderRadius: 7, padding: '8px 16px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
-                    Add / Edit Budget →
-                </button>
+                {job.approvalStatus === 'Approved' && (
+                    <button onClick={() => navigate(`/jobs/${encodeURIComponent(job.jobId)}/budget`)}
+                        style={{ background: '#1e40af', color: '#fff', border: 0, borderRadius: 7, padding: '8px 16px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+                        Add / Edit Budget →
+                    </button>
+                )}
             </div>
 
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>

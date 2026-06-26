@@ -66,7 +66,7 @@ const ExpensesTab = ({ job, onRefresh }) => {
         const initCur    = currencies.find(c => String(c.id) === initCurrId);
         return {
             expenseId: 0, jobId: job.jobId,
-            expenseCategoryId: categories[0]?.expenseCategoryId || '',
+            expenseCategoryId: '',
             expenseDescription: '',
             expenseAmount: '',
             expenseDate: new Date().toISOString().slice(0, 10),
@@ -84,20 +84,22 @@ const ExpensesTab = ({ job, onRefresh }) => {
             setForm(p => ({
                 ...p,
                 currencyId:   value,
-                exchangeRate: cur ? cur.exchangeRate : p.exchangeRate,
+                exchangeRate: cur?.isBaseCurrency ? 1 : (cur ? cur.exchangeRate : p.exchangeRate),
             }));
         } else {
             setForm(p => ({ ...p, [name]: value }));
         }
     };
 
-    // Editing/adding an expense changes job financials → gated by password + reason.
+    // Editing an existing expense changes job financials → gated by password + reason.
+    // Adding a new expense does not require the guard.
     const save = () => {
         if (!form.expenseCategoryId) { setAlertMsg('Category is required.'); return; }
         if (!form.expenseAmount || Number(form.expenseAmount) === 0) { setAlertMsg('Amount cannot be zero.'); return; }
         if (!form.exchangeRate || isNaN(Number(form.exchangeRate)) || Number(form.exchangeRate) <= 0)
             { setAlertMsg('Exchange rate must be a number greater than 0.'); return; }
-        setSaveGuardErr(''); setSaveGuard(true);
+        if (form.expenseId > 0) { setSaveGuardErr(''); setSaveGuard(true); }
+        else runSave(null, null);
     };
 
     const runSave = async (password, reason) => {
@@ -205,8 +207,13 @@ const ExpensesTab = ({ job, onRefresh }) => {
                             🔒 Locked — job is {STATUS[job?.jobStatusId]?.label?.toLowerCase() || 'closed'}
                         </span>
                     )}
+                    {editable && job?.approvalStatus !== 'Approved' && (
+                        <span className="tab-locked-badge">
+                            🔒 Expense posting is locked until the job is approved
+                        </span>
+                    )}
                 </div>
-                {editable && !form && (
+                {editable && job?.approvalStatus === 'Approved' && !form && (
                     <button className="tab-btn-pri" onClick={() => setForm(emptyForm())}>+ Add Expense</button>
                 )}
             </div>
@@ -219,6 +226,7 @@ const ExpensesTab = ({ job, onRefresh }) => {
                         <div className="tab-form-field">
                             <label>Category {isReq('expenseCategoryId') && <span className="req">*</span>}</label>
                             <select name="expenseCategoryId" className="tab-input" value={form.expenseCategoryId} onChange={handle}>
+                                <option value="">-- Select --</option>
                                 {categories.map(c => <option key={c.expenseCategoryId} value={c.expenseCategoryId}>{c.categoryName}</option>)}
                             </select>
                         </div>
@@ -251,7 +259,9 @@ const ExpensesTab = ({ job, onRefresh }) => {
                         </div>
                         <div className="tab-form-field tab-f-rate">
                             <label>Exc. Rate</label>
-                            <input type="number" name="exchangeRate" className="tab-input" value={form.exchangeRate} onChange={handle} step="0.000001" />
+                            <input type="number" name="exchangeRate" className="tab-input" value={form.exchangeRate} onChange={handle} step="0.000001"
+                                disabled={!!currencies.find(c => String(c.id) === String(form.currencyId) && c.isBaseCurrency)}
+                                style={{ background: currencies.find(c => String(c.id) === String(form.currencyId) && c.isBaseCurrency) ? '#f1f5f9' : undefined }} />
                         </div>
                     </div>
                     <div className="tab-form-row">
@@ -305,13 +315,13 @@ const ExpensesTab = ({ job, onRefresh }) => {
                                                 : <span className="tab-badge-amber">⏳ Pending</span>}
                                         </td>
                                         <td className="tab-actions-cell">
-                                            {!e.isApproved && canApprove && (
+                                            {!e.isApproved && canApprove && job?.approvalStatus === 'Approved' && (
                                                 <button className="tab-act-btn tab-act-approve"
                                                     onClick={() => { setApproveError(''); setApproveTarget(e); }}>
                                                     Approve
                                                 </button>
                                             )}
-                                            {editable && !e.isApproved && (
+                                            {editable && job?.approvalStatus === 'Approved' && !e.isApproved && (
                                                 <button className="tab-act-btn tab-act-edit" onClick={() => setForm({
                                                     ...e,
                                                     expenseDate: e.expenseDate ? e.expenseDate.slice(0, 10) : '',
@@ -319,13 +329,13 @@ const ExpensesTab = ({ job, onRefresh }) => {
                                                     modifiedBy:  currentUser,
                                                 })}>Edit</button>
                                             )}
-                                            {!e.isApproved && canDelete && (
+                                            {!e.isApproved && canDelete && job?.approvalStatus === 'Approved' && (
                                                 <button className="tab-act-btn tab-act-del"
                                                     onClick={() => { setDeleteError(''); setDeleteTarget(e); }}>
                                                     Delete
                                                 </button>
                                             )}
-                                            {e.isApproved && canReverse && (
+                                            {e.isApproved && canReverse && job?.approvalStatus === 'Approved' && (
                                                 <button className="tab-act-btn tab-act-del"
                                                     title="Post a reversal entry to cancel this approved expense"
                                                     onClick={() => setForm({

@@ -14,14 +14,15 @@ const DEFAULT_FILTERS = {
     dateFrom:    firstOfMonth(),
     dateTo:      today(),
     jobId:       '',
+    sourceJobId: '',
     status:      '',
     createdBy:   '',
     costingType: '',
 };
 
-// ── CSV export ──────────────────────────────────────────────────────────
-const exportCsv = (rows) => {
-    const headers = ['#', 'Issue No', 'Date', 'Job', 'Status', 'Issued To', 'Costing Type', 'Lines', 'Total Value', 'Created By'];
+// ── CSV exports ─────────────────────────────────────────────────────────
+const exportDetailCsv = (rows) => {
+    const headers = ['#', 'Issue No', 'Date', 'Source Job', 'Issued To Job', 'Item Code', 'Item Name', 'Category', 'Qty', 'UOM', 'Unit Cost', 'Line Total', 'Status', 'Costing Type'];
     const esc = v => {
         if (v == null) return '';
         const s = String(v);
@@ -31,7 +32,29 @@ const exportCsv = (rows) => {
         headers.join(','),
         ...rows.map((r, i) => [
             i + 1, r.issueNo, r.issueDate ? fmtDate(r.issueDate) : '',
-            r.jobId, r.status, r.issuedTo, r.costingType,
+            r.sourceJobId, r.jobId, r.itemCode, r.itemDesc, r.categoryName,
+            r.qty, r.uomName, r.unitCost, r.lineTotal, r.status, r.costingType,
+        ].map(esc).join(','))
+    ];
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `IssueNote_Lines_${today()}.csv`; a.click();
+    URL.revokeObjectURL(url);
+};
+
+const exportCsv = (rows) => {
+    const headers = ['#', 'Issue No', 'Date', 'Source Job', 'Issued To Job', 'Status', 'Issued To', 'Costing Type', 'Lines', 'Total Value', 'Created By'];
+    const esc = v => {
+        if (v == null) return '';
+        const s = String(v);
+        return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const lines = [
+        headers.join(','),
+        ...rows.map((r, i) => [
+            i + 1, r.issueNo, r.issueDate ? fmtDate(r.issueDate) : '',
+            r.sourceJobId, r.jobId, r.status, r.issuedTo, r.costingType,
             r.lineCount, r.totalValue, r.createdBy,
         ].map(esc).join(','))
     ];
@@ -273,33 +296,46 @@ const IssueReport = () => {
     const [pageSize,  setPageSize] = useState(20);
     const [quickViewId, setQuickViewId] = useState(null);
 
+    const [activeTab,     setActiveTab]     = useState('summary');
+    const [detailRows,    setDetailRows]    = useState(null);
+    const [detailLoading, setDetailLoading] = useState(false);
+    const [dSortCol,  setDSortCol]  = useState('issueDate');
+    const [dSortDir,  setDSortDir]  = useState('desc');
+    const [dPage,     setDPage]     = useState(1);
+    const [dPageSize, setDPageSize] = useState(50);
+
     const [jobs, setJobs] = useState([]);
 
     const setF = (k, v) => setFilters(f => ({ ...f, [k]: v }));
 
     useEffect(() => {
-        fetch(`${variables.API_URL}job/search?pageSize=500&page=1&sortCol=JobId&sortDir=ASC`, { headers: authHeaders() })
+        fetch(`${variables.API_URL}job/search?pageSize=500&page=1&sortCol=JobId&sortDir=ASC&approvalStatus=Approved`, { headers: authHeaders() })
             .then(r => r.ok ? r.json() : { data: [] })
             .then(d => setJobs(d.data || []))
             .catch(() => {});
     }, []);
 
     const runReport = useCallback(async () => {
-        setLoading(true); setError(''); setPage(1);
+        setLoading(true); setDetailLoading(true); setError(''); setPage(1); setDPage(1);
         const p = new URLSearchParams();
         if (filters.dateFrom)    p.set('dateFrom',    filters.dateFrom);
         if (filters.dateTo)      p.set('dateTo',      filters.dateTo);
         if (filters.jobId)       p.set('jobId',       filters.jobId);
+        if (filters.sourceJobId) p.set('sourceJobId', filters.sourceJobId);
         if (filters.status)      p.set('status',      filters.status);
         if (filters.createdBy)   p.set('createdBy',   filters.createdBy);
         if (filters.costingType) p.set('costingType', filters.costingType);
         try {
-            const res  = await fetch(`${variables.API_URL}reports/issue?${p}`, { headers: authHeaders() });
-            const data = await res.json();
-            if (!res.ok) { setError(data?.message || 'Error loading report.'); setRows([]); return; }
-            setRows(data);
-        } catch { setError('Network error.'); setRows([]); }
-        finally { setLoading(false); }
+            const [summRes, detRes] = await Promise.all([
+                fetch(`${variables.API_URL}reports/issue?${p}`,         { headers: authHeaders() }),
+                fetch(`${variables.API_URL}reports/issue-details?${p}`, { headers: authHeaders() }),
+            ]);
+            const [summData, detData] = await Promise.all([summRes.json(), detRes.json()]);
+            if (!summRes.ok) { setError(summData?.message || 'Error loading report.'); setRows([]); }
+            else setRows(summData);
+            setDetailRows(detRes.ok ? detData : []);
+        } catch { setError('Network error.'); setRows([]); setDetailRows([]); }
+        finally { setLoading(false); setDetailLoading(false); }
     }, [filters]);
 
     const handleSort = (col) => {
@@ -342,7 +378,41 @@ const IssueReport = () => {
         </th>
     );
 
-    const clearAll = () => { setFilters({ ...DEFAULT_FILTERS }); setRows(null); setPage(1); };
+    const dSorted = useMemo(() => {
+        if (!detailRows) return [];
+        return [...detailRows].sort((a, b) => {
+            let av = a[dSortCol] ?? '', bv = b[dSortCol] ?? '';
+            if (typeof av === 'number') return dSortDir === 'asc' ? av - bv : bv - av;
+            return dSortDir === 'asc' ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
+        });
+    }, [detailRows, dSortCol, dSortDir]);
+
+    const dTotalPages = Math.max(1, Math.ceil(dSorted.length / dPageSize));
+    const dPaged      = dSorted.slice((dPage - 1) * dPageSize, dPage * dPageSize);
+    const dRowOffset  = (dPage - 1) * dPageSize;
+
+    const handleDSort = (col) => {
+        setDPage(1);
+        if (dSortCol === col) setDSortDir(d => d === 'asc' ? 'desc' : 'asc');
+        else { setDSortCol(col); setDSortDir('asc'); }
+    };
+
+    const DTh = ({ col, label, cls }) => (
+        <th className={cls} onClick={() => handleDSort(col)}>
+            {label}<SortIcon col={col} sc={dSortCol} sd={dSortDir} />
+        </th>
+    );
+
+    const detailTotals = useMemo(() => {
+        if (!detailRows || detailRows.length === 0) return null;
+        return {
+            lines: detailRows.length,
+            qty:   detailRows.reduce((s, r) => s + (r.qty       || 0), 0),
+            value: detailRows.reduce((s, r) => s + (r.lineTotal || 0), 0),
+        };
+    }, [detailRows]);
+
+    const clearAll = () => { setFilters({ ...DEFAULT_FILTERS }); setRows(null); setDetailRows(null); setPage(1); setDPage(1); };
 
     return (
         <>
@@ -356,14 +426,15 @@ const IssueReport = () => {
                     <div className="rpt-header-sub">
                         {rows == null
                             ? 'Set filters and click Run Report'
-                            : `${rows.length} issue note${rows.length !== 1 ? 's' : ''} found`}
+                            : `${rows.length} issue note${rows.length !== 1 ? 's' : ''}  ·  ${detailRows?.length ?? 0} line${(detailRows?.length ?? 0) !== 1 ? 's' : ''}`}
                     </div>
                 </div>
                 <div className="rpt-header-actions">
-                    {rows && rows.length > 0 && (
-                        <button className="rpt-btn-export" onClick={() => exportCsv(sorted)}>
-                            ⬇ Export CSV
-                        </button>
+                    {activeTab === 'summary' && rows && rows.length > 0 && (
+                        <button className="rpt-btn-export" onClick={() => exportCsv(sorted)}>⬇ Export CSV</button>
+                    )}
+                    {activeTab === 'lines' && detailRows && detailRows.length > 0 && (
+                        <button className="rpt-btn-export" onClick={() => exportDetailCsv(dSorted)}>⬇ Export CSV</button>
                     )}
                 </div>
             </div>
@@ -387,7 +458,21 @@ const IssueReport = () => {
                     </div>
 
                     <div className="rpt-filter-group w200">
-                        <span className="rpt-filter-label">Job No</span>
+                        <span className="rpt-filter-label">Source Job (IH)</span>
+                        <select className="rpt-filter-select"
+                            value={filters.sourceJobId}
+                            onChange={e => setF('sourceJobId', e.target.value)}>
+                            <option value="">All</option>
+                            {jobs.filter(j => j.jobId && j.jobId.startsWith('IH')).map(j => (
+                                <option key={j.jobId} value={j.jobId}>
+                                    {j.jobId}{j.projectName ? ` — ${j.projectName}` : ''}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="rpt-filter-group w200">
+                        <span className="rpt-filter-label">Issued To Job</span>
                         <select className="rpt-filter-select"
                             value={filters.jobId}
                             onChange={e => setF('jobId', e.target.value)}>
@@ -474,31 +559,49 @@ const IssueReport = () => {
                 </div>
             )}
 
+            {/* ── Tabs ── */}
+            {(rows !== null || detailRows !== null) && (
+                <div style={{ display: 'flex', gap: 2, padding: '0 0 0 4px', borderBottom: '2px solid #e2e8f0', marginBottom: 0 }}>
+                    {[
+                        { key: 'summary', label: `By Issue${rows ? ` (${rows.length})` : ''}` },
+                        { key: 'lines',   label: `By Item${detailRows ? ` (${detailRows.length})` : ''}` },
+                    ].map(t => (
+                        <button key={t.key} onClick={() => setActiveTab(t.key)} style={{
+                            padding: '8px 20px', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                            borderBottom: activeTab === t.key ? '3px solid #2563eb' : '3px solid transparent',
+                            color: activeTab === t.key ? '#2563eb' : '#64748b',
+                            background: 'transparent',
+                        }}>{t.label}</button>
+                    ))}
+                </div>
+            )}
+
             {/* ── Content ── */}
             <div className="rpt-content">
 
-                {loading && (
+                {(loading || detailLoading) && (
                     <div className="rpt-state">
                         <div className="rpt-spinner" />
                         <span>Running report…</span>
                     </div>
                 )}
 
-                {!loading && rows === null && !error && (
+                {!loading && !detailLoading && rows === null && !error && (
                     <div className="rpt-state">
                         <div className="rpt-state-icon">📊</div>
                         <span>Set your filters above and click <strong>Run Report</strong></span>
                     </div>
                 )}
 
-                {!loading && rows !== null && rows.length === 0 && (
+                {/* ── By Issue tab ── */}
+                {!loading && !detailLoading && activeTab === 'summary' && rows !== null && rows.length === 0 && (
                     <div className="rpt-state">
                         <div className="rpt-state-icon">🔍</div>
                         <span>No issue notes match the selected filters.</span>
                     </div>
                 )}
 
-                {!loading && paged.length > 0 && (
+                {!loading && activeTab === 'summary' && paged.length > 0 && (
                     <>
                         <div className="rpt-body">
                             <table className="rpt-table">
@@ -507,7 +610,8 @@ const IssueReport = () => {
                                         <th className="c" style={{ width: 46 }}>#</th>
                                         <Th col="issueNo"     label="Issue No"      />
                                         <Th col="issueDate"   label="Date"           />
-                                        <Th col="jobId"       label="Job"            />
+                                        <Th col="sourceJobId" label="Source Job"     />
+                                        <Th col="jobId"       label="Issued To Job"  />
                                         <Th col="status"      label="Status"         />
                                         <Th col="issuedTo"    label="Issued To"      />
                                         <Th col="costingType" label="Costing Type"   />
@@ -532,6 +636,15 @@ const IssueReport = () => {
                                                     }}>{r.issueNo}</span>
                                             </td>
                                             <td style={{ color: '#475569', fontSize: 12 }}>{fmtDate(r.issueDate)}</td>
+                                            <td>
+                                                {r.sourceJobId
+                                                    ? <span style={{
+                                                        fontFamily: 'Courier New', fontSize: 11,
+                                                        color: '#7c3aed', background: '#ede9fe',
+                                                        padding: '2px 6px', borderRadius: 4
+                                                    }}>{r.sourceJobId}</span>
+                                                    : <span className="muted">—</span>}
+                                            </td>
                                             <td>
                                                 {r.jobId
                                                     ? <span style={{
@@ -582,6 +695,101 @@ const IssueReport = () => {
                             totalRows={sorted.length}
                             onPage={p => setPage(p)}
                             onPageSize={s => { setPageSize(s); setPage(1); }}
+                        />
+                    </>
+                )}
+
+                {/* ── By Item tab ── */}
+                {!detailLoading && activeTab === 'lines' && detailRows !== null && detailRows.length === 0 && (
+                    <div className="rpt-state">
+                        <div className="rpt-state-icon">🔍</div>
+                        <span>No issue lines match the selected filters.</span>
+                    </div>
+                )}
+
+                {!detailLoading && activeTab === 'lines' && dPaged.length > 0 && (
+                    <>
+                        <div className="rpt-body">
+                            <table className="rpt-table">
+                                <thead>
+                                    <tr>
+                                        <th className="c" style={{ width: 46 }}>#</th>
+                                        <DTh col="issueNo"      label="Issue No"       />
+                                        <DTh col="issueDate"    label="Date"           />
+                                        <DTh col="sourceJobId"  label="Source Job"     />
+                                        <DTh col="jobId"        label="Issued To Job"  />
+                                        <DTh col="itemCode"     label="Item Code"      />
+                                        <DTh col="itemDesc"     label="Description"    />
+                                        <DTh col="categoryName" label="Category"       />
+                                        <DTh col="qty"          label="Qty"         cls="r" />
+                                        <DTh col="uomName"      label="UOM"            />
+                                        <DTh col="unitCost"     label="Unit Cost"   cls="r" />
+                                        <DTh col="lineTotal"    label="Line Total"  cls="r" />
+                                        <DTh col="status"       label="Status"         />
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {dPaged.map((r, i) => (
+                                        <tr key={r.issueLineId} onClick={() => navigate(`/inventory-issue/${r.issueId}`)}>
+                                            <td className="c" style={{ color: '#94a3b8', fontSize: 11, fontWeight: 600 }}>
+                                                {dRowOffset + i + 1}
+                                            </td>
+                                            <td>
+                                                <span onClick={e => { e.stopPropagation(); setQuickViewId(r.issueId); }}
+                                                    style={{
+                                                        fontFamily: 'Courier New', fontWeight: 700,
+                                                        color: '#92400e', fontSize: 11.5,
+                                                        background: '#fef3c7', padding: '2px 8px', borderRadius: 4,
+                                                        cursor: 'pointer',
+                                                    }}>{r.issueNo}</span>
+                                            </td>
+                                            <td style={{ color: '#475569', fontSize: 12 }}>{fmtDate(r.issueDate)}</td>
+                                            <td>
+                                                {r.sourceJobId
+                                                    ? <span style={{ fontFamily: 'Courier New', fontSize: 11, color: '#7c3aed', background: '#ede9fe', padding: '2px 6px', borderRadius: 4 }}>{r.sourceJobId}</span>
+                                                    : <span className="muted">—</span>}
+                                            </td>
+                                            <td>
+                                                {r.jobId
+                                                    ? <span style={{ fontFamily: 'Courier New', fontSize: 11, color: '#0f766e', background: '#ccfbf1', padding: '2px 6px', borderRadius: 4 }}>{r.jobId}</span>
+                                                    : <span className="muted">—</span>}
+                                            </td>
+                                            <td style={{ fontFamily: 'Courier New', fontSize: 11.5, color: '#2563eb', fontWeight: 600 }}>{r.itemCode}</td>
+                                            <td style={{ fontSize: 12, color: '#1e293b', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.itemDesc}</td>
+                                            <td style={{ fontSize: 11.5, color: '#64748b' }}>{r.categoryName || <span className="muted">—</span>}</td>
+                                            <td className="r" style={{ fontFamily: 'monospace', fontWeight: 600 }}>{r.qty}</td>
+                                            <td style={{ fontSize: 11.5, color: '#64748b' }}>{r.uomName}</td>
+                                            <td className="r" style={{ fontFamily: 'monospace', color: '#475569' }}>{fmt(r.unitCost)}</td>
+                                            <td className="r" style={{ fontFamily: 'monospace', fontWeight: 700, color: '#1e40af', fontSize: 12.5 }}>{fmt(r.lineTotal)}</td>
+                                            <td>
+                                                <StatusBadge status={r.status} getStatusConfig={getStatusConfig} />
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                                {detailTotals && (
+                                    <tfoot>
+                                        <tr style={{ background: '#f1f5f9', borderTop: '2px solid #cbd5e1', fontWeight: 700 }}>
+                                            <td colSpan={8} style={{ textAlign: 'right', padding: '8px 10px', color: '#334155', fontSize: 12 }}>
+                                                Totals — {detailTotals.lines} line{detailTotals.lines !== 1 ? 's' : ''}
+                                            </td>
+                                            <td style={{ textAlign: 'right', padding: '8px 6px', fontFamily: 'monospace', color: '#334155' }}>{detailTotals.qty}</td>
+                                            <td colSpan={2} />
+                                            <td style={{ textAlign: 'right', padding: '8px 6px', fontFamily: 'monospace', color: '#1e40af', fontWeight: 700 }}>{fmt(detailTotals.value)}</td>
+                                            <td />
+                                        </tr>
+                                    </tfoot>
+                                )}
+                            </table>
+                        </div>
+
+                        <Pagination
+                            page={dPage}
+                            totalPages={dTotalPages}
+                            pageSize={dPageSize}
+                            totalRows={dSorted.length}
+                            onPage={p => setDPage(p)}
+                            onPageSize={s => { setDPageSize(s); setDPage(1); }}
                         />
                     </>
                 )}

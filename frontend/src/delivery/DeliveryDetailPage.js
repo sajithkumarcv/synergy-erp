@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { variables, authHeaders } from '../Variable';
 import { usePermission } from '../PermissionContext';
 import { DELIVERY_TABS, fmtDate, getDeliveryStatusConfig, STATUS_TRANSITIONS } from './deliveryConstants';
@@ -15,6 +15,8 @@ import ConfirmModal from '../common/ConfirmModal';
 const DeliveryDetailPage = () => {
     const { deliveryId }  = useParams();
     const navigate        = useNavigate();
+    const [searchParams]  = useSearchParams();
+    const autoPrint       = searchParams.get('print') === '1';
     const { canDo }       = usePermission();
 
     const [delivery,    setDelivery]  = useState(null);
@@ -39,6 +41,7 @@ const DeliveryDetailPage = () => {
     }, [deliveryId]);
 
     useEffect(() => { loadDelivery(); }, [loadDelivery]);
+    useEffect(() => { if (delivery && autoPrint) setShowPrint(true); }, [delivery, autoPrint]);
 
     const changeStatus = async (newStatus) => {
         setStatusBusy(true); setStatusErr('');

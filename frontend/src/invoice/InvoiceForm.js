@@ -133,7 +133,7 @@ const InvoiceForm = ({ onClose, onSaved }) => {
         if (!val.trim()) { setJobResults([]); setShowJobDrop(false); return; }
         jobTimerRef.current = setTimeout(() => {
             setJobLoading(true);
-            fetch(`${variables.API_URL}job/search?searchText=${encodeURIComponent(val)}&pageSize=8`,
+            fetch(`${variables.API_URL}job/search?searchText=${encodeURIComponent(val)}&pageSize=8&approvalStatus=Approved`,
                 { headers: authHeaders() })
                 .then(r => r.json())
                 .then(d => { setJobResults(d.data || d || []); setShowJobDrop(true); })

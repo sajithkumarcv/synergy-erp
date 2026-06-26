@@ -134,7 +134,7 @@ const InvoiceReport = () => {
             .then(r => r.ok ? r.json() : { data: [] })
             .then(d => setCustomers((d.data || []).sort((a, b) => a.customerName.localeCompare(b.customerName))))
             .catch(() => {});
-        fetch(`${variables.API_URL}job/search?pageSize=500&page=1&sortCol=JobId&sortDir=ASC`, { headers: h })
+        fetch(`${variables.API_URL}job/search?pageSize=500&page=1&sortCol=JobId&sortDir=ASC&approvalStatus=Approved`, { headers: h })
             .then(r => r.ok ? r.json() : { data: [] })
             .then(d => setJobs(d.data || []))
             .catch(() => {});

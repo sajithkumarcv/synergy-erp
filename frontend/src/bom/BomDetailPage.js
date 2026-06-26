@@ -1262,7 +1262,7 @@ const BomDetailPage = () => {
                     )}
                 </div>
                 <div style={{ display: 'flex', gap: 8, marginLeft: 'auto', alignItems: 'center' }}>
-                    {isApproved && canRevise && (
+                    {isApproved && canRevise && inHouseBom && (
                         <button className="inv-btn inv-btn-ghost" onClick={openReviseModal} disabled={revising}
                             style={{ color: '#7c3aed', borderColor: '#c4b5fd' }}>
                             🔄 Revise BOM
@@ -1353,10 +1353,16 @@ const BomDetailPage = () => {
                             </div>
                         )}
 
-                        {isApproved && (
+                        {isApproved && inHouseBom && (
                             <div style={{ background: '#dcfce7', border: '1px solid #86efac', borderRadius: 8,
                                           padding: '10px 16px', marginBottom: 14, fontSize: 13, color: '#166534', fontWeight: 600 }}>
                                 ✅ This BOM is Approved — lines are read-only. Click <strong>Revise BOM</strong> to make changes.
+                            </div>
+                        )}
+                        {isApproved && !inHouseBom && (
+                            <div style={{ background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: 8,
+                                          padding: '10px 16px', marginBottom: 14, fontSize: 13, color: '#1e40af', fontWeight: 600 }}>
+                                ✅ This BOM is Approved — lines are read-only. To change quantities, raise a <strong>Budget Revision</strong> on the job.
                             </div>
                         )}
                         {!isApproved && isCostingRequired && (

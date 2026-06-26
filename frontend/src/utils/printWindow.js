@@ -44,7 +44,16 @@ export const openPrintWindow = (docSelector, title) => {
 <title>${title}</title>
 <style>
 /* ── Page setup ─────────────────────────────────────────────── */
-@page { size: A4 portrait; margin: 14mm 12mm 20mm; }
+@page {
+  size: A4 portrait;
+  margin: 14mm 12mm 20mm;
+  @bottom-right {
+    content: "Page " counter(page) " of " counter(pages);
+    font-size: 8pt;
+    color: #94a3b8;
+    font-family: 'Segoe UI', Arial, sans-serif;
+  }
+}
 
 /* ── Base reset ─────────────────────────────────────────────── */
 * { box-sizing: border-box; }

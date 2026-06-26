@@ -144,6 +144,9 @@ namespace ERPWEB.Models.Approval
         public string ActionByName  { get; set; } = string.Empty;
         public string? Remarks      { get; set; }
 
+        // ── Login password confirmation (required for Approve action) ──
+        public string? LoginPassword  { get; set; }
+
         // ── Budget-overrun override (optional) ──
         // When the user supplies their budget password to authorise approving a
         // document that exceeds its budget, these are sent. The password is

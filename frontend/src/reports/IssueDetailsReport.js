@@ -9,18 +9,18 @@ const firstOfMonth = () => { const d = new Date(); d.setDate(1); return d.toISOS
 const PAGE_SIZES   = [20, 50, 100, 500];
 
 const DEFAULT_FILTERS = {
-    jobId: '', dateFrom: firstOfMonth(), dateTo: today(),
+    jobId: '', sourceJobId: '', dateFrom: firstOfMonth(), dateTo: today(),
     itemTypeId: '', categoryId: '', subCategoryId: '',
     itemId: '', status: '', costingType: '',
 };
 
 const exportCsv = (rows) => {
-    const headers = ['#', 'Issue No', 'Date', 'Job', 'Project', 'Item Code', 'Description', 'Qty', 'UOM', 'Unit Cost', 'Line Total', 'Costing', 'Issued To'];
+    const headers = ['#', 'Issue No', 'Date', 'Source Job', 'Issued To Job', 'Project', 'Item Code', 'Description', 'Qty', 'UOM', 'Unit Cost', 'Line Total', 'Costing', 'Issued To'];
     const esc = v => { if (v == null) return ''; const s = String(v); return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s; };
     const lines = [
         headers.join(','),
         ...rows.map((r, i) => [
-            i + 1, r.issueNo, r.issueDate ? fmtDate(r.issueDate) : '', r.jobId, r.projectName,
+            i + 1, r.issueNo, r.issueDate ? fmtDate(r.issueDate) : '', r.sourceJobId, r.jobId, r.projectName,
             r.itemCode, r.itemDesc, r.qty, r.uomName, r.unitCost, r.lineTotal, r.costingType, r.issuedTo,
         ].map(esc).join(','))
     ];
@@ -79,7 +79,7 @@ const IssueDetailsReport = () => {
 
     useEffect(() => {
         const h = authHeaders();
-        fetch(`${variables.API_URL}job/search?pageSize=500&page=1&sortCol=JobId&sortDir=ASC`, { headers: h })
+        fetch(`${variables.API_URL}job/search?pageSize=500&page=1&sortCol=JobId&sortDir=ASC&approvalStatus=Approved`, { headers: h })
             .then(r => r.ok ? r.json() : { data: [] }).then(d => setJobs(d.data || [])).catch(() => {});
         fetch(`${variables.API_URL}item/categories`, { headers: h })
             .then(r => r.json()).then(d => setAllCategories(Array.isArray(d) ? d : [])).catch(() => {});
@@ -126,6 +126,7 @@ const IssueDetailsReport = () => {
     const runReport = useCallback(async () => {
         setLoading(true); setError(''); setPage(1);
         const p = new URLSearchParams();
+        if (filters.sourceJobId) p.set('sourceJobId', filters.sourceJobId);
         if (filters.jobId)       p.set('jobId',       filters.jobId);
         if (filters.dateFrom)    p.set('dateFrom',    filters.dateFrom);
         if (filters.dateTo)      p.set('dateTo',      filters.dateTo);
@@ -197,9 +198,20 @@ const IssueDetailsReport = () => {
 
             <div className="rpt-filter-card">
                 <div className="rpt-filter-row">
-                    {/* 1. Job No */}
+                    {/* Source Job (IH) */}
                     <div className="rpt-filter-group w200">
-                        <span className="rpt-filter-label">Job No</span>
+                        <span className="rpt-filter-label">Source Job (IH)</span>
+                        <select className="rpt-filter-select" value={filters.sourceJobId} onChange={e => setF('sourceJobId', e.target.value)}>
+                            <option value="">All</option>
+                            {jobs.filter(j => j.jobId && j.jobId.startsWith('IH')).map(j => (
+                                <option key={j.jobId} value={j.jobId}>{j.jobId}{j.projectName ? ` — ${j.projectName}` : ''}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* 1. Issued To Job */}
+                    <div className="rpt-filter-group w200">
+                        <span className="rpt-filter-label">Issued To Job</span>
                         <select className="rpt-filter-select" value={filters.jobId} onChange={e => setF('jobId', e.target.value)}>
                             <option value="">All Jobs</option>
                             {jobs.map(j => <option key={j.jobId} value={j.jobId}>{j.jobId}{j.projectName ? ` — ${j.projectName}` : ''}</option>)}
@@ -318,16 +330,17 @@ const IssueDetailsReport = () => {
                                 <thead>
                                     <tr>
                                         <th className="c" style={{ width: 46 }}>#</th>
-                                        <Th col="issueNo"   label="Issue No"    />
-                                        <Th col="issueDate" label="Date"        />
-                                        <Th col="jobId"     label="Job"         />
-                                        <Th col="itemCode"  label="Item Code"   />
-                                        <Th col="itemDesc"  label="Description" />
-                                        <Th col="qty"       label="Qty"      cls="r" />
-                                        <Th col="uomName"   label="UOM"         />
-                                        <Th col="unitCost"  label="Unit Cost" cls="r" />
-                                        <Th col="lineTotal" label="Line Total" cls="r" />
-                                        <Th col="issuedTo"  label="Issued To"   />
+                                        <Th col="issueNo"      label="Issue No"       />
+                                        <Th col="issueDate"    label="Date"           />
+                                        <Th col="sourceJobId"  label="Source Job"     />
+                                        <Th col="jobId"        label="Issued To Job"  />
+                                        <Th col="itemCode"     label="Item Code"      />
+                                        <Th col="itemDesc"     label="Description"    />
+                                        <Th col="qty"          label="Qty"         cls="r" />
+                                        <Th col="uomName"      label="UOM"            />
+                                        <Th col="unitCost"     label="Unit Cost"   cls="r" />
+                                        <Th col="lineTotal"    label="Line Total"  cls="r" />
+                                        <Th col="issuedTo"     label="Issued To"      />
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -338,6 +351,11 @@ const IssueDetailsReport = () => {
                                                 <span style={{ fontFamily: 'Courier New', fontWeight: 700, color: '#92400e', fontSize: 11.5, background: '#fef3c7', padding: '2px 8px', borderRadius: 4 }}>{r.issueNo}</span>
                                             </td>
                                             <td style={{ color: '#475569', fontSize: 12 }}>{fmtDate(r.issueDate)}</td>
+                                            <td>
+                                                {r.sourceJobId
+                                                    ? <span style={{ fontFamily: 'Courier New', fontSize: 11, color: '#7c3aed', background: '#ede9fe', padding: '2px 6px', borderRadius: 4 }}>{r.sourceJobId}</span>
+                                                    : <span className="muted">—</span>}
+                                            </td>
                                             <td>
                                                 {r.jobId
                                                     ? <span style={{ fontFamily: 'Courier New', fontSize: 11, color: '#0f766e', background: '#ccfbf1', padding: '2px 6px', borderRadius: 4 }}>{r.jobId}</span>
@@ -356,7 +374,7 @@ const IssueDetailsReport = () => {
                                 {totals && (
                                     <tfoot>
                                         <tr style={{ background: '#f1f5f9', borderTop: '2px solid #cbd5e1', fontWeight: 700 }}>
-                                            <td colSpan={6} style={{ textAlign: 'right', padding: '8px 10px', color: '#334155', fontSize: 12 }}>Totals — {totals.lines} line{totals.lines !== 1 ? 's' : ''}</td>
+                                            <td colSpan={8} style={{ textAlign: 'right', padding: '8px 10px', color: '#334155', fontSize: 12 }}>Totals — {totals.lines} line{totals.lines !== 1 ? 's' : ''}</td>
                                             <td className="r" style={{ padding: '8px 6px', fontFamily: 'monospace', color: '#1e40af', fontWeight: 700 }}>{fmt(totals.qty, 4)}</td>
                                             <td colSpan={2} />
                                             <td className="r" style={{ padding: '8px 6px', fontFamily: 'monospace', color: '#166534', fontWeight: 700 }}>{fmt(totals.value)}</td>

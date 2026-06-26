@@ -90,9 +90,10 @@ const OverviewTab = ({ job, onRefresh, userRole, currentUser }) => {
     };
 
     const handleCurrency = (e) => {
-        const id  = e.target.value;
-        const cur = currencies.find(c => String(c.id) === id);
-        setFinForm(p => ({ ...p, currencyId: id, exchangeRate: cur ? String(cur.exchangeRate) : p.exchangeRate }));
+        const id    = e.target.value;
+        const cur   = currencies.find(c => String(c.id) === id);
+        const isBase = baseCurrency != null && Number(id) === Number(baseCurrency.id);
+        setFinForm(p => ({ ...p, currencyId: id, exchangeRate: isBase ? '1' : (cur ? String(cur.exchangeRate) : p.exchangeRate) }));
     };
 
     const saveFinance = () => {
@@ -103,13 +104,14 @@ const OverviewTab = ({ job, onRefresh, userRole, currentUser }) => {
         if (!cid)              { setFinError('Please select a currency.');                     return; }
         if (isNaN(er) || er <= 0) { setFinError('Exchange rate must be greater than 0.');     return; }
         if (isNaN(ov) || ov < 0) { setFinError('Order value must be a positive number.');     return; }
-        if (isNaN(aa) || aa < 0) { setFinError('Advance amount must be a positive number.');  return; }
+        const aa2 = (finForm.advanceAmount === '' || finForm.advanceAmount == null) ? 0 : aa;
+        if (isNaN(aa2) || aa2 < 0) { setFinError('Advance amount must be a positive number.'); return; }
 
         setSaving(true); setFinError('');
         fetch(`${variables.API_URL}job/${encodeURIComponent(job.jobId)}/finance`, {
             method:  'PATCH',
             headers: authHeaders(),
-            body:    JSON.stringify({ currencyId: cid, exchangeRate: er, orderValue: ov, advanceAmount: aa, modifiedBy: currentUser }),
+            body:    JSON.stringify({ currencyId: cid, exchangeRate: er, orderValue: ov, advanceAmount: aa2, modifiedBy: currentUser }),
         })
             .then(r => r.json().then(d => ({ ok: r.ok, d })))
             .then(({ ok, d }) => {
@@ -227,15 +229,22 @@ const OverviewTab = ({ job, onRefresh, userRole, currentUser }) => {
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                         <label style={{ fontSize: 11, fontWeight: 600, color: '#64748b' }}>Exc. Rate</label>
-                        <input
-                            className="tab-input"
-                            type="number"
-                            step="0.000001"
-                            style={{ width: 120, textAlign: 'right' }}
-                            value={finForm.exchangeRate}
-                            onChange={e => setFinForm(p => ({ ...p, exchangeRate: e.target.value }))}
-                            title="Auto-filled from currency — edit if needed"
-                        />
+                        {(() => {
+                            const isBase = baseCurrency != null && finForm.currencyId !== '' &&
+                                Number(finForm.currencyId) === Number(baseCurrency.id);
+                            return (
+                                <input
+                                    className="tab-input"
+                                    type="number"
+                                    step="0.000001"
+                                    style={{ width: 120, textAlign: 'right', opacity: isBase ? 0.6 : 1, cursor: isBase ? 'not-allowed' : 'text' }}
+                                    value={isBase ? '1' : finForm.exchangeRate}
+                                    onChange={e => !isBase && setFinForm(p => ({ ...p, exchangeRate: e.target.value }))}
+                                    disabled={isBase}
+                                    title={isBase ? 'Base currency — exchange rate is always 1' : 'Exchange rate vs base currency'}
+                                />
+                            );
+                        })()}
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>

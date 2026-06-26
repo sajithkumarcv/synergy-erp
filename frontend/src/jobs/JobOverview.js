@@ -7,6 +7,12 @@ import { usePermission } from '../PermissionContext';
 import AmountInput from '../common/AmountInput';
 import AlertModal from '../common/AlertModal';
 import ConfirmModal from '../common/ConfirmModal';
+import PoPrintModal            from '../procurement/po/PoPrintModal';
+import IssueNotePrintModal     from '../inventory/issue/IssueNotePrintModal';
+import IssueReturnPrintModal   from '../inventory/issuereturn/IssueReturnPrintModal';
+import InvoicePrintModal       from '../invoice/InvoicePrintModal';
+import DeliveryPrintModal      from '../delivery/DeliveryPrintModal';
+import { openPrintWindow }     from '../utils/printWindow';
 import '../procurement/Procurement.css';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -709,6 +715,55 @@ const JobOverview = () => {
     const [variationFinances, setVariationFinances] = useState([]);
     const [alertMsg,      setAlertMsg]     = useState(null);
     const [confirm,       setConfirm]      = useState(null);
+    const [printData,     setPrintData]    = useState(null);
+    const [printLoading,  setPrintLoading] = useState(false);
+
+    const triggerPrint = async (type, id) => {
+        if (printLoading) return;
+        setPrintLoading(true);
+        const h = { headers: authHeaders() };
+        try {
+            let payload;
+            if (type === 'po') {
+                const res = await fetch(`${variables.API_URL}purchaseorder/${id}`, h);
+                payload = { po: await res.json() };
+            } else if (type === 'issue') {
+                const d = await (await fetch(`${variables.API_URL}stockissue/${id}`, h)).json();
+                payload = { issue: d.issue, lines: d.lines || [] };
+            } else if (type === 'return') {
+                const d = await (await fetch(`${variables.API_URL}stockissuereturn/${id}`, h)).json();
+                payload = { issueReturn: d.issueReturn, lines: d.lines || [] };
+            } else if (type === 'invoice') {
+                const d = await (await fetch(`${variables.API_URL}invoice/${id}`, h)).json();
+                payload = { invoice: d.invoice, lines: d.lines || [] };
+            } else if (type === 'delivery') {
+                const d = await (await fetch(`${variables.API_URL}delivery/${id}`, h)).json();
+                payload = { delivery: d.header, lines: d.lines || [] };
+            }
+            setPrintData({ type, payload });
+        } catch (e) {
+            console.error('Print fetch failed', e);
+            setPrintLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (!printData) return;
+        const delay = printData.type === 'po' ? 1500 : 400;
+        const t = setTimeout(() => {
+            const titles = {
+                po:       `Purchase Order - ${printData.payload.po?.poNumber || ''}`,
+                issue:    `Issue Note - ${printData.payload.issue?.issueNo || ''}`,
+                return:   `Issue Return - ${printData.payload.issueReturn?.returnNo || ''}`,
+                invoice:  `Invoice - ${printData.payload.invoice?.invoiceNo || ''}`,
+                delivery: `Delivery Note - ${printData.payload.delivery?.deliveryNo || ''}`,
+            };
+            openPrintWindow('.po-print-doc', titles[printData.type] || 'Print');
+            setPrintData(null);
+            setPrintLoading(false);
+        }, delay);
+        return () => clearTimeout(t);
+    }, [printData]);
 
     useEffect(() => {
         fetch(`${variables.API_URL}job/types`, { headers: authHeaders() })
@@ -901,7 +956,7 @@ const JobOverview = () => {
     const budgetCanEdit     = !h?.isClosed && canDo('/jobs', 'EDIT') && !budgetApproved;
 
     return (
-        <div className="po-page">
+        <div className="po-page" style={printLoading ? { cursor: 'wait' } : {}}>
             {alertMsg && <AlertModal message={alertMsg} onClose={() => setAlertMsg(null)} />}
             {confirm && <ConfirmModal {...confirm} onClose={() => setConfirm(null)} />}
             {/* ── Filter bar ──────────────────────────────────────────────── */}
@@ -1760,7 +1815,12 @@ const JobOverview = () => {
                                                     </tr>
                                                     {g.rows.map(r => (
                                                         <tr key={r.poId}>
-                                                            <td style={td}>{r.poNumber}</td>
+                                                            <td style={td}>
+                                                                <span onClick={() => triggerPrint('po', r.poId)}
+                                                                    style={{ fontFamily: 'Courier New', fontSize: 11, background: '#f1f5f9', padding: '1px 6px', borderRadius: 4, cursor: 'pointer', color: '#1e40af' }}>
+                                                                    {r.poNumber}
+                                                                </span>
+                                                            </td>
                                                             <td style={td}>{fmtDate(r.poDate)}</td>
                                                             <td style={td}>{r.vendorName}</td>
                                                             <td style={tdRight}>
@@ -1807,7 +1867,7 @@ const JobOverview = () => {
                                 <>
                                     <OvTable keyField="issueId" rows={rows} cols={[
                                         { key: 'issueNo',     label: 'Issue No',
-                                            render: r => <span style={{ fontFamily: 'Courier New', fontSize: 11, background: '#f1f5f9', padding: '1px 6px', borderRadius: 4 }}>{r.issueNo}</span> },
+                                            render: r => <span onClick={() => triggerPrint('issue', r.issueId)} style={{ fontFamily: 'Courier New', fontSize: 11, background: '#f1f5f9', padding: '1px 6px', borderRadius: 4, cursor: 'pointer', color: '#1e40af' }}>{r.issueNo}</span> },
                                         { key: 'issueDate',   label: 'Date',      render: r => fmtDate(r.issueDate) },
                                         { key: 'issuedTo',    label: 'Issued To', style: { minWidth: 130 } },
                                         { key: 'status',      label: 'Status',    render: r => <StatusBadge text={r.status} /> },
@@ -1846,7 +1906,7 @@ const JobOverview = () => {
                                 <>
                                     <OvTable keyField="returnId" rows={rows} cols={[
                                         { key: 'returnNo',  label: 'Return No',
-                                            render: r => <span style={{ fontFamily: 'Courier New', fontSize: 11, background: '#fef3c7', color: '#854d0e', padding: '1px 6px', borderRadius: 4 }}>{r.returnNo}</span> },
+                                            render: r => <span onClick={() => triggerPrint('return', r.returnId)} style={{ fontFamily: 'Courier New', fontSize: 11, background: '#fef3c7', color: '#92400e', padding: '1px 6px', borderRadius: 4, cursor: 'pointer' }}>{r.returnNo}</span> },
                                         { key: 'returnDate',label: 'Date',       render: r => fmtDate(r.returnDate) },
                                         { key: 'issueNo',   label: 'Against Issue',
                                             render: r => <span style={{ fontFamily: 'Courier New', fontSize: 11, color: '#475569' }}>{r.issueNo}</span> },
@@ -1872,7 +1932,7 @@ const JobOverview = () => {
                     <Section title="Invoices" icon="🧾" count={(data.invoices || []).filter(r => r.status !== 'Draft').length} defaultOpen={false}>
                         <OvTable keyField="invoiceId" rows={(data.invoices || []).filter(r => r.status !== 'Draft')} cols={[
                             { key: 'invoiceNo',      label: 'Invoice No',
-                                render: r => <span style={{ fontFamily: 'Courier New', fontSize: 11, background: '#f1f5f9', padding: '1px 6px', borderRadius: 4 }}>{r.invoiceNo}</span> },
+                                render: r => <span onClick={() => triggerPrint('invoice', r.invoiceId)} style={{ fontFamily: 'Courier New', fontSize: 11, background: '#f1f5f9', padding: '1px 6px', borderRadius: 4, cursor: 'pointer', color: '#1e40af' }}>{r.invoiceNo}</span> },
                             { key: 'invoiceDate',    label: 'Date',       render: r => fmtDate(r.invoiceDate) },
                             { key: 'dueDate',        label: 'Due',        render: r => fmtDate(r.dueDate) },
                             { key: 'status',         label: 'Status',     render: r => <StatusBadge text={r.status} /> },
@@ -1923,7 +1983,7 @@ const JobOverview = () => {
                     <Section title="Additional Job Invoices" icon="🧾➕" count={(data.childInvoices || []).filter(r => r.status !== 'Draft').length} defaultOpen={false}>
                         <OvTable keyField="invoiceId" rows={(data.childInvoices || []).filter(r => r.status !== 'Draft')} cols={[
                             { key: 'invoiceNo',      label: 'Invoice No',
-                                render: r => <span style={{ fontFamily: 'Courier New', fontSize: 11, background: '#fff7ed', color: '#9a3412', padding: '1px 6px', borderRadius: 4 }}>{r.invoiceNo}</span> },
+                                render: r => <span onClick={() => triggerPrint('invoice', r.invoiceId)} style={{ fontFamily: 'Courier New', fontSize: 11, background: '#fff7ed', color: '#9a3412', padding: '1px 6px', borderRadius: 4, cursor: 'pointer' }}>{r.invoiceNo}</span> },
                             { key: 'invoiceDate',    label: 'Date',       render: r => fmtDate(r.invoiceDate) },
                             { key: 'childJobId',     label: 'Child Job',
                                 render: r => <span style={{ fontFamily: 'Courier New', fontSize: 11, color: '#0f766e', background: '#ccfbf1', padding: '1px 6px', borderRadius: 4 }}>{r.childJobId}</span> },
@@ -1998,7 +2058,7 @@ const JobOverview = () => {
                     <Section title="Delivery Notes" icon="🚚" count={data.deliveryNotes.length} defaultOpen={false}>
                         <OvTable keyField="deliveryId" rows={data.deliveryNotes} cols={[
                             { key: 'deliveryNo',        label: 'DN No',
-                                render: r => <span style={{ fontFamily: 'Courier New', fontSize: 11, background: '#eef2ff', color: '#3730a3', padding: '1px 6px', borderRadius: 4 }}>{r.deliveryNo}</span> },
+                                render: r => <span onClick={() => triggerPrint('delivery', r.deliveryId)} style={{ fontFamily: 'Courier New', fontSize: 11, background: '#eef2ff', color: '#3730a3', padding: '1px 6px', borderRadius: 4, cursor: 'pointer' }}>{r.deliveryNo}</span> },
                             { key: 'deliveryDate',      label: 'Date',         render: r => fmtDate(r.deliveryDate) },
                             { key: 'invoiceNo',         label: 'Invoice',
                                 render: r => r.invoiceNo
@@ -2118,6 +2178,17 @@ const JobOverview = () => {
                 <ChartModal title={modal.title} onClose={() => setModal(null)}>
                     {modal.content}
                 </ChartModal>
+            )}
+
+            {/* ── Hidden print dock — renders print modal off-screen so openPrintWindow can capture it ── */}
+            {printData && (
+                <div style={{ position: 'fixed', top: -9999, left: -9999, visibility: 'hidden', pointerEvents: 'none' }}>
+                    {printData.type === 'po'       && <PoPrintModal          po={printData.payload.po}                   onClose={() => {}} />}
+                    {printData.type === 'issue'    && <IssueNotePrintModal   issue={printData.payload.issue}   lines={printData.payload.lines}  onClose={() => {}} />}
+                    {printData.type === 'return'   && <IssueReturnPrintModal issueReturn={printData.payload.issueReturn} lines={printData.payload.lines} onClose={() => {}} />}
+                    {printData.type === 'invoice'  && <InvoicePrintModal     invoice={printData.payload.invoice}  lines={printData.payload.lines} onClose={() => {}} />}
+                    {printData.type === 'delivery' && <DeliveryPrintModal    delivery={printData.payload.delivery} lines={printData.payload.lines} onClose={() => {}} />}
+                </div>
             )}
         </div>
     );

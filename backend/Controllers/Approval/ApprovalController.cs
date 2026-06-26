@@ -127,6 +127,25 @@ namespace ERPWEB.Controllers.Approval
 
             try
             {
+                // ── Login password confirmation (required for Approve) ──
+                if (string.Equals(req.Action, "Approve", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    if (string.IsNullOrWhiteSpace(req.LoginPassword))
+                        return BadRequest(new { message = "Your login password is required to approve." });
+
+                    var rows = await _dbcon.QueryAsync<dynamic>(
+                        "sp_ValidateUser",
+                        new { Username = req.ActionByName, Password = Sha256Hex(req.LoginPassword) });
+
+                    if (!rows.Any())
+                    {
+                        await _dbcon.WriteRawLog("Incorrect login password on approval attempt.",
+                            controller: "Approval", action: "Action",
+                            requestPath: HttpContext.Request.Path, userId: req.ActionByName, logLevel: "Warning");
+                        return BadRequest(new { message = "Incorrect password. Approval not processed." });
+                    }
+                }
+
                 // ── Credit-hold guard: block approving an invoice for a customer on hold ──
                 if (string.Equals(req.Action, "Approve", System.StringComparison.OrdinalIgnoreCase))
                 {

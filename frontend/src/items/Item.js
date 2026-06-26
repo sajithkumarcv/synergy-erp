@@ -11,7 +11,7 @@ import './Item.css';
 import RowLink from '../common/RowLink';
 
 const PAGE_SIZES      = [10, 20, 50, 100];
-const DEFAULT_FILTERS = { searchText: '', categoryId: '', subCategoryId: '', itemTypeId: '', isActive: '' };
+const DEFAULT_FILTERS = { searchText: '', categoryId: '', subCategoryId: '', itemTypeId: '', budgetCategoryId: '', isActive: '' };
 
 const SortIcon = ({ col, sortCol, sortDir }) => {
   if (sortCol !== col) return <span className="item-sort-none">⇅</span>;
@@ -251,11 +251,12 @@ export const Item = () => {
   const load = useCallback((pg, ps, sc, sd, af) => {
     setLoading(true);
     const q = new URLSearchParams({ page: pg, pageSize: ps, sortCol: sc, sortDir: sd });
-    if (af.searchText)    q.set('searchText', af.searchText);
+    if (af.searchText)       q.set('searchText',      af.searchText);
     const catId = af.subCategoryId || af.categoryId;
-    if (catId)            q.set('categoryId', catId);
-    if (af.itemTypeId)    q.set('itemTypeId', af.itemTypeId);
-    if (af.isActive !== '') q.set('isActive', af.isActive);
+    if (catId)               q.set('categoryId',       catId);
+    if (af.itemTypeId)       q.set('itemTypeId',       af.itemTypeId);
+    if (af.budgetCategoryId) q.set('budgetCategoryId', af.budgetCategoryId);
+    if (af.isActive !== '')  q.set('isActive',         af.isActive);
     fetch(`${variables.API_URL}item/search?${q}`, { headers: authHeaders() })
       .then(r => r.json())
       .then(res => { setRows(res.data || []); setTotal(res.totalRows || 0); setPages(res.totalPages || 1); })
@@ -272,12 +273,13 @@ export const Item = () => {
       load(1, ps, sc, sd, vals);
     };
     registerFilters('item', {
-      searchText:    { label: 'Search',       type: 'text',   placeholder: 'Name, code, barcode…' },
-      itemTypeId:    { label: 'Type',          type: 'select', placeholder: 'All Types',      options: [] },
-      categoryId:    { label: 'Category',      type: 'select', placeholder: 'All Categories', options: [] },
-      subCategoryId: { label: 'Sub-Category',  type: 'select', placeholder: 'All Sub-Categories', options: [] },
-      isActive:      { label: 'Status',        type: 'select', placeholder: 'All',
-                       options: [{ value: 'true', label: 'Active' }, { value: 'false', label: 'Inactive' }] },
+      searchText:      { label: 'Search',         type: 'text',   placeholder: 'Name, code, barcode…' },
+      itemTypeId:      { label: 'Type',            type: 'select', placeholder: 'All Types',            options: [] },
+      categoryId:      { label: 'Category',        type: 'select', placeholder: 'All Categories',       options: [] },
+      subCategoryId:   { label: 'Sub-Category',    type: 'select', placeholder: 'All Sub-Categories',   options: [] },
+      budgetCategoryId:{ label: 'Budget Header',   type: 'select', placeholder: 'All Budget Headers',   options: [] },
+      isActive:        { label: 'Status',          type: 'select', placeholder: 'All',
+                         options: [{ value: 'true', label: 'Active' }, { value: 'false', label: 'Inactive' }] },
     }, DEFAULT_FILTERS, onApply);
     return () => unregisterFilters('item');
   }, []); // eslint-disable-line
@@ -301,14 +303,16 @@ export const Item = () => {
                            setFilter('item', 'subCategoryId', '');
                            updateFilterDefs('item', buildDefs(val));
                          }},
-        subCategoryId: { label: 'Sub-Category',  type: 'select', placeholder: 'All Sub-Categories',
-                         options: subOpts },
-        isActive:      { label: 'Status',        type: 'select', placeholder: 'All',
-                         options: [{ value: 'true', label: 'Active' }, { value: 'false', label: 'Inactive' }] },
+        subCategoryId:    { label: 'Sub-Category',  type: 'select', placeholder: 'All Sub-Categories',
+                            options: subOpts },
+        budgetCategoryId: { label: 'Budget Header', type: 'select', placeholder: 'All Budget Headers',
+                            options: budgetCategories.map(b => ({ value: b.id, label: b.code ? `${b.code} — ${b.name}` : b.name })) },
+        isActive:         { label: 'Status',        type: 'select', placeholder: 'All',
+                            options: [{ value: 'true', label: 'Active' }, { value: 'false', label: 'Inactive' }] },
       };
     };
     updateFilterDefs('item', buildDefs(''));
-  }, [itemTypes, categories]); // eslint-disable-line
+  }, [itemTypes, categories, budgetCategories]); // eslint-disable-line
 
   const handleSort = (col) => {
     const dir = sortCol === col && sortDir === 'ASC' ? 'DESC' : 'ASC';

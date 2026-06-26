@@ -76,8 +76,8 @@ namespace ERPWEB.Controllers.Inventory
         {
             try
             {
-                var rows = await _dbcon.QueryAsync<JobStockItem>("sp_GetJobStockItems", new { JobId = jobId });
-                return Ok(rows?.ToList() ?? new List<JobStockItem>());
+                var rows = await _dbcon.QueryAsync<TransferStockItem>("sp_GetTransferableJobStock", new { JobId = jobId });
+                return Ok(rows?.ToList() ?? new List<TransferStockItem>());
             }
             catch (Exception ex)
             {

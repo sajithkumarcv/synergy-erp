@@ -37,6 +37,7 @@ namespace ERPWEB.Controllers.Job
             [FromQuery] string? dateFrom = null,
             [FromQuery] string? dateTo = null,
             [FromQuery] bool excludeClosedStatus = false,
+            [FromQuery] string? approvalStatus = null,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 20,
             [FromQuery] string sortCol = "JobDate",
@@ -55,6 +56,7 @@ namespace ERPWEB.Controllers.Job
                     DateFrom = string.IsNullOrWhiteSpace(dateFrom) ? (DateTime?)null : DateTime.Parse(dateFrom),
                     DateTo = string.IsNullOrWhiteSpace(dateTo) ? (DateTime?)null : DateTime.Parse(dateTo),
                     ExcludeClosedStatus = excludeClosedStatus,
+                    ApprovalStatus = string.IsNullOrWhiteSpace(approvalStatus) ? null : approvalStatus.Trim(),
                     PageNumber = page < 1 ? 1 : page,
                     PageSize = pageSize is < 1 or > 500 ? 20 : pageSize,
                     SortColumn = sortCol,
@@ -242,6 +244,26 @@ namespace ERPWEB.Controllers.Job
             {
                 await _dbcon.WriteLog(ex, controller: "Job", action: "IsClosed", requestPath: HttpContext.Request.Path);
                 return StatusCode(500, new { message = "Error checking job status." });
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════
+        // CLOSE READINESS  (pre-flight checklist — read only)
+        // GET /api/job/{jobId}/close-readiness?action=complete|cancel
+        // ═══════════════════════════════════════════════════════
+        [HttpGet("{jobId}/close-readiness")]
+        public async Task<IActionResult> CloseReadiness(string jobId, [FromQuery] string action = "complete")
+        {
+            try
+            {
+                var rows = await _dbcon.QueryAsync<dynamic>(
+                    "sp_GetJobCloseReadiness", new { JobId = jobId, Action = action });
+                return Ok(rows);
+            }
+            catch (Exception ex)
+            {
+                await _dbcon.WriteLog(ex, controller: "Job", action: "CloseReadiness", requestPath: HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Error loading close readiness." });
             }
         }
 
@@ -525,6 +547,33 @@ namespace ERPWEB.Controllers.Job
             {
                 await _dbcon.WriteLog(ex, controller: "Job", action: "GetLockState", requestPath: HttpContext.Request.Path);
                 return StatusCode(500, new { message = "Error retrieving job lock state." });
+            }
+        }
+
+        // GET /api/job/{jobId}/approval-readiness
+        // Returns a checklist of requirements that must be met before the job can
+        // be submitted for approval (Engineers, Terms, Documents, Meta, Finance).
+        [HttpGet("{jobId}/approval-readiness")]
+        public async Task<IActionResult> GetApprovalReadiness(string jobId)
+        {
+            try
+            {
+                var failures = (await _dbcon.QueryAsync<dynamic>("sp_ValidateJobForApproval",
+                    new { JobId = jobId }))?.ToList() ?? new List<dynamic>();
+                string[] allReqs = ["Finance", "Engineers", "Terms", "Documents", "Meta"];
+                var failMap = failures.ToDictionary(r => (string)r.Requirement, r => (string)r.Message);
+                var result = allReqs.Select(r => new
+                {
+                    requirement = r,
+                    ok          = !failMap.ContainsKey(r),
+                    message     = failMap.TryGetValue(r, out var m) ? m : (string?)null,
+                });
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                await _dbcon.WriteLog(ex, controller: "Job", action: "GetApprovalReadiness", requestPath: HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Error checking approval readiness." });
             }
         }
 

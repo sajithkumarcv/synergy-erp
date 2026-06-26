@@ -12,7 +12,7 @@ const InHouseStockReport = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    fetch(`${variables.API_URL}job/search?pageSize=500&page=1&sortCol=JobId&sortDir=ASC`, { headers: authHeaders() })
+    fetch(`${variables.API_URL}job/search?pageSize=500&page=1&sortCol=JobId&sortDir=ASC&approvalStatus=Approved`, { headers: authHeaders() })
       .then(r => r.json()).then(d => setJobs(d.data || [])).catch(console.error);
   }, []);
 

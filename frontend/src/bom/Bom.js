@@ -60,7 +60,7 @@ const JobSearchInput = ({ value, label, onChange, error }) => {
         timer.current = setTimeout(async () => {
             setLoading(true);
             try {
-                const r = await fetch(`${variables.API_URL}job/search?searchText=${encodeURIComponent(q)}&pageSize=10&page=1&sortCol=JobDate&sortDir=DESC&excludeClosedStatus=true`, { headers: authHeaders() });
+                const r = await fetch(`${variables.API_URL}job/search?searchText=${encodeURIComponent(q)}&pageSize=10&page=1&sortCol=JobDate&sortDir=DESC&excludeClosedStatus=true&approvalStatus=Approved`, { headers: authHeaders() });
                 const d = await r.json();
                 setResults(d.data || []);
                 setOpen(true);
@@ -73,7 +73,7 @@ const JobSearchInput = ({ value, label, onChange, error }) => {
         const lbl = `${j.jobId}${j.projectName ? ' — ' + j.projectName : ''}`;
         setQuery(lbl);
         setOpen(false);
-        onChange(j.jobId, lbl, j.jobTypeId || '');
+        onChange(j.jobId, lbl, j.jobTypeId || '', j.approvalStatus || '');
     };
 
     return (
@@ -114,12 +114,13 @@ const NewBomForm = ({ onClose, onSaved }) => {
     }, []);
 
     const [form, setForm] = useState({
-        jobId:          '',
-        jobLabel:       '',
-        jobTypeId:      '',
-        bomDate:        new Date().toISOString().slice(0, 10),
-        bomDescription: '',
-        bomVersion:     1,
+        jobId:              '',
+        jobLabel:           '',
+        jobTypeId:          '',
+        jobApprovalStatus:  '',
+        bomDate:            new Date().toISOString().slice(0, 10),
+        bomDescription:     '',
+        bomVersion:         1,
     });
     const [errors,    setErrors]    = useState({});
     const [saving,    setSaving]    = useState(false);
@@ -130,6 +131,7 @@ const NewBomForm = ({ onClose, onSaved }) => {
     const validate = () => {
         const e = {};
         if (!form.jobId)     e.jobId     = 'Job is required.';
+        else if (form.jobApprovalStatus !== 'Approved') e.jobId = 'BOM cannot be created — the selected job is not yet approved.';
         if (!form.jobTypeId) e.jobTypeId = 'Job Type is required.';
         if (!form.bomDate)   e.bomDate   = 'BOM Date is required.';
         return e;
@@ -193,8 +195,8 @@ const NewBomForm = ({ onClose, onSaved }) => {
                                 value={form.jobId}
                                 label={form.jobLabel}
                                 error={!!errors.jobId}
-                                onChange={(id, lbl, typeId) => {
-                                    setForm(f => ({ ...f, jobId: id, jobLabel: lbl, jobTypeId: typeId || f.jobTypeId }));
+                                onChange={(id, lbl, typeId, approvalStatus) => {
+                                    setForm(f => ({ ...f, jobId: id, jobLabel: lbl, jobTypeId: typeId || f.jobTypeId, jobApprovalStatus: approvalStatus || '' }));
                                     setErrors(p => ({ ...p, jobId: undefined, jobTypeId: undefined }));
                                 }}
                             />

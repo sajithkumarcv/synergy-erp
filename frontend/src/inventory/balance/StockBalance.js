@@ -7,7 +7,7 @@ import '../../procurement/Procurement.css';
 
 const DEFAULT_FILTERS = {
     itemTypeId: '', categoryId: '', subCategoryId: '', itemId: '',
-    stockType: '', dateFrom: '', dateTo: '', zeroStock: '',
+    stockType: '', dateFrom: '', dateTo: '', zeroStock: '', budgetCategoryId: '',
 };
 
 // ── Job Stock Breakdown popover ────────────────────────────────
@@ -218,7 +218,8 @@ const StockBalance = () => {
         if (af.stockType)     params.set('stockType',     af.stockType);
         if (af.dateFrom)      params.set('dateFrom',      af.dateFrom);
         if (af.dateTo)        params.set('dateTo',        af.dateTo);
-        if (af.zeroStock)     params.set('zeroStock',     '1');
+        if (af.zeroStock)          params.set('zeroStock',          '1');
+        if (af.budgetCategoryId)   params.set('budgetCategoryId',   af.budgetCategoryId);
         fetch(`${variables.API_URL}stockbalance?${params}`, { headers: authHeaders() })
             .then(r => r.json())
             .then(d => { const list = Array.isArray(d) ? d : []; setRows(list); setTotalRows(list.length); setPage(1); })
@@ -231,45 +232,48 @@ const StockBalance = () => {
     // allCategories holds the full flat list for subcategory derivation
     const allCatsRef = useRef([]);
 
-    const buildDefs = (types, cats, subcats, onCatChange) => ({
-        itemTypeId:    { label: 'Item Type',    type: 'select',            placeholder: 'All Types',          options: types },
-        categoryId:    { label: 'Category',     type: 'select',            placeholder: 'All Categories',     options: cats, onChange: onCatChange },
-        subCategoryId: { label: 'Sub-Category', type: 'select',            placeholder: 'All Sub-Categories', options: subcats },
-        itemId:        { label: 'Item',         type: 'searchable-select', placeholder: 'Search item…' },
-        stockType:     { label: 'Stock Type',   type: 'select',            placeholder: 'All',
+    const buildDefs = (types, cats, subcats, onCatChange, budgetCats) => ({
+        itemTypeId:       { label: 'Item Type',      type: 'select',            placeholder: 'All Types',          options: types },
+        categoryId:       { label: 'Category',       type: 'select',            placeholder: 'All Categories',     options: cats, onChange: onCatChange },
+        subCategoryId:    { label: 'Sub-Category',   type: 'select',            placeholder: 'All Sub-Categories', options: subcats },
+        itemId:           { label: 'Item',           type: 'searchable-select', placeholder: 'Search item…' },
+        budgetCategoryId: { label: 'Budget Header',  type: 'select',            placeholder: 'All Budget Headers', options: budgetCats },
+        stockType:        { label: 'Stock Type',     type: 'select',            placeholder: 'All',
             options: [{ value: 'JOB', label: 'Job Stock Only' }, { value: 'STORE', label: 'Store Stock Only' }] },
-        dateFrom:      { label: 'Receipt From', type: 'date' },
-        dateTo:        { label: 'Receipt To',   type: 'date' },
-        zeroStock:     { label: 'Zero Stock',   type: 'select',            placeholder: 'In Stock Only',
+        dateFrom:         { label: 'Receipt From',   type: 'date' },
+        dateTo:           { label: 'Receipt To',     type: 'date' },
+        zeroStock:        { label: 'Zero Stock',     type: 'select',            placeholder: 'In Stock Only',
             options: [{ value: '1', label: 'Include Zero Stock' }] },
     });
 
-    const makeCatChangeHandler = (allCats, types) => (catVal) => {
+    const makeCatChangeHandler = (allCats, types, budgetCats) => (catVal) => {
         const subcats = catVal
             ? allCats.filter(c => String(c.parentCategoryId) === String(catVal))
                      .map(c => ({ value: String(c.categoryId), label: c.categoryName }))
             : [];
         const topCats = allCats.filter(c => !c.parentCategoryId).map(c => ({ value: String(c.categoryId), label: c.categoryName }));
         setFilter('stock-balance', 'subCategoryId', '');
-        updateFilterDefs('stock-balance', buildDefs(types, topCats, subcats, makeCatChangeHandler(allCats, types)));
+        updateFilterDefs('stock-balance', buildDefs(types, topCats, subcats, makeCatChangeHandler(allCats, types, budgetCats), budgetCats));
     };
 
     useEffect(() => {
         const onApply = (vals) => { setApplied({ ...vals }); load(vals); };
-        registerFilters('stock-balance', buildDefs([], [], [], () => {}), DEFAULT_FILTERS, onApply);
+        registerFilters('stock-balance', buildDefs([], [], [], () => {}, []), DEFAULT_FILTERS, onApply);
         return () => unregisterFilters('stock-balance');
     }, []); // eslint-disable-line
 
     useEffect(() => {
         Promise.all([
-            fetch(`${variables.API_URL}item/types`,      { headers: authHeaders() }).then(r => r.json()).catch(() => []),
-            fetch(`${variables.API_URL}item/categories`, { headers: authHeaders() }).then(r => r.json()).catch(() => []),
-        ]).then(([types, cats]) => {
-            const allCats  = Array.isArray(cats) ? cats : [];
+            fetch(`${variables.API_URL}item/types`,         { headers: authHeaders() }).then(r => r.json()).catch(() => []),
+            fetch(`${variables.API_URL}item/categories`,    { headers: authHeaders() }).then(r => r.json()).catch(() => []),
+            fetch(`${variables.API_URL}lookup/budgetcategories`, { headers: authHeaders() }).then(r => r.json()).catch(() => []),
+        ]).then(([types, cats, budgets]) => {
+            const allCats    = Array.isArray(cats) ? cats : [];
             allCatsRef.current = allCats;
-            const topCats  = allCats.filter(c => !c.parentCategoryId).map(c => ({ value: String(c.categoryId), label: c.categoryName }));
-            const typeOpts = (Array.isArray(types) ? types : []).map(t => ({ value: String(t.itemTypeId), label: t.typeName }));
-            updateFilterDefs('stock-balance', buildDefs(typeOpts, topCats, [], makeCatChangeHandler(allCats, typeOpts)));
+            const topCats    = allCats.filter(c => !c.parentCategoryId).map(c => ({ value: String(c.categoryId), label: c.categoryName }));
+            const typeOpts   = (Array.isArray(types) ? types : []).map(t => ({ value: String(t.itemTypeId), label: t.typeName }));
+            const budgetOpts = (Array.isArray(budgets) ? budgets : []).map(b => ({ value: String(b.id), label: b.name }));
+            updateFilterDefs('stock-balance', buildDefs(typeOpts, topCats, [], makeCatChangeHandler(allCats, typeOpts, budgetOpts), budgetOpts));
         });
     }, []); // eslint-disable-line
 

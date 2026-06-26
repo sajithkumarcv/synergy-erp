@@ -10,6 +10,30 @@ namespace ERPWEB.Controllers.General
         private readonly DbCon _dbcon;
         public DashboardController(DbCon dbcon) { _dbcon = dbcon; }
 
+        [HttpGet("drafts")]
+        public async Task<IActionResult> GetMyDrafts([FromQuery] int userId = 0)
+        {
+            try
+            {
+                var rows = await _dbcon.QueryAsync<dynamic>("sp_GetMyDrafts", new { UserId = userId });
+                var result = rows.Select(r => new {
+                    docType     = (string?)r.DocType,
+                    docId       = (int)r.DocId,
+                    docNo       = (string?)r.DocNo,
+                    jobId       = (string?)r.JobId,
+                    createdDate = (DateTime?)r.CreatedDate,
+                    daysOld     = (int)r.DaysOld,
+                    lineCount   = (int)r.LineCount,
+                });
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                await _dbcon.WriteLog(ex, controller: "Dashboard", action: "GetMyDrafts", requestPath: HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Failed to load drafts." });
+            }
+        }
+
         [HttpGet]
         public async Task<IActionResult> Get([FromQuery] int userId = 0)
         {

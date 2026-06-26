@@ -534,7 +534,7 @@ const MomFormModal = ({ mom, currentUser, onClose, onSaved }) => {
         if (q.length < 1) { setJobResults([]); return; }
         jobTimer.current = setTimeout(() => {
             setJobLoading(true);
-            fetch(`${variables.API_URL}job/search?searchText=${encodeURIComponent(q)}&pageSize=15&page=1&sortCol=JobDate&sortDir=DESC`, { headers: authHeaders() })
+            fetch(`${variables.API_URL}job/search?searchText=${encodeURIComponent(q)}&pageSize=15&page=1&sortCol=JobDate&sortDir=DESC&excludeClosedStatus=true&approvalStatus=Approved`, { headers: authHeaders() })
                 .then(r => r.json())
                 .then(d => setJobResults(Array.isArray(d?.data) ? d.data : []))
                 .catch(console.error)

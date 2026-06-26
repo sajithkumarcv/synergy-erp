@@ -357,6 +357,7 @@ const PoForm = ({ onClose, onSaved }) => {
     const [saving,          setSaving]          = useState(false);
     const [error,           setError]           = useState('');
     const [previewNo,       setPreviewNo]       = useState('');
+    const [draftWarn,       setDraftWarn]       = useState(null);
 
     useEffect(() => {
         fetch(`${variables.API_URL}documentseries/preview/PO`, { headers: authHeaders() })
@@ -400,7 +401,7 @@ const PoForm = ({ onClose, onSaved }) => {
     useEffect(() => {
         if (!jobSearch.trim()) { setJobResults([]); return; }
         const t = setTimeout(() => {
-            fetch(`${variables.API_URL}job/search?searchText=${encodeURIComponent(jobSearch)}&pageSize=10&page=1&excludeClosedStatus=true`, { headers: authHeaders() })
+            fetch(`${variables.API_URL}job/search?searchText=${encodeURIComponent(jobSearch)}&pageSize=10&page=1&excludeClosedStatus=true&approvalStatus=Approved`, { headers: authHeaders() })
                 .then(r => r.json()).then(d => setJobResults(d.data || [])).catch(console.error);
         }, 280);
         return () => clearTimeout(t);
@@ -476,6 +477,47 @@ const PoForm = ({ onClose, onSaved }) => {
 
     return (
         <div className="pf-overlay">
+            {/* ── Draft POs warning modal ── */}
+            {draftWarn && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ background: '#fff', borderRadius: 10, padding: 24, maxWidth: 480, width: '92%', boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                            <span style={{ fontSize: 22 }}>⚠️</span>
+                            <div>
+                                <div style={{ fontWeight: 700, fontSize: 14, color: '#92400e' }}>Draft POs already exist for this job</div>
+                                <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Consider opening one of these before creating a new PO.</div>
+                            </div>
+                        </div>
+                        <div style={{ borderRadius: 6, border: '1px solid #fde68a', background: '#fffbeb', padding: '8px 0', marginBottom: 16 }}>
+                            {draftWarn.map(r => (
+                                <div key={r.poId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 12px', borderBottom: '1px solid #fef3c7' }}>
+                                    <span style={{ fontFamily: 'Courier New', fontSize: 12, fontWeight: 700, color: '#065f46', background: '#d1fae5', padding: '2px 7px', borderRadius: 4 }}>
+                                        {r.poNumber}
+                                    </span>
+                                    <span style={{ fontSize: 11, color: '#64748b' }}>
+                                        {(() => { const lc = r.lineCount ?? 0; return lc === 0 ? <span style={{ color: '#dc2626', fontWeight: 600 }}>No lines</span> : `${lc} line${lc !== 1 ? 's' : ''}`; })()}
+                                        {r.poDate ? ` · ${fmtDate(r.poDate)}` : ''}
+                                    </span>
+                                    <a href={`/purchase-orders/${r.poId}`} target="_blank" rel="noreferrer"
+                                        style={{ fontSize: 11, color: '#2563eb', fontWeight: 600, textDecoration: 'none' }}>
+                                        Open ↗
+                                    </a>
+                                </div>
+                            ))}
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                            <button onClick={() => setDraftWarn(null)}
+                                style={{ padding: '6px 18px', borderRadius: 6, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#475569', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>
+                                Create Anyway
+                            </button>
+                            <button onClick={() => { setDraftWarn(null); setForm(p => ({ ...p, jobId: '', jobLabel: '' })); setJobSearch(''); }}
+                                style={{ padding: '6px 18px', borderRadius: 6, border: 'none', background: '#1e40af', color: '#fff', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
             <div className="pf-panel">
                 <div className="pf-header">
                     <div>
@@ -524,7 +566,15 @@ const PoForm = ({ onClose, onSaved }) => {
                                         <div style={dropStyle}>
                                             {jobResults.map(j => (
                                                 <div key={j.jobId} style={dropItem}
-                                                    onClick={() => { setForm(p => ({ ...p, jobId: j.jobId, jobLabel: `${j.jobId}${j.projectName ? ' — ' + j.projectName : ''}` })); setJobSearch(''); setJobResults([]); if (errors.jobId) setErrors(p => ({ ...p, jobId: undefined })); }}
+                                                    onClick={() => {
+                                        setForm(p => ({ ...p, jobId: j.jobId, jobLabel: `${j.jobId}${j.projectName ? ' — ' + j.projectName : ''}` }));
+                                        setJobSearch(''); setJobResults([]);
+                                        if (errors.jobId) setErrors(p => ({ ...p, jobId: undefined }));
+                                        fetch(`${variables.API_URL}purchaseorder/search?jobId=${encodeURIComponent(j.jobId)}&status=Draft&pageSize=50&page=1`, { headers: authHeaders() })
+                                            .then(r => r.ok ? r.json() : null)
+                                            .then(d => { const drafts = d?.data || []; if (drafts.length > 0) setDraftWarn(drafts); })
+                                            .catch(() => {});
+                                    }}
                                                     onMouseEnter={e => e.currentTarget.style.background='#f0f9ff'}
                                                     onMouseLeave={e => e.currentTarget.style.background='#fff'}>
                                                     <strong>{j.jobId}</strong>
@@ -862,7 +912,7 @@ export const Po = () => {
                             {rows.length === 0 && !loading ? (
                                 <tr><td colSpan={9} className="po-empty">No purchase orders found. Use the filters on the left or create a new PO.</td></tr>
                             ) : rows.map(r => (
-                                <tr key={r.poId}>
+                                <tr key={r.poId} style={r.status === 'Draft' ? { background: '#fffbeb' } : undefined}>
                                     <td>
                                         <RowLink className="po-num-link" to={`/purchase-orders/${r.poId}`}>
                                             {r.poNumber}

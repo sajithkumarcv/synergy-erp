@@ -185,9 +185,11 @@ namespace ERPWEB.Controllers.Job
                     qty            = (decimal?)r.Qty,
                     uomId          = (int?)r.UomId,
                     uomCode        = (string?)r.UomCode,
-                    unitPrice      = (decimal?)r.UnitPrice,
-                    lineTotal      = (decimal?)r.LineTotal,
-                    notes          = (string?)r.Notes,
+                    unitPrice                 = (decimal?)r.UnitPrice,
+                    lineTotal                 = (decimal?)r.LineTotal,
+                    notes                     = (string?)r.Notes,
+                    lastPurchasePrice         = (decimal?)r.LastPurchasePrice,
+                    lastPurchaseCurrencyShort = (string?)r.LastPurchaseCurrencyShort,
                 });
                 return Ok(result);
             }
@@ -201,11 +203,7 @@ namespace ERPWEB.Controllers.Job
         [HttpPost("item/save")]
         public async Task<IActionResult> SaveItem([FromBody] SaveBudgetItemRequest m)
         {
-            // Financial-edit guard: reason (≥10 chars) + budget password required.
-            var reasonErr = Security.FinancialGuard.ValidateReason(m.Reason);
-            if (reasonErr != null) return BadRequest(new { message = reasonErr });
-            if (!await Security.FinancialGuard.VerifyBudgetPasswordAsync(_dbcon, User.Identity?.Name ?? m.ModifiedBy ?? m.CreatedBy, m.Password))
-                return BadRequest(new { message = "Incorrect budget password." });
+            // No password guard on draft-budget item edits — the budget approval step is the financial gate.
             try
             {
                 var rows = await _dbcon.QueryAsync<dynamic>("sp_SetJobBudgetItem", new
@@ -214,7 +212,7 @@ namespace ERPWEB.Controllers.Job
                     m.Qty, m.UomId, m.UnitPrice, m.Notes, m.CreatedBy, m.ModifiedBy, m.Reason
                 });
                 var r = rows?.FirstOrDefault();
-                return Ok(new { budgetItemId = (int?)r?.BudgetItemId, categoryTotal = (decimal?)r?.CategoryTotal });
+                return Ok(new { budgetItemId = (int?)r?.BudgetItemId });
             }
             catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000)
             {
@@ -230,13 +228,9 @@ namespace ERPWEB.Controllers.Job
 
         [HttpDelete("item/{budgetItemId:int}")]
         public async Task<IActionResult> DeleteItem(int budgetItemId, [FromQuery] string? modifiedBy = null,
-            [FromQuery] string? password = null, [FromQuery] string? reason = null)
+            [FromQuery] string? reason = null)
         {
-            // Financial-edit guard: reason (≥10 chars) + budget password required.
-            var reasonErr = Security.FinancialGuard.ValidateReason(reason);
-            if (reasonErr != null) return BadRequest(new { message = reasonErr });
-            if (!await Security.FinancialGuard.VerifyBudgetPasswordAsync(_dbcon, User.Identity?.Name ?? modifiedBy, password))
-                return BadRequest(new { message = "Incorrect budget password." });
+            // No password guard on draft-budget item deletes — the budget approval step is the financial gate.
             try
             {
                 await _dbcon.QueryAsync<dynamic>("sp_DeleteJobBudgetItem",

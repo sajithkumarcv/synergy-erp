@@ -81,7 +81,7 @@ const LinesTab = ({ receipt, lines, onRefresh, currentUser }) => {
     const [saving,  setSaving]  = useState(false);
     const [deleting, setDeleting] = useState(null);
     const [addOpen, setAddOpen] = useState(false);
-    const [form, setForm]       = useState({ item: null, itemDesc: '', qty: '', unitCost: '', uomId: '', uomName: '', isJobStock: receipt.receiptType === 'JOB', jobId: receipt.jobId || '', jobIsStockJob: null, notes: '' });
+    const [form, setForm]       = useState({ item: null, itemDesc: '', qty: '', unitCost: '', uomId: '', uomName: '', isJobStock: receipt.receiptType === 'JOB', jobId: receipt.jobId || '', jobIsInHouse: null, notes: '' });
     const [formErr, setFormErr] = useState({});
     const [editLine, setEditLine] = useState(null);  // line being edited
 
@@ -103,7 +103,7 @@ const LinesTab = ({ receipt, lines, onRefresh, currentUser }) => {
 
     const openAdd = () => {
         setEditLine(null);
-        setForm({ item: null, itemDesc: '', qty: '', unitCost: '', uomId: '', uomName: '', isJobStock: receipt.receiptType === 'JOB', jobId: receipt.jobId || '', jobIsStockJob: null, notes: '' });
+        setForm({ item: null, itemDesc: '', qty: '', unitCost: '', uomId: '', uomName: '', isJobStock: receipt.receiptType === 'JOB', jobId: receipt.jobId || '', jobIsInHouse: null, notes: '' });
         setJobLabel(receipt.jobId || ''); setJobSearch(''); setJobResults([]);
         setFormErr({});
         setAddOpen(true);
@@ -120,7 +120,7 @@ const LinesTab = ({ receipt, lines, onRefresh, currentUser }) => {
             uomName: line.uomName || '',
             isJobStock: line.isJobStock,
             jobId: line.lineJobId || '',
-            jobIsStockJob: null,
+            jobIsInHouse: null,
             notes: line.notes || '',
         });
         setJobLabel(line.lineJobId || ''); setJobSearch(''); setJobResults([]);
@@ -355,7 +355,7 @@ const LinesTab = ({ receipt, lines, onRefresh, currentUser }) => {
                         <div className="invd-field">
                             <label className="invd-label">
                                 <input type="checkbox" checked={form.isJobStock}
-                                    onChange={e => { const on = e.target.checked; setForm(f => ({ ...f, isJobStock: on, jobId: on ? f.jobId : '', jobIsStockJob: on ? f.jobIsStockJob : null })); if (!on) { setJobLabel(''); setJobSearch(''); setJobResults([]); } }}
+                                    onChange={e => { const on = e.target.checked; setForm(f => ({ ...f, isJobStock: on, jobId: on ? f.jobId : '', jobIsInHouse: on ? f.jobIsInHouse : null })); if (!on) { setJobLabel(''); setJobSearch(''); setJobResults([]); } }}
                                     style={{ marginRight: 5 }} />
                                 Link to a Job
                             </label>
@@ -366,15 +366,15 @@ const LinesTab = ({ receipt, lines, onRefresh, currentUser }) => {
                                         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                                             <span className="invd-input" style={{ flex: 1, background: '#f0fdf4', color: '#166534', fontWeight: 500 }}>✓ {jobLabel}</span>
                                             <button type="button"
-                                                onClick={() => { setJobLabel(''); setForm(f => ({ ...f, jobId: '', jobIsStockJob: null })); setJobSearch(''); setJobResults([]); }}
+                                                onClick={() => { setJobLabel(''); setForm(f => ({ ...f, jobId: '', jobIsInHouse: null })); setJobSearch(''); setJobResults([]); }}
                                                 style={{ background: '#fee2e2', border: 'none', borderRadius: 5, padding: '6px 10px', cursor: 'pointer', color: '#991b1b', fontWeight: 700 }}>✕</button>
                                         </div>
-                                        {form.jobIsStockJob != null && (
+                                        {form.jobIsInHouse != null && (
                                             <div style={{ marginTop: 4, fontSize: 11, fontWeight: 600,
-                                                color: form.jobIsStockJob ? '#0369a1' : '#9a3412' }}>
-                                                {form.jobIsStockJob
-                                                    ? '🏭 In-house job → adds to general store stock'
-                                                    : '👤 Customer job → reserved as job stock'}
+                                                color: form.jobIsInHouse ? '#0369a1' : '#9a3412' }}>
+                                                {form.jobIsInHouse
+                                                    ? '🏭 In-house job — stock goes to store stock'
+                                                    : '👤 Customer job — stock reserved as job stock'}
                                             </div>
                                         )}
                                         </>
@@ -388,7 +388,7 @@ const LinesTab = ({ receipt, lines, onRefresh, currentUser }) => {
                                                         <div key={j.jobId}
                                                             style={{ padding: '7px 10px', cursor: 'pointer', fontSize: 12.5, borderBottom: '1px solid #f1f5f9' }}
                                                             onClick={() => {
-                                                                setForm(f => ({ ...f, jobId: j.jobId, jobIsStockJob: !!j.isStockJob }));
+                                                                setForm(f => ({ ...f, jobId: j.jobId, jobIsInHouse: !!j.isBudgetHeaderLinked }));
                                                                 setJobLabel(`${j.jobId}${j.projectName ? ' — ' + j.projectName : ''}`);
                                                                 setJobSearch(''); setJobResults([]);
                                                             }}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { variables, authHeaders } from '../Variable';
 import { useCurrentUser } from '../AuthContext';
 import ConfirmModal from '../common/ConfirmModal';
@@ -211,6 +211,8 @@ const ReviseModal = ({ invoiceNo, onClose, onConfirm }) => {
 const InvoiceDetailPage = () => {
     const { id }              = useParams();
     const navigate            = useNavigate();
+    const [searchParams]      = useSearchParams();
+    const autoPrint           = searchParams.get('print') === '1';
     const currentUser         = useCurrentUser();
     const { getStatusConfig } = useLookup();
     const { canDo }           = usePermission();
@@ -252,6 +254,7 @@ const InvoiceDetailPage = () => {
     }, [id]);
 
     useEffect(() => { loadInvoice(); loadPayments(); }, [loadInvoice, loadPayments]);
+    useEffect(() => { if (invoice && autoPrint) setShowPrint(1); }, [invoice, autoPrint]);
 
     const deleteInvoice = () => {
         setConfirm({

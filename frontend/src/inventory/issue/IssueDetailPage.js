@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { variables, authHeaders } from '../../Variable';
 import { useCurrentUser } from '../../AuthContext';
 import ConfirmModal from '../../common/ConfirmModal';
@@ -19,6 +19,8 @@ import AlertModal from '../../common/AlertModal';
 const IssueDetailPage = () => {
     const { id }              = useParams();
     const navigate            = useNavigate();
+    const [searchParams]      = useSearchParams();
+    const autoPrint           = searchParams.get('print') === '1';
     const currentUser         = useCurrentUser();
     const { getStatusConfig } = useLookup();
     const { canDo }           = usePermission();
@@ -48,6 +50,7 @@ const IssueDetailPage = () => {
     }, [id]);
 
     useEffect(() => { loadIssue(); }, [loadIssue]);
+    useEffect(() => { if (issue && autoPrint) setShowPrint(true); }, [issue, autoPrint]);
 
     // Close status menu on outside click
     useEffect(() => {

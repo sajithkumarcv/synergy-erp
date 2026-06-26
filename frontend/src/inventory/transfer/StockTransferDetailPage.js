@@ -46,7 +46,7 @@ const StockTransferDetailPage = () => {
     useEffect(() => { load(); }, [load]);
 
     useEffect(() => {
-        fetch(`${variables.API_URL}job/search?pageSize=500&page=1&sortCol=JobId&sortDir=ASC`, { headers: authHeaders() })
+        fetch(`${variables.API_URL}job/search?pageSize=500&page=1&sortCol=JobId&sortDir=ASC&excludeClosedStatus=true&approvalStatus=Approved`, { headers: authHeaders() })
             .then(r => r.json()).then(d => setJobs(d.data || [])).catch(console.error);
     }, []);
 

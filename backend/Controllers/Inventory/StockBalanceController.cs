@@ -19,29 +19,31 @@ namespace ERPWEB.Controllers.Inventory
         // ═══════════════════════════════════════════════════════
         [HttpGet]
         public async Task<IActionResult> GetBalance(
-            [FromQuery] string? searchText     = null,
-            [FromQuery] int?    categoryId     = null,
-            [FromQuery] int?    subCategoryId  = null,
-            [FromQuery] int?    itemTypeId     = null,
-            [FromQuery] int?    itemId         = null,
-            [FromQuery] string? stockType      = null,
-            [FromQuery] string? dateFrom       = null,
-            [FromQuery] string? dateTo         = null,
-            [FromQuery] bool    zeroStock      = false)
+            [FromQuery] string? searchText       = null,
+            [FromQuery] int?    categoryId       = null,
+            [FromQuery] int?    subCategoryId    = null,
+            [FromQuery] int?    itemTypeId       = null,
+            [FromQuery] int?    itemId           = null,
+            [FromQuery] string? stockType        = null,
+            [FromQuery] string? dateFrom         = null,
+            [FromQuery] string? dateTo           = null,
+            [FromQuery] bool    zeroStock        = false,
+            [FromQuery] int?    budgetCategoryId = null)
         {
             try
             {
                 var rows = await _dbcon.QueryAsync<StockBalance>("sp_GetStockBalance", new
                 {
-                    SearchText    = string.IsNullOrWhiteSpace(searchText) ? null : searchText.Trim(),
-                    CategoryId    = categoryId,
-                    SubCategoryId = subCategoryId,
-                    ItemTypeId    = itemTypeId,
-                    ItemId        = itemId,
-                    StockType     = string.IsNullOrWhiteSpace(stockType) ? null : stockType.Trim().ToUpper(),
-                    DateFrom      = string.IsNullOrWhiteSpace(dateFrom) ? (DateTime?)null : DateTime.Parse(dateFrom),
-                    DateTo        = string.IsNullOrWhiteSpace(dateTo)   ? (DateTime?)null : DateTime.Parse(dateTo),
-                    ZeroStock     = zeroStock ? 1 : 0
+                    SearchText       = string.IsNullOrWhiteSpace(searchText) ? null : searchText.Trim(),
+                    CategoryId       = categoryId,
+                    SubCategoryId    = subCategoryId,
+                    ItemTypeId       = itemTypeId,
+                    ItemId           = itemId,
+                    StockType        = string.IsNullOrWhiteSpace(stockType) ? null : stockType.Trim().ToUpper(),
+                    DateFrom         = string.IsNullOrWhiteSpace(dateFrom) ? (DateTime?)null : DateTime.Parse(dateFrom),
+                    DateTo           = string.IsNullOrWhiteSpace(dateTo)   ? (DateTime?)null : DateTime.Parse(dateTo),
+                    ZeroStock        = zeroStock ? 1 : 0,
+                    BudgetCategoryId = budgetCategoryId
                 });
                 return Ok(rows ?? Enumerable.Empty<StockBalance>());
             }

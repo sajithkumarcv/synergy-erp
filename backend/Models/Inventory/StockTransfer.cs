@@ -42,6 +42,18 @@ namespace ERPWEB.Models.Inventory
         public string?  Notes          { get; set; }
     }
 
+    public class TransferStockItem
+    {
+        public int     ItemId       { get; set; }
+        public string? ItemCode     { get; set; }
+        public string? ItemName     { get; set; }
+        public int?    UomId        { get; set; }
+        public string? UomName      { get; set; }
+        public string? UomCode      { get; set; }
+        public decimal AvailableQty { get; set; }
+        public decimal AvgUnitCost  { get; set; }
+    }
+
     public class SaveTransferRequest
     {
         public int       TransferId      { get; set; }

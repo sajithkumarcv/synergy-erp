@@ -88,7 +88,7 @@ const DocumentsTab = ({ job }) => {
 
         fetch(`${variables.API_URL}document/JOB/${encodeURIComponent(job.jobId)}`, {
             method: 'POST',
-            headers: { Authorization: `Bearer ${localStorage.getItem('erp_token') || ''}` },
+            headers: { Authorization: `Bearer ${sessionStorage.getItem('erp_token') || ''}` },
             body: fd,
         })
             .then(r => r.json().then(d => ({ ok: r.ok, d })))
