@@ -117,8 +117,10 @@ namespace ERPWEB.Models.Procurement
 
     public class ChangeInvoiceStatusRequest
     {
-        public int    SupplierInvoiceId { get; set; }
-        public string NewStatus         { get; set; } = string.Empty;
+        public int     SupplierInvoiceId { get; set; }
+        public string  NewStatus         { get; set; } = string.Empty;
+        public string? LoginPassword     { get; set; }
+        public string? ChangedBy         { get; set; }
     }
 
     public class ReviseSupplierInvoiceRequest

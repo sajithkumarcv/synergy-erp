@@ -108,7 +108,7 @@ const ApprovalActionModal = ({ transactionId, allowedActions = ['Approve','Rejec
                             Budget Password <span style={{ color: '#dc2626' }}>*</span>
                         </div>
                         <input
-                            type="password"
+                            type="password" autoComplete="new-password"
                             className="pf-input"
                             placeholder="Enter budget override password…"
                             value={ovPassword}
@@ -189,7 +189,7 @@ const ApprovalActionModal = ({ transactionId, allowedActions = ['Approve','Rejec
                                 Your Login Password <span style={{ color: '#dc2626' }}>*</span>
                             </div>
                             <input
-                                type="password"
+                                type="password" autoComplete="new-password"
                                 className="pf-input"
                                 placeholder="Enter your login password to confirm…"
                                 value={loginPassword}

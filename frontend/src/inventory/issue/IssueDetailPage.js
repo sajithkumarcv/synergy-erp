@@ -15,6 +15,7 @@ import '../../jobs/JobDetail.css';
 import '../Inventory.css';
 import '../../procurement/Procurement.css';
 import AlertModal from '../../common/AlertModal';
+import LoginPasswordModal from '../../common/LoginPasswordModal';
 
 const IssueDetailPage = () => {
     const { id }              = useParams();
@@ -37,6 +38,7 @@ const IssueDetailPage = () => {
     const [confirming,     setConfirming]     = useState(false);
     const [alertMsg,       setAlertMsg]       = useState(null);
     const [confirm,        setConfirm]        = useState(null);
+    const [showLoginPw,    setShowLoginPw]    = useState(false); // password gate before Confirm
     const statusRef = useRef(null);
 
     const loadIssue = useCallback(() => {
@@ -81,7 +83,7 @@ const IssueDetailPage = () => {
         setPendingStatus(newStatus);
     };
 
-    const doChangeStatus = async () => {
+    const doChangeStatus = async (loginPassword = null) => {
         const newStatus = pendingStatus;
         if (!newStatus) return;
         setConfirming(true);
@@ -91,7 +93,7 @@ const IssueDetailPage = () => {
             if (newStatus === 'Confirmed') {
                 res = await fetch(`${variables.API_URL}stockissue/${id}/confirm`, {
                     method: 'POST', headers: authHeaders(),
-                    body: JSON.stringify({ modifiedBy: currentUser }),
+                    body: JSON.stringify({ modifiedBy: currentUser, loginPassword }),
                 });
                 d = await res.json().catch(() => ({}));
                 if (!res.ok) { setActionError(d?.message || `Confirm failed (HTTP ${res.status}).`); return; }
@@ -340,7 +342,9 @@ const IssueDetailPage = () => {
                                 style={{ padding: '7px 18px', borderRadius: 6, border: '1px solid #cbd5e1', background: '#f8fafc', fontSize: 13, cursor: 'pointer' }}>
                                 Back
                             </button>
-                            <button onClick={doChangeStatus} disabled={confirming}
+                            <button
+                                onClick={() => isCancel ? doChangeStatus() : setShowLoginPw(true)}
+                                disabled={confirming}
                                 style={{ padding: '7px 18px', borderRadius: 6, border: 'none', background: isCancel ? '#dc2626' : '#059669', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: confirming ? .7 : 1 }}>
                                 {confirming ? (isCancel ? 'Cancelling…' : 'Confirming…') : (isCancel ? '🚫 Cancel Note' : '✅ Confirm Issue')}
                             </button>
@@ -350,6 +354,15 @@ const IssueDetailPage = () => {
                 );
             })()}
             {alertMsg && <AlertModal message={alertMsg} onClose={() => setAlertMsg(null)} />}
+            {showLoginPw && (
+                <LoginPasswordModal
+                    title="Confirm Issue Note"
+                    message="Enter your login password to confirm and post this Issue Note. Stock will be deducted upon confirmation."
+                    onConfirm={(pw) => { setShowLoginPw(false); doChangeStatus(pw); }}
+                    onClose={() => setShowLoginPw(false)}
+                    loading={confirming}
+                />
+            )}
         </div>
     );
 };

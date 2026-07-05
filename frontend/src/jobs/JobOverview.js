@@ -348,7 +348,7 @@ const PasswordModal = ({ title, message, onCancel, onConfirm, busy }) => {
                 <label style={{ fontSize: 11.5, fontWeight: 600, color: '#374151', display: 'block', margin: '12px 0 4px' }}>
                     Budget password <span style={{ color: '#dc2626' }}>*</span>
                 </label>
-                <input type="password" className="pf-input"
+                <input type="password" autoComplete="new-password" className="pf-input"
                     style={{ width: '100%', padding: '7px 10px', fontSize: 13 }}
                     value={pwd} onChange={e => setPwd(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && submit()}

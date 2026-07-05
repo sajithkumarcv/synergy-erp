@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { variables, authHeaders } from '../Variable';
 import { useCurrentUserId, useCurrentUser } from '../AuthContext';
 import ConfirmModal from '../common/ConfirmModal';
+import LoginPasswordModal from '../common/LoginPasswordModal';
 import { useFilters } from '../FilterContext';
 import DocPreviewDrawer from './DocPreviewDrawer';
 import '../procurement/Procurement.css';
@@ -34,7 +35,7 @@ const BudgetOverrideModal = ({ info, busy, onConfirm, onCancel }) => {
                     <label style={{ fontSize: 11, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.04em' }}>
                         Budget Password <span style={{ color: '#dc2626' }}>*</span>
                     </label>
-                    <input type="password" value={password} autoFocus disabled={busy}
+                    <input type="password" autoComplete="new-password" value={password} autoFocus disabled={busy}
                         onChange={e => { setPassword(e.target.value); setErr(''); }}
                         onKeyDown={e => { if (e.key === 'Enter') submit(); }}
                         style={{ width: '100%', padding: '7px 10px', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }} />
@@ -102,7 +103,8 @@ const DEFAULT_FILTERS = {
 const ApprovalRow = ({ item, route, colSpan, expanded, onToggle, onOpen, onAction, acting, selected, onSelect, onPreview }) => {
     const currentUsers = (item.approverUsers     || '').split(', ').filter(Boolean);
     const nextUsers    = (item.nextApproverUsers || '').split(', ').filter(Boolean);
-    const [remarks, setRemarks] = useState('');
+    const [remarks,  setRemarks]  = useState('');
+    const [password, setPassword] = useState('');
     const busy = acting === item.transactionId;
 
     return (
@@ -212,7 +214,23 @@ const ApprovalRow = ({ item, route, colSpan, expanded, onToggle, onOpen, onActio
                                         style={{ width: '100%', boxSizing: 'border-box', fontSize: 12.5, padding: '7px 10px',
                                                  border: '1px solid #cbd5e1', borderRadius: 6, resize: 'vertical', fontFamily: 'inherit' }}
                                     />
-                                    <div style={{ display: 'flex', gap: 8, marginTop: 8, justifyContent: 'flex-end' }}>
+                                    <div style={{ marginTop: 8, marginBottom: 8 }}>
+                                        <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 4 }}>
+                                            Login Password <span style={{ color: '#dc2626' }}>*</span>
+                                            <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, marginLeft: 6, color: '#94a3b8' }}>(required to approve)</span>
+                                        </div>
+                                        <input
+                                            type="password" autoComplete="new-password"
+                                            value={password}
+                                            onChange={e => setPassword(e.target.value)}
+                                            placeholder="Enter your login password…"
+                                            disabled={busy}
+                                            onKeyDown={e => { if (e.key === 'Enter' && password.trim()) onAction(item, 'Approve', remarks, null, false, password.trim()); }}
+                                            style={{ width: '100%', boxSizing: 'border-box', fontSize: 12.5, padding: '7px 10px',
+                                                     border: '1px solid #bfdbfe', borderRadius: 6, fontFamily: 'inherit' }}
+                                        />
+                                    </div>
+                                    <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                                         <button
                                             onClick={() => onAction(item, 'Reject', remarks)}
                                             disabled={busy}
@@ -222,7 +240,7 @@ const ApprovalRow = ({ item, route, colSpan, expanded, onToggle, onOpen, onActio
                                             {busy ? '…' : '✗ Reject'}
                                         </button>
                                         <button
-                                            onClick={() => onAction(item, 'Approve', remarks)}
+                                            onClick={() => onAction(item, 'Approve', remarks, null, false, password.trim())}
                                             disabled={busy}
                                             style={{ padding: '6px 16px', fontSize: 12.5, fontWeight: 600, borderRadius: 6,
                                                      border: 'none', background: '#16a34a', color: '#fff',
@@ -333,7 +351,8 @@ const CategorySection = ({ moduleCode, items, onOpen, onToggle, onAction, expand
 
 // ── Bulk action bar ───────────────────────────────────────────────────────
 const BulkBar = ({ count, allActionableCount, onSelectAll, onClearAll, onApprove, busy, progress }) => {
-    const [remarks, setRemarks] = useState('');
+    const [remarks,    setRemarks]    = useState('');
+    const [showPwModal, setShowPwModal] = useState(false);
 
     return (
         <div style={{
@@ -372,8 +391,17 @@ const BulkBar = ({ count, allActionableCount, onSelectAll, onClearAll, onApprove
                 }}
             />
 
+            {showPwModal && (
+                <LoginPasswordModal
+                    title={`Approve ${count} item${count !== 1 ? 's' : ''}`}
+                    message={`Enter your login password to bulk-approve ${count} selected document${count !== 1 ? 's' : ''}.`}
+                    loading={busy}
+                    onConfirm={(pw) => { setShowPwModal(false); onApprove(remarks, pw); }}
+                    onClose={() => setShowPwModal(false)}
+                />
+            )}
             <button
-                onClick={() => onApprove(remarks)}
+                onClick={() => setShowPwModal(true)}
                 disabled={busy}
                 style={{
                     padding: '8px 20px', borderRadius: 7, border: 'none',
@@ -529,14 +557,14 @@ const MyApprovalsPage = () => {
 
     // ── Single action (used by individual rows) ──────────────────
     // `override` = { budgetPassword, overrideReason } when re-trying past a budget block
-    const doAction = async (item, action, remarks, override = null, skipRejectGuard = false) => {
+    const doAction = async (item, action, remarks, override = null, skipRejectGuard = false, loginPassword = null) => {
         if (action === 'Reject' && !remarks?.trim() && !skipRejectGuard) {
             setConfirm({
                 title: 'Confirm Rejection',
                 message: 'Reject without remarks?',
                 confirmLabel: 'Reject',
                 confirmStyle: { background: '#dc2626', color: '#fff' },
-                onConfirm: () => { setConfirm(null); doAction(item, action, remarks, override, true); },
+                onConfirm: () => { setConfirm(null); doAction(item, action, remarks, override, true, loginPassword); },
             });
             return;
         }
@@ -550,6 +578,7 @@ const MyApprovalsPage = () => {
                     actionBy:       userId,
                     actionByName:   currentUser,
                     remarks:        remarks?.trim() || null,
+                    loginPassword:  action === 'Approve' ? (loginPassword || null) : null,
                     budgetPassword: override?.budgetPassword || null,
                     overrideReason: override?.overrideReason || null,
                 }),
@@ -559,7 +588,7 @@ const MyApprovalsPage = () => {
                 const msg = d?.message || 'Action failed.';
                 // First time we hit a budget block (no override yet): offer the override modal
                 if (action === 'Approve' && !override && isBudgetBlock(msg)) {
-                    setBudgetOverride({ item, remarks: remarks || '', message: msg });
+                    setBudgetOverride({ item, remarks: remarks || '', message: msg, loginPassword });
                 } else {
                     setToast(`⚠ ${msg}`);
                 }
@@ -578,7 +607,7 @@ const MyApprovalsPage = () => {
     };
 
     // ── Bulk approve ─────────────────────────────────────────────
-    const doBulkApprove = async (remarks) => {
+    const doBulkApprove = async (remarks, loginPassword = null) => {
         const toApprove = allActionableItems.filter(i => selected.has(i.transactionId));
         if (toApprove.length === 0) return;
 
@@ -598,6 +627,7 @@ const MyApprovalsPage = () => {
                         actionBy:      userId,
                         actionByName:  currentUser,
                         remarks:       remarks?.trim() || null,
+                        loginPassword: loginPassword || null,
                     }),
                 });
                 if (res.ok) { succeeded++; }
@@ -763,7 +793,7 @@ const MyApprovalsPage = () => {
                     info={budgetOverride}
                     busy={acting === budgetOverride.item.transactionId}
                     onCancel={() => setBudgetOverride(null)}
-                    onConfirm={(override) => doAction(budgetOverride.item, 'Approve', budgetOverride.remarks, override)}
+                    onConfirm={(override) => doAction(budgetOverride.item, 'Approve', budgetOverride.remarks, override, false, budgetOverride.loginPassword)}
                 />
             )}
         </div>

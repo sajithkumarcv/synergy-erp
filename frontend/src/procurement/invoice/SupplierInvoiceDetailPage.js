@@ -10,6 +10,7 @@ import InvoiceLinesTab from './tabs/InvoiceLinesTab';
 import '../../jobs/JobDetail.css';
 import '../Procurement.css';
 import AlertModal from '../../common/AlertModal';
+import LoginPasswordModal from '../../common/LoginPasswordModal';
 
 const SINV_TABS = [
     { key: 'overview', label: 'Overview', icon: '📋' },
@@ -89,12 +90,12 @@ const ReviseModal = ({ invoiceNo, onClose, onConfirm }) => {
                         </label>
                         <input
                             type="password"
+                            autoComplete="new-password"
                             className="pf-input"
                             placeholder="Enter invoice revision password"
                             value={password}
                             onChange={e => { setPassword(e.target.value); setErr(''); }}
                             onKeyDown={e => e.key === 'Enter' && !busy && submit()}
-                            autoComplete="off"
                         />
                     </div>
                 </div>
@@ -429,11 +430,13 @@ const SupplierInvoiceDetailPage = () => {
     const [loading,        setLoading]    = useState(true);
     const [error,          setError]      = useState(null);
     const [activeTab,      setActiveTab]  = useState('overview');
-    const [showStatusMenu, setStatusMenu] = useState(false);
-    const [statusBusy,     setStatusBusy] = useState(false);
-    const [showRevise,     setShowRevise] = useState(false);
-    const [alertMsg,       setAlertMsg]   = useState(null);
-    const [confirm,        setConfirm]    = useState(null);
+    const [showStatusMenu, setStatusMenu]    = useState(false);
+    const [statusBusy,     setStatusBusy]    = useState(false);
+    const [showRevise,     setShowRevise]    = useState(false);
+    const [alertMsg,       setAlertMsg]      = useState(null);
+    const [confirm,        setConfirm]       = useState(null);
+    const [showLoginPw,    setShowLoginPw]   = useState(false);
+    const [pendingStatus,  setPendingStatus] = useState(null); // status awaiting password
     const statusRef = useRef(null);
 
     const load = useCallback(() => {
@@ -462,18 +465,30 @@ const SupplierInvoiceDetailPage = () => {
         Posted:    [],
     };
 
-    const changeStatus = async (newStatus) => {
-        setStatusMenu(false); setStatusBusy(true);
+    const PASSWORD_REQUIRED = new Set(['Approved', 'Posted']);
+
+    const doChangeStatus = async (newStatus, loginPassword = null) => {
+        setStatusBusy(true);
         try {
             const res = await fetch(`${variables.API_URL}supplierinvoice/changestatus`, {
                 method: 'POST', headers: authHeaders(),
-                body: JSON.stringify({ supplierInvoiceId: Number(invoiceId), newStatus })
+                body: JSON.stringify({ supplierInvoiceId: Number(invoiceId), newStatus, loginPassword, changedBy: currentUser })
             });
             const d = await res.json();
             if (!res.ok) { setAlertMsg(d.message || 'Status change failed.'); return; }
             load();
         } catch { setAlertMsg('Network error. Please try again.'); }
         finally { setStatusBusy(false); }
+    };
+
+    const changeStatus = (newStatus) => {
+        setStatusMenu(false);
+        if (PASSWORD_REQUIRED.has(newStatus)) {
+            setPendingStatus(newStatus);
+            setShowLoginPw(true);
+            return;
+        }
+        doChangeStatus(newStatus);
     };
 
     const deleteInvoice = () => {
@@ -644,6 +659,15 @@ const SupplierInvoiceDetailPage = () => {
                 />
             )}
             {alertMsg && <AlertModal message={alertMsg} onClose={() => setAlertMsg(null)} />}
+            {showLoginPw && (
+                <LoginPasswordModal
+                    title={`Confirm — ${pendingStatus}`}
+                    message={`Enter your login password to mark this supplier invoice as ${pendingStatus}.`}
+                    loading={statusBusy}
+                    onConfirm={(pw) => { setShowLoginPw(false); doChangeStatus(pendingStatus, pw); }}
+                    onClose={() => { setShowLoginPw(false); setPendingStatus(null); }}
+                />
+            )}
         </div>
     );
 };

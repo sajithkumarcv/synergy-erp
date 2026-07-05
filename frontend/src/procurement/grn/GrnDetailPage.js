@@ -16,6 +16,7 @@ import { InlineError }       from '../../common/InlineError';
 import '../../jobs/JobDetail.css';
 import '../Procurement.css';
 import AlertModal from '../../common/AlertModal';
+import LoginPasswordModal from '../../common/LoginPasswordModal';
 
 const GrnDetailPage = () => {
     const { grnId }          = useParams();
@@ -58,6 +59,8 @@ const GrnDetailPage = () => {
     const [qcRejected,     setQcRejected]   = useState(false);  // show rejection notice banner
     const [showCancelModal, setShowCancelModal] = useState(false);
     const [alertMsg,        setAlertMsg]        = useState(null);
+    const [showLoginPw,    setShowLoginPw]   = useState(false);  // login password gate before Received
+    const [pendingLoginPw, setPendingLoginPw] = useState('');    // password captured, waiting for QC
 
     // Light line-count fetch for the status-change pre-check. Refreshed
     // alongside the header so it stays accurate while the user toggles tabs.
@@ -74,18 +77,19 @@ const GrnDetailPage = () => {
     const POSTING_STATUSES = new Set(['Received', 'Confirmed', 'Completed', 'Posted']);
 
     // Core status-change call — used both directly and after QC confirmation.
-    const doChangeStatus = async (newStatus) => {
+    const doChangeStatus = async (newStatus, loginPassword = null) => {
         setActionError('');
         try {
             const res = await fetch(`${variables.API_URL}grn/changestatus`, {
                 method: 'POST', headers: authHeaders(),
-                body: JSON.stringify({ id: Number(grnId), status: newStatus, changedBy: currentUser })
+                body: JSON.stringify({ id: Number(grnId), status: newStatus, changedBy: currentUser, loginPassword })
             });
             if (!res.ok) {
                 const d = await res.json().catch(() => ({}));
                 setActionError(d?.message || `Status change failed (HTTP ${res.status}).`);
                 return;
             }
+            setPendingLoginPw('');
             loadGrn();
         } catch (e) { setActionError(`Network error — ${e?.message || 'could not reach the server.'}`); }
     };
@@ -103,10 +107,10 @@ const GrnDetailPage = () => {
             return;
         }
 
-        // Intercept Draft → Received to require QC confirmation first.
+        // Intercept Draft → Received: password first, then QC.
         if (newStatus === 'Received' && grn?.status === 'Draft') {
             setPendingStatus(newStatus);
-            setShowQcModal(true);
+            setShowLoginPw(true);
             return;
         }
 
@@ -155,26 +159,43 @@ const GrnDetailPage = () => {
         <div className="jd-page">
             {showPrint && <GrnPrintModal grn={grn} onClose={() => setShowPrint(false)} />}
 
+            {showLoginPw && (
+                <LoginPasswordModal
+                    title="Confirm GRN Receipt"
+                    message="Enter your login password to mark this GRN as Received."
+                    onConfirm={(pw) => {
+                        setPendingLoginPw(pw);
+                        setShowLoginPw(false);
+                        setShowQcModal(true);
+                    }}
+                    onClose={() => {
+                        setShowLoginPw(false);
+                        setPendingStatus(null);
+                    }}
+                />
+            )}
+
             {showQcModal && (
                 <GrnQcModal
                     grn={grn}
                     currentUser={currentUser}
                     onConfirm={() => {
                         setShowQcModal(false);
-                        doChangeStatus(pendingStatus);
+                        doChangeStatus(pendingStatus, pendingLoginPw);
                         setPendingStatus(null);
                         setQcRejected(false);
                     }}
                     onReject={() => {
                         setShowQcModal(false);
                         setPendingStatus(null);
+                        setPendingLoginPw('');
                         setQcRejected(true);
-                        // Refresh QC log tab badge / data
                         loadGrn();
                     }}
                     onCancel={() => {
                         setShowQcModal(false);
                         setPendingStatus(null);
+                        setPendingLoginPw('');
                     }}
                 />
             )}

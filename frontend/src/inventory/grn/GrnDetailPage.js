@@ -790,7 +790,7 @@ const GrnDetailPage = () => {
                                 Your password <span style={{ color: '#e53e3e' }}>*</span>
                             </label>
                             <input
-                                type="password"
+                                type="password" autoComplete="new-password"
                                 value={confirmPwd}
                                 onChange={e => setConfirmPwd(e.target.value)}
                                 onKeyDown={e => { if (e.key === 'Enter') doConfirm(); }}
@@ -840,7 +840,7 @@ const GrnDetailPage = () => {
                             <label style={{ fontSize: 11, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>
                                 Your password <span style={{ color: '#e53e3e' }}>*</span>
                             </label>
-                            <input type="password" value={voidPwd} onChange={e => setVoidPwd(e.target.value)}
+                            <input type="password" autoComplete="new-password" value={voidPwd} onChange={e => setVoidPwd(e.target.value)}
                                 onKeyDown={e => { if (e.key === 'Enter') doVoid(); }}
                                 placeholder="Enter your login password to confirm"
                                 style={{ width: '100%', padding: '6px 8px', border: '1px solid #cbd5e1', borderRadius: 4, fontSize: 12, boxSizing: 'border-box' }} />

@@ -216,7 +216,7 @@ const ResetPasswordForm = ({ user, onClose, onDone }) => {
                     </div></div>
                     <div className="pf-row"><div className="pf-field pf-f3">
                         <label>Confirm Password <span className="req">*</span></label>
-                        <input className="pf-input" type="password" value={confirm} onChange={e => setConfirm(e.target.value)} />
+                        <input className="pf-input" type="password" autoComplete="new-password" value={confirm} onChange={e => setConfirm(e.target.value)} />
                     </div></div>
                 </div>
                 <div className="pf-footer">

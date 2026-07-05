@@ -152,7 +152,7 @@ const ReviseModal = ({ cn, allocs, onClose, onConfirm }) => {
             </div>
             <div>
                 <label style={{ fontSize:11, fontWeight:600, color:'#475569', display:'block', marginBottom:4 }}>Authorisation password <span style={{ color:'#e53e3e' }}>*</span></label>
-                <input type="password" className="pf-input" style={{ width:'100%', fontSize:13 }}
+                <input type="password" autoComplete="new-password" className="pf-input" style={{ width:'100%', fontSize:13 }}
                     placeholder="Enter your role's revision password"
                     value={password} onChange={e => setPassword(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && submit()} />
@@ -249,7 +249,7 @@ const CancelModal = ({ cn, allocs, onClose, onConfirm }) => {
             </div>
             <div>
                 <label style={{ fontSize:11, fontWeight:600, color:'#475569', display:'block', marginBottom:4 }}>Authorisation password <span style={{ color:'#e53e3e' }}>*</span></label>
-                <input type="password" className="pf-input" style={{ width:'100%', fontSize:13 }}
+                <input type="password" autoComplete="new-password" className="pf-input" style={{ width:'100%', fontSize:13 }}
                     placeholder="Enter your role's authorisation password"
                     value={password} onChange={e => setPassword(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && submit()} />
@@ -312,7 +312,7 @@ const AllocApplyModal = ({ cn, inv, amount, onClose, onConfirm }) => {
             </div>
             <div>
                 <label style={{ fontSize:11, fontWeight:600, color:'#475569', display:'block', marginBottom:4 }}>Authorisation password <span style={{ color:'#e53e3e' }}>*</span></label>
-                <input type="password" className="pf-input" style={{ width:'100%', fontSize:13 }}
+                <input type="password" autoComplete="new-password" className="pf-input" style={{ width:'100%', fontSize:13 }}
                     placeholder="Enter your role's authorisation password"
                     value={password} onChange={e => setPassword(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && submit()} />
@@ -373,7 +373,7 @@ const AllocRemoveModal = ({ cn, alloc, onClose, onConfirm }) => {
             </div>
             <div>
                 <label style={{ fontSize:11, fontWeight:600, color:'#475569', display:'block', marginBottom:4 }}>Authorisation password <span style={{ color:'#e53e3e' }}>*</span></label>
-                <input type="password" className="pf-input" style={{ width:'100%', fontSize:13 }}
+                <input type="password" autoComplete="new-password" className="pf-input" style={{ width:'100%', fontSize:13 }}
                     placeholder="Enter your role's authorisation password"
                     value={password} onChange={e => setPassword(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && submit()} />

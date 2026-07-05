@@ -42,7 +42,7 @@ const PostRtvModal = ({ rtv, onClose, onSubmit }) => {
                         Your password <span style={{ color: '#e53e3e' }}>*</span>
                     </label>
                     <input
-                        type="password"
+                        type="password" autoComplete="new-password"
                         value={password}
                         onChange={e => setPassword(e.target.value)}
                         placeholder="Enter your login password to confirm"

@@ -165,6 +165,22 @@ namespace ERPWEB.Controllers.Procurement
         [HttpPost("changestatus")]
         public async Task<IActionResult> ChangeStatus([FromBody] StatusChangeRequest model)
         {
+            // Require login password when marking as Received
+            if (string.Equals(model.Status, "Received", StringComparison.OrdinalIgnoreCase))
+            {
+                if (string.IsNullOrWhiteSpace(model.LoginPassword))
+                    return BadRequest(new { message = "Your login password is required to mark this GRN as Received." });
+                var valid = await _dbcon.QueryAsync<dynamic>("sp_ValidateUser",
+                    new { Username = model.ChangedBy, Password = Sha256Hex(model.LoginPassword) });
+                if (!valid.Any())
+                {
+                    await _dbcon.WriteRawLog("Incorrect login password on GRN Received attempt.",
+                        controller: "Grn", action: "ChangeStatus",
+                        requestPath: HttpContext.Request.Path, userId: model.ChangedBy, logLevel: "Warning");
+                    return BadRequest(new { message = "Incorrect password. Status not changed." });
+                }
+            }
+
             try
             {
                 await _dbcon.ExecuteScalarAsync("sp_ChangeGRNStatus", new

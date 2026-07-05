@@ -81,9 +81,10 @@ namespace ERPWEB.Models.Procurement
 
     public class StatusChangeRequest
     {
-        public int    Id        { get; set; }
-        public string Status    { get; set; } = string.Empty;
-        public string ChangedBy { get; set; } = string.Empty;
+        public int     Id            { get; set; }
+        public string  Status        { get; set; } = string.Empty;
+        public string  ChangedBy     { get; set; } = string.Empty;
+        public string? LoginPassword { get; set; }
     }
 
     /// <summary>

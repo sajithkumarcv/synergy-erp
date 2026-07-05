@@ -280,7 +280,7 @@ const AdjustmentImportModal = ({ adjustmentId, reasons = [], onClose, onImported
                                 <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.04em' }}>
                                     Password
                                 </div>
-                                <input type="password" autoFocus value={password}
+                                <input type="password" autoComplete="new-password" autoFocus value={password}
                                     onChange={e => { setPassword(e.target.value); setPwdError(''); }}
                                     onKeyDown={e => e.key === 'Enter' && doImport()}
                                     placeholder="Your login password"

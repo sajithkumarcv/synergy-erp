@@ -377,7 +377,7 @@ const ApprovalHistoryTab = ({
                             <label style={{ fontSize: 11, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.04em' }}>
                                 Budget Password <span style={{ color: '#dc2626' }}>*</span>
                             </label>
-                            <input type="password" value={ovPassword} autoFocus disabled={submitting}
+                            <input type="password" autoComplete="new-password" value={ovPassword} autoFocus disabled={submitting}
                                 onChange={e => { setOvPassword(e.target.value); setOvErr(''); }}
                                 onKeyDown={e => { if (e.key === 'Enter') confirmOverride(); }}
                                 style={{ width: '100%', padding: '7px 10px', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }} />

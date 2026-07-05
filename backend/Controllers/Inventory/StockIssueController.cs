@@ -2,6 +2,8 @@ using ERPWEB.Dbcontext;
 using ERPWEB.Models.Inventory;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace ERPWEB.Controllers.Inventory
 {
@@ -252,6 +254,18 @@ namespace ERPWEB.Controllers.Inventory
         [HttpPost("{id:int}/confirm")]
         public async Task<IActionResult> Confirm(int id, [FromBody] ConfirmRequest req)
         {
+            if (string.IsNullOrWhiteSpace(req.LoginPassword))
+                return BadRequest(new { message = "Your login password is required to confirm this Issue Note." });
+            var valid = await _dbcon.QueryAsync<dynamic>("sp_ValidateUser",
+                new { Username = req.ModifiedBy, Password = Sha256Hex(req.LoginPassword) });
+            if (!valid.Any())
+            {
+                await _dbcon.WriteRawLog("Incorrect login password on Issue Note confirm attempt.",
+                    controller: "StockIssue", action: "Confirm",
+                    requestPath: HttpContext.Request.Path, userId: req.ModifiedBy, logLevel: "Warning");
+                return BadRequest(new { message = "Incorrect password. Issue Note not confirmed." });
+            }
+
             try
             {
                 var rows = await _dbcon.QueryAsync<dynamic>("sp_ConfirmStockIssue", new { IssueId = id, ModifiedBy = req.ModifiedBy });
@@ -267,6 +281,13 @@ namespace ERPWEB.Controllers.Inventory
                 await _dbcon.WriteLog(ex, controller: "StockIssue", action: "Confirm", requestPath: HttpContext.Request.Path);
                 return StatusCode(500, new { message = "Error confirming Issue Note." });
             }
+        }
+
+        private static string Sha256Hex(string input)
+        {
+            using var sha = SHA256.Create();
+            var hash = sha.ComputeHash(Encoding.UTF8.GetBytes(input));
+            return BitConverter.ToString(hash).Replace("-", "").ToLower();
         }
 
         // ═══════════════════════════════════════════════════════

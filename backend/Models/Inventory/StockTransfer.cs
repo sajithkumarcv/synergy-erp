@@ -81,6 +81,7 @@ namespace ERPWEB.Models.Inventory
 
     public class ConfirmRequest
     {
-        public string? ModifiedBy { get; set; }
+        public string? ModifiedBy     { get; set; }
+        public string? LoginPassword  { get; set; }
     }
 }

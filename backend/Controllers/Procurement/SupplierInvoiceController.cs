@@ -226,6 +226,25 @@ namespace ERPWEB.Controllers.Procurement
         [HttpPost("changestatus")]
         public async Task<IActionResult> ChangeStatus([FromBody] ChangeInvoiceStatusRequest model)
         {
+            var actionBy = model.ChangedBy ?? User.Identity?.Name ?? "system";
+
+            // Require login password when approving or posting (financial commitment steps)
+            var passwordRequired = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "Approved", "Posted" };
+            if (passwordRequired.Contains(model.NewStatus))
+            {
+                if (string.IsNullOrWhiteSpace(model.LoginPassword))
+                    return BadRequest(new { message = $"Your login password is required to mark this invoice as {model.NewStatus}." });
+                var valid = await _dbcon.QueryAsync<dynamic>("sp_ValidateUser",
+                    new { Username = actionBy, Password = Sha256Hex(model.LoginPassword) });
+                if (!valid.Any())
+                {
+                    await _dbcon.WriteRawLog($"Incorrect login password on Supplier Invoice status change to {model.NewStatus}.",
+                        controller: "SupplierInvoice", action: "ChangeStatus",
+                        requestPath: HttpContext.Request.Path, userId: actionBy, logLevel: "Warning");
+                    return BadRequest(new { message = "Incorrect password. Status not changed." });
+                }
+            }
+
             try
             {
                 string result = await _dbcon.ExecuteScalarAsync("sp_ChangeSupplierInvoiceStatus",
@@ -233,7 +252,7 @@ namespace ERPWEB.Controllers.Procurement
                     {
                         model.SupplierInvoiceId,
                         model.NewStatus,
-                        ActionBy = User.Identity?.Name ?? "system"
+                        ActionBy = actionBy
                     });
 
                 if (result != "OK")

@@ -252,8 +252,9 @@ namespace ERPWEB.Controllers.Inventory
 
     public class ConfirmRequest
     {
-        public string? ModifiedBy { get; set; }
-        public string? Password   { get; set; }
+        public string? ModifiedBy    { get; set; }
+        public string? Password      { get; set; }
+        public string? LoginPassword { get; set; }
     }
 
     public class CancelReceiptRequest

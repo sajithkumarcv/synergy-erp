@@ -184,7 +184,7 @@ const ReviseModal = ({ invoiceNo, onClose, onConfirm }) => {
                             Authorisation Password <span style={{ color: '#dc2626' }}>*</span>
                         </label>
                         <input
-                            type="password"
+                            type="password" autoComplete="new-password"
                             className="pf-input"
                             placeholder="Enter invoice revision password"
                             value={password}

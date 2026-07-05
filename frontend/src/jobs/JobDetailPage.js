@@ -578,7 +578,7 @@ const JobDetailPage = () => {
                                             Password <span style={{ color: '#dc2626' }}>*</span>
                                         </label>
                                         <input
-                                            type="password"
+                                            type="password" autoComplete="new-password"
                                             className="jd-modal-textarea"
                                             style={{ height: 34, padding: '6px 10px' }}
                                             placeholder="Authorisation password"
@@ -658,7 +658,7 @@ const JobDetailPage = () => {
                                 Password <span style={{ color: '#dc2626' }}>*</span>
                             </label>
                             <input
-                                type="password"
+                                type="password" autoComplete="new-password"
                                 className="jd-modal-textarea"
                                 style={{ height: 34, padding: '6px 10px' }}
                                 placeholder="Authorisation password"
@@ -722,7 +722,7 @@ const JobDetailPage = () => {
                                 Password <span style={{ color: '#dc2626' }}>*</span>
                             </label>
                             <input
-                                type="password"
+                                type="password" autoComplete="new-password"
                                 className="jd-modal-textarea"
                                 style={{ height: 34, padding: '6px 10px' }}
                                 placeholder="Authorisation password"
