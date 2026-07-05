@@ -61,6 +61,9 @@ const InfoTab = ({ company, onRefresh }) => {
             displayName: company?.displayName || '',
             companyCode: company?.companyCode || '',
             trn:         company?.trn         || '',
+            gstNo:       company?.gstNo       || '',
+            pan:         company?.pan         || '',
+            cin:         company?.cin         || '',
             phone:       company?.phone       || '',
             fax:         company?.fax         || '',
             email:       company?.email       || '',
@@ -141,9 +144,12 @@ const InfoTab = ({ company, onRefresh }) => {
                                 <Field label="Display Name" name="displayName" value={form.displayName} onChange={handle} full
                                        placeholder="Short name shown in the app header (e.g. SYNERGY)" />
                                 <Field label="Company Code" name="companyCode" value={form.companyCode} onChange={handle} placeholder="e.g. SIP" />
-                                <Field label="TRN / GST No." name="trn"    value={form.trn}     onChange={handle} placeholder="Tax registration number" />
-                                <Field label="Phone"         name="phone"   value={form.phone}   onChange={handle} placeholder="+971 XXXXXXXXXX" />
-                                <Field label="Fax"           name="fax"     value={form.fax}     onChange={handle} placeholder="+971 XXXXXXXXXX" />
+                                <Field label="GST No."       name="gstNo"   value={form.gstNo}   onChange={handle} placeholder="27ABTCS3188C1ZW" />
+                                <Field label="PAN"           name="pan"     value={form.pan}     onChange={handle} placeholder="ABTCS3188C" />
+                                <Field label="CIN"           name="cin"     value={form.cin}     onChange={handle} placeholder="U40106PN20XXPTCXXXXXX" />
+                                <Field label="TRN (Intl.)"   name="trn"     value={form.trn}     onChange={handle} placeholder="Overseas tax registration (if any)" />
+                                <Field label="Phone"         name="phone"   value={form.phone}   onChange={handle} placeholder="+91 XXXXXXXXXX" />
+                                <Field label="Fax"           name="fax"     value={form.fax}     onChange={handle} placeholder="+91 XXXXXXXXXX" />
                                 <Field label="Email"         name="email"   value={form.email}   onChange={handle} type="email" placeholder="info@company.com" />
                                 <Field label="Website"       name="website" value={form.website} onChange={handle} placeholder="www.company.com" />
                                 <Field label="Print Note"    name="printNote" value={form.printNote} onChange={handle} type="textarea"
@@ -176,10 +182,13 @@ const InfoTab = ({ company, onRefresh }) => {
                             <InfoRow label="Company Name"  value={company?.companyName} />
                             <InfoRow label="Display Name"  value={company?.displayName} />
                             <InfoRow label="Code"          value={company?.companyCode} />
-                            <InfoRow label="TRN / GST"     value={company?.trn} />
+                            <InfoRow label="GST No."       value={company?.gstNo} />
+                            <InfoRow label="PAN"           value={company?.pan} />
                             <InfoRow label="Phone"         value={company?.phone} />
                         </div>
                         <div>
+                            <InfoRow label="CIN"     value={company?.cin} />
+                            <InfoRow label="TRN"     value={company?.trn} />
                             <InfoRow label="Fax"     value={company?.fax} />
                             <InfoRow label="Email"   value={company?.email} />
                             <InfoRow label="Website" value={company?.website} />
@@ -420,7 +429,10 @@ const AddressesTab = ({ company, onRefresh }) => {
 // ════════════════════════════════════════════════════════════════
 //  TAB 3 — BANK ACCOUNTS
 // ════════════════════════════════════════════════════════════════
-const BANK_BLANK = { bankId:0, bankName:'', beneficiary:'', accountNo:'', iban:'', swift:'', currency:'', branchAddress:'', isPrimary:false, sortOrder:0 };
+const BANK_BLANK = { bankId:0, bankName:'', beneficiary:'', accountNo:'', iban:'', swift:'', currency:'', branchAddress:'',
+    branchName:'', ifsc:'', micr:'', accountType:'', crn:'', upiId:'', isPrimary:false, sortOrder:0 };
+
+const ACCOUNT_TYPES = ['Current', 'Savings', 'Cash Credit', 'Overdraft'];
 
 const BanksTab = ({ company, onRefresh }) => {
     const currentUser = useCurrentUser();
@@ -504,14 +516,29 @@ const BanksTab = ({ company, onRefresh }) => {
                         </div>
                         <div className="ds-panel-body">
                             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
-                                <Field label="Bank Name"    name="bankName"    value={form.bankName}    onChange={handle} full req placeholder="e.g. Emirates NBD" />
+                                <Field label="Bank Name"    name="bankName"    value={form.bankName}    onChange={handle} full req placeholder="e.g. Kotak Mahindra Bank" />
                                 <Field label="Beneficiary" name="beneficiary" value={form.beneficiary} onChange={handle} full placeholder="Account holder name" />
-                                <Field label="Account No." name="accountNo"   value={form.accountNo}   onChange={handle} placeholder="1234567890" />
-                                <Field label="IBAN"        name="iban"        value={form.iban}        onChange={handle} placeholder="AE070331234567890123456" />
-                                <Field label="SWIFT / BIC" name="swift"       value={form.swift}       onChange={handle} placeholder="EBILAEAD" />
-                                <Field label="Currency"    name="currency"    value={form.currency}    onChange={handle} placeholder="AED" />
+                                <Field label="Account No." name="accountNo"   value={form.accountNo}   onChange={handle} placeholder="1117192705" />
+                                <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+                                    <label style={{ fontSize:11.5, fontWeight:600, color:'#64748b', textTransform:'uppercase', letterSpacing:'.04em' }}>
+                                        Account Type
+                                    </label>
+                                    <select name="accountType" value={form.accountType || ''} onChange={handle}
+                                        style={{ border:'1px solid #cbd5e1', borderRadius:6, padding:'7px 10px', fontSize:13, color:'#0f172a', background:'#fff' }}>
+                                        <option value="">— Select —</option>
+                                        {ACCOUNT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                                    </select>
+                                </div>
+                                <Field label="IFSC"        name="ifsc"        value={form.ifsc}        onChange={handle} placeholder="KKBK0000728" />
+                                <Field label="MICR"        name="micr"        value={form.micr}        onChange={handle} placeholder="411485008" />
+                                <Field label="Branch Name" name="branchName"  value={form.branchName}  onChange={handle} placeholder="Pune-Chakan" />
+                                <Field label="CRN / Customer No." name="crn"  value={form.crn}         onChange={handle} placeholder="Customer relationship number" />
+                                <Field label="UPI ID"      name="upiId"       value={form.upiId}       onChange={handle} placeholder="business@kotak" />
+                                <Field label="Currency"    name="currency"    value={form.currency}    onChange={handle} placeholder="INR" />
+                                <Field label="IBAN"        name="iban"        value={form.iban}        onChange={handle} placeholder="For international accounts" />
+                                <Field label="SWIFT / BIC" name="swift"       value={form.swift}       onChange={handle} placeholder="KKBKINBB" />
                                 <Field label="Branch Address" name="branchAddress" value={form.branchAddress} onChange={handle} type="textarea" full
-                                       placeholder="Branch name and address" />
+                                       placeholder="Branch address" />
                                 <Field label="Sort Order" name="sortOrder" value={form.sortOrder} onChange={handle} type="number" placeholder="0" />
                                 <div style={{ gridColumn:'1 / -1', display:'flex', alignItems:'center', gap:8 }}>
                                     <input type="checkbox" id="bankPrimary" name="isPrimary"
@@ -552,14 +579,22 @@ const BanksTab = ({ company, onRefresh }) => {
                             <div className="cs-row-body">
                                 <div className="cs-row-title">
                                     {b.bankName}
+                                    {b.branchName && <span style={{ fontWeight:400, color:'#64748b' }}> — {b.branchName}</span>}
                                     {b.isPrimary && <PrimaryBadge />}
                                 </div>
                                 <div className="cs-row-sub">
                                     {b.beneficiary && <span><strong>Beneficiary:</strong> {b.beneficiary}</span>}
                                     {b.accountNo   && <span> · <strong>A/C:</strong> {b.accountNo}</span>}
-                                    {b.iban        && <span> · <strong>IBAN:</strong> {b.iban}</span>}
-                                    {b.swift       && <span> · <strong>SWIFT:</strong> {b.swift}</span>}
+                                    {b.accountType && <span> ({b.accountType})</span>}
                                     {b.currency    && <span> · {b.currency}</span>}
+                                </div>
+                                <div className="cs-row-sub">
+                                    {b.ifsc  && <span><strong>IFSC:</strong> {b.ifsc}</span>}
+                                    {b.micr  && <span> · <strong>MICR:</strong> {b.micr}</span>}
+                                    {b.upiId && <span> · <strong>UPI:</strong> {b.upiId}</span>}
+                                    {b.iban  && <span> · <strong>IBAN:</strong> {b.iban}</span>}
+                                    {b.swift && <span> · <strong>SWIFT:</strong> {b.swift}</span>}
+                                    {b.crn   && <span> · <strong>CRN:</strong> {b.crn}</span>}
                                 </div>
                                 {b.branchAddress && (
                                     <div style={{ fontSize:11.5, color:'#94a3b8', marginTop:3 }}>{b.branchAddress}</div>

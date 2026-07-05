@@ -63,7 +63,7 @@ const InvoicePrintModal = ({ invoice, lines = [], onClose, preview }) => {
                         <div className="pop-info-val">{dash(invoice.customerName)}</div>
                         {invoice.customerVatNo && (
                             <div className="pop-info-row">
-                                <span className="pop-info-row-label">VAT / TRN No:</span>
+                                <span className="pop-info-row-label">GST No:</span>
                                 <span className="pop-info-row-val" style={{ fontFamily: 'Courier New' }}>
                                     {invoice.customerVatNo}
                                 </span>

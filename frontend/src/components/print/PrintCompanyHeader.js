@@ -82,10 +82,15 @@ export const CompanyHeaderBand = ({ company, loading, hideLogo, nameOnly }) => {
                         {company.email && <>{'   '}Email :  {company.email}</>}
                     </div>
                 )}
-                {!nameOnly && (company?.trn || company?.website) && (
+                {!nameOnly && (company?.gstNo || company?.pan || company?.cin || company?.trn || company?.website) && (
                     <div style={{ fontSize: 11, color: '#475569', lineHeight: 1.6 }}>
-                        {company.trn     && <>TRN: {company.trn}</>}
-                        {company.website && <>{company.trn ? '  ,  ' : ''}Web : {company.website}</>}
+                        {[
+                            company.gstNo   && `GSTIN: ${company.gstNo}`,
+                            company.pan     && `PAN: ${company.pan}`,
+                            company.cin     && `CIN: ${company.cin}`,
+                            company.trn     && `TRN: ${company.trn}`,
+                            company.website && `Web: ${company.website}`,
+                        ].filter(Boolean).join('  ,  ')}
                     </div>
                 )}
             </div>
@@ -103,7 +108,7 @@ export const BankDetailsBlock = ({ banks = [], note, headerBg = '#1e3a5f', rowAl
     const bankGroups = banks.reduce((acc, b) => {
         const key = `${b.bankName}|${b.beneficiary}|${b.swift}|${b.branchAddress}`;
         if (!acc[key]) acc[key] = { ...b, accounts: [] };
-        acc[key].accounts.push({ currency: b.currency, accountNo: b.accountNo, iban: b.iban });
+        acc[key].accounts.push({ currency: b.currency, accountNo: b.accountNo, iban: b.iban, ifsc: b.ifsc, accountType: b.accountType });
         return acc;
     }, {});
 
@@ -151,11 +156,20 @@ export const BankDetailsBlock = ({ banks = [], note, headerBg = '#1e3a5f', rowAl
                             </div>
                         </div>
 
-                        {/* Account rows */}
+                        {/* Account rows — IFSC column for Indian accounts, IBAN for international */}
+                        {(() => {
+                            const hasIfsc = grp.accounts.some(a => a.ifsc);
+                            const hasIban = grp.accounts.some(a => a.iban);
+                            const hasType = grp.accounts.some(a => a.accountType);
+                            const cols = ['CCY', 'Account No',
+                                ...(hasType ? ['Type'] : []),
+                                ...(hasIfsc ? ['IFSC'] : []),
+                                ...(hasIban ? ['IBAN'] : [])];
+                            return (
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
                             <thead>
                                 <tr style={{ background: '#e2e8f0' }}>
-                                    {['CCY', 'Account No', 'IBAN'].map(h => (
+                                    {cols.map(h => (
                                         <th key={h} style={{ padding: '5px 10px', textAlign: 'left',
                                                              fontWeight: 700, fontSize: 9,
                                                              textTransform: 'uppercase',
@@ -168,25 +182,51 @@ export const BankDetailsBlock = ({ banks = [], note, headerBg = '#1e3a5f', rowAl
                             </thead>
                             <tbody>
                                 {grp.accounts.map((a, i) => (
-                                    <tr key={a.currency}
+                                    <tr key={`${a.currency}-${a.accountNo}`}
                                         style={{ background: i % 2 === 0 ? '#fff' : rowAlt,
                                                  borderBottom: '1px solid #f1f5f9' }}>
                                         <td style={{ padding: '6px 10px', fontWeight: 700,
                                                      color: '#1e293b' }}>{a.currency}</td>
                                         <td style={{ padding: '6px 10px', fontFamily: 'Courier New',
                                                      fontSize: 11, color: '#1e293b' }}>{a.accountNo}</td>
-                                        <td style={{ padding: '6px 10px', fontFamily: 'Courier New',
-                                                     fontSize: 11, color: '#1e293b' }}>{a.iban}</td>
+                                        {hasType && <td style={{ padding: '6px 10px', fontSize: 11,
+                                                     color: '#1e293b' }}>{a.accountType}</td>}
+                                        {hasIfsc && <td style={{ padding: '6px 10px', fontFamily: 'Courier New',
+                                                     fontSize: 11, color: '#1e293b' }}>{a.ifsc}</td>}
+                                        {hasIban && <td style={{ padding: '6px 10px', fontFamily: 'Courier New',
+                                                     fontSize: 11, color: '#1e293b' }}>{a.iban}</td>}
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
+                            );
+                        })()}
 
-                        {/* Branch + SWIFT */}
-                        {(grp.branchAddress || grp.swift) && (
+                        {/* Branch / MICR / UPI / SWIFT footer */}
+                        {(grp.branchAddress || grp.branchName || grp.swift || grp.micr || grp.upiId) && (
                             <div style={{ display: 'flex', gap: 32, marginTop: 6,
                                           flexWrap: 'wrap', fontSize: 11, color: '#475569' }}>
-                                {grp.branchAddress && <span>{grp.branchAddress}</span>}
+                                {(grp.branchName || grp.branchAddress) && (
+                                    <span>
+                                        {grp.branchName && <span style={{ fontWeight: 700 }}>Branch: {grp.branchName}</span>}
+                                        {grp.branchName && grp.branchAddress && <span> — </span>}
+                                        {grp.branchAddress}
+                                    </span>
+                                )}
+                                {grp.micr && (
+                                    <span>
+                                        <span style={{ fontWeight: 700 }}>MICR: </span>
+                                        <span style={{ fontFamily: 'Courier New', fontWeight: 700,
+                                                       color: '#1e293b' }}>{grp.micr}</span>
+                                    </span>
+                                )}
+                                {grp.upiId && (
+                                    <span>
+                                        <span style={{ fontWeight: 700 }}>UPI: </span>
+                                        <span style={{ fontFamily: 'Courier New', fontWeight: 700,
+                                                       color: '#1e293b' }}>{grp.upiId}</span>
+                                    </span>
+                                )}
                                 {grp.swift && (
                                     <span>
                                         <span style={{ fontWeight: 700 }}>SWIFT: </span>

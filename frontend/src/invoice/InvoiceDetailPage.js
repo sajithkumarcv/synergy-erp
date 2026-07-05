@@ -190,7 +190,6 @@ const ReviseModal = ({ invoiceNo, onClose, onConfirm }) => {
                             value={password}
                             onChange={e => { setPassword(e.target.value); setErr(''); }}
                             onKeyDown={e => e.key === 'Enter' && !busy && submit()}
-                            autoComplete="off"
                         />
                     </div>
                 </div>

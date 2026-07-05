@@ -164,7 +164,17 @@ const PoPrintModal2 = ({ po, onClose, preview }) => {
                                     return [a.addressLine1, a.addressLine2, a.city, a.country].filter(Boolean).join('  ·  ');
                                 })()}
                                 {company?.phone && <><br />{company.phone}{company.fax ? `   Fax: ${company.fax}` : ''}{company.email ? `   ·   ${company.email}` : ''}</>}
-                                {company?.trn   && <><br />TRN: {company.trn}{company.website ? `   ·   ${company.website}` : ''}</>}
+                                {(company?.gstNo || company?.pan || company?.cin || company?.trn || company?.website) && (
+                                    <><br />
+                                    {[
+                                        company.gstNo && `GSTIN: ${company.gstNo}`,
+                                        company.pan   && `PAN: ${company.pan}`,
+                                        company.cin   && `CIN: ${company.cin}`,
+                                        company.trn   && `TRN: ${company.trn}`,
+                                        company.website,
+                                    ].filter(Boolean).join('   ·   ')}
+                                    </>
+                                )}
                             </div>
                         )}
                     </div>

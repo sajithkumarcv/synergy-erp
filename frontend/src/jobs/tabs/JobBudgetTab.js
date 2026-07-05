@@ -114,7 +114,7 @@ const PasswordModal = ({ title, message, onCancel, onConfirm, busy }) => {
                     style={{ width: '100%', padding: '7px 10px', fontSize: 13 }}
                     value={pwd} onChange={e => setPwd(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && submit()}
-                    disabled={busy} autoComplete="new-password" />
+                    disabled={busy} />
 
                 {err && <div style={{ color: '#dc2626', fontSize: 11.5, marginTop: 8 }}>{err}</div>}
                 <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'flex-end' }}>

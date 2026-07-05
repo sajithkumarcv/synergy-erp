@@ -7,6 +7,9 @@ namespace ERPWEB.Models.General
         public string? DisplayName  { get; set; }   // Short / app name shown in the header
         public string? CompanyCode  { get; set; }
         public string? TRN         { get; set; }
+        public string? GSTNo       { get; set; }
+        public string? PAN         { get; set; }
+        public string? CIN         { get; set; }
         public string? Phone       { get; set; }
         public string? Fax         { get; set; }
         public string? Email       { get; set; }
@@ -42,6 +45,12 @@ namespace ERPWEB.Models.General
         public string? Swift         { get; set; }
         public string? Currency      { get; set; }
         public string? BranchAddress { get; set; }
+        public string? BranchName    { get; set; }
+        public string? IFSC          { get; set; }
+        public string? MICR          { get; set; }
+        public string? AccountType   { get; set; }
+        public string? CRN           { get; set; }
+        public string? UpiId         { get; set; }
         public bool    IsPrimary     { get; set; }
         public int     SortOrder     { get; set; }
     }
@@ -52,6 +61,9 @@ namespace ERPWEB.Models.General
         public string? DisplayName  { get; set; }
         public string? CompanyCode  { get; set; }
         public string? TRN         { get; set; }
+        public string? GSTNo       { get; set; }
+        public string? PAN         { get; set; }
+        public string? CIN         { get; set; }
         public string? Phone       { get; set; }
         public string? Fax         { get; set; }
         public string? Email       { get; set; }
@@ -82,6 +94,12 @@ namespace ERPWEB.Models.General
         public string? Swift         { get; set; }
         public string? Currency      { get; set; }
         public string? BranchAddress { get; set; }
+        public string? BranchName    { get; set; }
+        public string? IFSC          { get; set; }
+        public string? MICR          { get; set; }
+        public string? AccountType   { get; set; }
+        public string? CRN           { get; set; }
+        public string? UpiId         { get; set; }
         public bool    IsPrimary     { get; set; }
         public int     SortOrder     { get; set; }
         public string? CreatedBy     { get; set; }

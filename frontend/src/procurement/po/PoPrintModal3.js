@@ -135,9 +135,14 @@ const PoPrintModal3 = ({ po, onClose, preview }) => {
                         )}
                         {!preview && (
                             <div style={{ fontSize: 10.5, color: '#475569', lineHeight: 1.6 }}>
-                                {company?.phone && <>Tel: {company.phone}</>}
-                                {company?.fax   && <>{company.phone ? '  |  ' : ''}Fax: {company.fax}</>}
-                                {company?.trn   && <>{(company.phone || company.fax) ? '  |  ' : ''}TRN: {company.trn}</>}
+                                {[
+                                    company?.phone && `Tel: ${company.phone}`,
+                                    company?.fax   && `Fax: ${company.fax}`,
+                                    company?.gstNo && `GSTIN: ${company.gstNo}`,
+                                    company?.pan   && `PAN: ${company.pan}`,
+                                    company?.cin   && `CIN: ${company.cin}`,
+                                    company?.trn   && `TRN: ${company.trn}`,
+                                ].filter(Boolean).join('  |  ')}
                             </div>
                         )}
                     </div>

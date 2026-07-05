@@ -585,7 +585,6 @@ const JobDetailPage = () => {
                                             value={closePassword}
                                             onChange={e => setClosePassword(e.target.value)}
                                             disabled={actionBusy}
-                                            autoComplete="current-password"
                                         />
                                         {actionError && <div className="jd-modal-error">{actionError}</div>}
                                     </>
@@ -665,7 +664,6 @@ const JobDetailPage = () => {
                                 value={revisePassword}
                                 onChange={e => setRevisePassword(e.target.value)}
                                 disabled={actionBusy}
-                                autoComplete="current-password"
                             />
                             {actionError && <div className="jd-modal-error">{actionError}</div>}
                         </div>
@@ -729,7 +727,6 @@ const JobDetailPage = () => {
                                 value={freezeStagePassword}
                                 onChange={e => setFreezeStagePassword(e.target.value)}
                                 disabled={actionBusy}
-                                autoComplete="current-password"
                             />
                             {actionError && <div className="jd-modal-error">{actionError}</div>}
                         </div>
@@ -749,28 +746,6 @@ const JobDetailPage = () => {
                 </div>
             )}
             {alertMsg && <AlertModal message={alertMsg} onClose={() => setAlertMsg(null)} />}
-        </div>
-    );
-};
-
-// ── Completion check row component ────────────────────────────
-const CompletionCheckRow = ({ label, actual, target, pct, ok, currency }) => {
-    const fmt2 = (n) => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    return (
-        <div className={`jd-check-row ${ok ? 'jd-check-ok' : 'jd-check-fail'}`}>
-            <div className="jd-check-icon">{ok ? '✅' : '❌'}</div>
-            <div className="jd-check-info">
-                <div className="jd-check-label">{label}</div>
-                <div className="jd-check-values">
-                    <span>{fmt2(actual)} {currency}</span>
-                    <span className="jd-check-sep">of</span>
-                    <span>{fmt2(target)} {currency}</span>
-                    <span className="jd-check-pct" style={{ color: ok ? '#16a34a' : '#dc2626' }}>
-                        {fmt2(pct)}%
-                    </span>
-                </div>
-                <div className="jd-check-threshold">Required: ≥ 99%</div>
-            </div>
         </div>
     );
 };
