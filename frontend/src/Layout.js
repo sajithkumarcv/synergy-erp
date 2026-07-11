@@ -7,6 +7,7 @@ import { useFilters } from './FilterContext';
 import { useTheme } from './ThemeContext';
 import { usePermission } from './PermissionContext';
 import useOwnerCompany from './hooks/useOwnerCompany';
+import { brand, brandAsset } from './branding';
 import Country from './Country';
 import { UserManagement }    from './usermanagement/UserManagement';
 import { RoleManagement }    from './usermanagement/RoleManagement';
@@ -621,8 +622,9 @@ const Layout = () => {
     <div className="erp-shell">
       <header className="erp-header">
         <div className="erp-header-left">
-          <img src="/logo.svg" alt="PMS" style={{ width: 43, height: 43, borderRadius: 9, flexShrink: 0 }} />
-          <div className="erp-company">PMS<span>Project Management</span></div>
+          <img src={brandAsset(brand().logo) || '/logo.svg'} alt={brand().appName}
+               style={{ width: 43, height: 43, borderRadius: 9, flexShrink: 0, objectFit: 'contain' }} />
+          <div className="erp-company">{brand().appName}<span>{brand().tagline}</span></div>
         </div>
         <div className="erp-header-center">
           <ClientNameDisplay />

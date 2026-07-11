@@ -21,7 +21,6 @@ namespace ERPWEB.Models.Procurement
         public string? ExpenseCategoryCode  { get; set; }
         public string? ExpenseCategoryName  { get; set; }
         public bool    IsSubcontractOrder   { get; set; }
-        public int?    BudgetHeaderId       { get; set; }
         public bool    IsBudgetHeaderLinked { get; set; }
 
         // ── Supplier Contact ─────────────────────────────────────

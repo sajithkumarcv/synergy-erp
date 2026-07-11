@@ -184,6 +184,7 @@ const PrImportModal = ({ po, initialPrId, onClose, onImported, budgetInfo }) => 
     const [prices,       setPrices]       = useState({});   // prLineId → unit price string (editable)
     const [importing,    setImporting]    = useState(false);
     const [error,        setError]        = useState('');
+    const [zeroConfirm,  setZeroConfirm]  = useState(null); // count of zero-priced lines awaiting confirm
     const [search,       setSearch]       = useState('');
     const [sortKey,      setSortKey]      = useState('');
     const [sortDir,      setSortDir]      = useState('asc');
@@ -266,7 +267,7 @@ const PrImportModal = ({ po, initialPrId, onClose, onImported, budgetInfo }) => 
     const setQty   = (id, val) => setQtys(p => ({ ...p, [id]: val }));
     const setPrice = (id, val) => setPrices(p => ({ ...p, [id]: val }));
 
-    const doImport = async () => {
+    const doImport = async (skipZeroCheck = false) => {
         const toImport = prLines.filter(l => selected[l.prLineId] && !l.alreadyAdded);
         if (toImport.length === 0) { setError('No new lines selected.'); return; }
 
@@ -284,9 +285,17 @@ const PrImportModal = ({ po, initialPrId, onClose, onImported, budgetInfo }) => 
             }
         }
 
+        // Soft zero-price guard: warn if any selected line has a 0 / blank unit price
+        // (usually a data-entry slip). They can acknowledge and import anyway.
+        if (!skipZeroCheck) {
+            const zeroCount = toImport.filter(l => !(parseFloat(prices[l.prLineId]) > 0)).length;
+            if (zeroCount > 0) { setZeroConfirm(zeroCount); return; }
+        }
+
         setImporting(true); setError('');
         const errors = [];
         let succeeded = 0;
+        let categoryMismatch = false;   // collapse the repeated advice into one line
         try {
             for (const l of toImport) {
                 const r = await fetch(`${variables.API_URL}purchaseorder/lines/save`, {
@@ -312,14 +321,27 @@ const PrImportModal = ({ po, initialPrId, onClose, onImported, budgetInfo }) => 
                     succeeded++;
                 } else {
                     const d = await r.json().catch(() => ({}));
-                    errors.push(`${l.itemCode || l.itemDesc}: ${d?.message || 'Save failed.'}`);
+                    const raw = d?.message || 'Save failed.';
+                    // Compact the verbose category-mismatch message: keep only the two
+                    // category names per line; the shared advice is shown once below.
+                    const m = raw.match(/expense category "([^"]+)" but this PO is for "([^"]+)"/);
+                    if (m) {
+                        errors.push(`${l.itemCode || l.itemDesc}: ${m[1]} — not in PO category (${m[2]})`);
+                        categoryMismatch = true;
+                    } else {
+                        errors.push(`${l.itemCode || l.itemDesc}: ${raw}`);
+                    }
                 }
             }
 
             if (errors.length > 0) {
                 // Stay open — show which lines failed and why
                 const successNote = succeeded > 0 ? ` (${succeeded} line(s) imported successfully)` : '';
-                setError(errors.join('\n') + successNote);
+                let msg = errors.join('\n');
+                if (categoryMismatch) {
+                    msg += `\n\nItems must belong to this PO's expense category. Create the PO under the matching category, or pick items in that category.`;
+                }
+                setError(msg + successNote);
                 if (succeeded > 0) onImported(); // refresh parent list but keep modal open for error review
             } else {
                 onImported(); // all succeeded — close normally
@@ -446,6 +468,7 @@ const PrImportModal = ({ po, initialPrId, onClose, onImported, budgetInfo }) => 
                                     <TH>#</TH>
                                     <SortTH colKey="code">Item Code</SortTH>
                                     <SortTH colKey="name">Description</SortTH>
+                                    <TH>Budget Category</TH>
                                     <TH align="right">PR Qty</TH>
                                     <TH align="right">Ordered</TH>
                                     <TH align="right">Balance</TH>
@@ -458,7 +481,7 @@ const PrImportModal = ({ po, initialPrId, onClose, onImported, budgetInfo }) => 
                             </thead>
                             <tbody>
                                 {displayLines.length === 0 ? (
-                                    <tr><td colSpan={12} style={{ padding: 30, textAlign: 'center', color: '#94a3b8', fontStyle: 'italic' }}>No items match your search.</td></tr>
+                                    <tr><td colSpan={13} style={{ padding: 30, textAlign: 'center', color: '#94a3b8', fontStyle: 'italic' }}>No items match your search.</td></tr>
                                 ) : displayLines.map(l => {
                                     const isAdded   = !!l.alreadyAdded;
                                     const isChecked = !!selected[l.prLineId];
@@ -484,6 +507,22 @@ const PrImportModal = ({ po, initialPrId, onClose, onImported, budgetInfo }) => 
                                                 }
                                             </td>
                                             <td style={{ padding: '8px 10px', borderBottom: '1px solid #f0f4f8', color: isAdded ? '#64748b' : '#1e3a5f' }}>{l.itemDesc}</td>
+                                            <td style={{ padding: '8px 10px', borderBottom: '1px solid #f0f4f8' }}>
+                                                {(() => {
+                                                    if (!l.budgetCategoryName) return <span style={{ color: '#94a3b8', fontSize: 11 }}>—</span>;
+                                                    const mismatch = po.expenseCategoryId != null
+                                                        && String(l.budgetCategoryId) !== String(po.expenseCategoryId);
+                                                    return (
+                                                        <span title={mismatch ? `Does not match PO category "${po.expenseCategoryName}"` : 'Matches PO category'}
+                                                            style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10, whiteSpace: 'nowrap',
+                                                                background: mismatch ? '#fee2e2' : '#dcfce7',
+                                                                color:      mismatch ? '#b91c1c' : '#166534',
+                                                                border: `1px solid ${mismatch ? '#fca5a5' : '#86efac'}` }}>
+                                                            {mismatch ? '⚠ ' : ''}{l.budgetCategoryName}
+                                                        </span>
+                                                    );
+                                                })()}
+                                            </td>
                                             <td style={{ padding: '8px 10px', textAlign: 'right', borderBottom: '1px solid #f0f4f8', fontVariantNumeric: 'tabular-nums', fontWeight: 500 }}>{fmt(l.requiredQty)}</td>
                                             <td style={{ padding: '8px 10px', textAlign: 'right', borderBottom: '1px solid #f0f4f8', fontVariantNumeric: 'tabular-nums', color: l.poCreatedQty > 0 ? '#b45309' : '#94a3b8' }}>
                                                 {l.poCreatedQty > 0 ? fmt(l.poCreatedQty) : '—'}
@@ -604,21 +643,33 @@ const PrImportModal = ({ po, initialPrId, onClose, onImported, budgetInfo }) => 
                         })()}
                     </div>
                     {error && (
-                        <div style={{ color: '#dc2626', fontSize: 12, fontWeight: 500, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '8px 12px' }}>
-                            {error.split('\n').map((line, i) => <div key={i}>{line}</div>)}
+                        <div style={{ color: '#dc2626', fontSize: 12, fontWeight: 500, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '8px 12px', maxHeight: 140, overflowY: 'auto' }}>
+                            {error.split('\n').map((line, i) => <div key={i} style={{ lineHeight: 1.5 }}>{line}</div>)}
                         </div>
                     )}
                     <div style={{ display: 'flex', gap: 8 }}>
                         <button onClick={onClose} style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', padding: '7px 16px', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>
                             Cancel
                         </button>
-                        <button onClick={doImport} disabled={importing || eligible.length === 0}
+                        <button onClick={() => doImport()} disabled={importing || eligible.length === 0}
                             style={{ background: '#2e5fa3', color: '#fff', border: 'none', padding: '7px 20px', borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: 'pointer', opacity: (importing || eligible.length === 0) ? .6 : 1 }}>
                             {importing ? 'Importing…' : `Import ${selCount || ''} Lines`}
                         </button>
                     </div>
                 </div>
             </div>
+            {zeroConfirm != null && (
+                <ConfirmModal
+                    title="Zero Unit Price"
+                    message={`${zeroConfirm} of the selected line${zeroConfirm === 1 ? ' has' : 's have'} a unit price of 0.00.\n\nImport ${zeroConfirm === 1 ? 'it' : 'them'} as free-of-charge / zero-value line${zeroConfirm === 1 ? '' : 's'}?`}
+                    confirmLabel="Import Anyway"
+                    busyLabel="Importing…"
+                    confirmColor="#92400e"
+                    loading={importing}
+                    onConfirm={() => { setZeroConfirm(null); doImport(true); }}
+                    onCancel={() => setZeroConfirm(null)}
+                />
+            )}
         </div>
     );
 };
@@ -662,7 +713,8 @@ const PoLinesTab = ({ po, onRefresh, initialPrId }) => {
     const [amendLine,    setAmendLine]    = useState(null);
     const [error,         setError]         = useState('');
     const [confirmBudget, setConfirmBudget] = useState(false); // over-budget save acknowledge
-    const [pendingSave,   setPendingSave]   = useState(null);  // { orderedQty, unitPrice } held while budget confirm is open
+    const [confirmZero,   setConfirmZero]   = useState(false); // zero unit-price save acknowledge
+    const [pendingSave,   setPendingSave]   = useState(null);  // { orderedQty, unitPrice } held while a confirm is open
     const [budgetInfo,    setBudgetInfo]    = useState(null); // { categoryName, budgeted, committed, remaining }
     const [sortKey,      setSortKey]      = useState('');
     const [sortDir,      setSortDir]      = useState('asc');
@@ -829,6 +881,14 @@ const PoLinesTab = ({ po, onRefresh, initialPrId }) => {
             setError('Unit price is required (enter 0 if free of charge).'); return;
         }
 
+        // Soft zero-price guard: a legitimate free-of-charge line is allowed, but a
+        // zero price is usually a data-entry slip — warn and let them confirm.
+        if (unitPrice === 0) {
+            setPendingSave({ orderedQty, unitPrice });
+            setConfirmZero(true);
+            return;
+        }
+
         // Soft budget guard: warn the purchaser when this line (in base currency) would
         // exceed the remaining category budget. They can acknowledge and save anyway.
         const computedBase = orderedQty * unitPrice * poRate;
@@ -984,6 +1044,18 @@ const PoLinesTab = ({ po, onRefresh, initialPrId }) => {
                     line={amendLine}
                     onClose={() => setAmendLine(null)}
                     onSaved={() => { setAmendLine(null); loadLines(); onRefresh(); }}
+                />
+            )}
+            {confirmZero && pendingSave && (
+                <ConfirmModal
+                    title="Unit Price is Zero"
+                    message={`The unit price for this line is 0.00.\n\nSave it as a free-of-charge / zero-value line?`}
+                    confirmLabel="Save Anyway"
+                    busyLabel="Saving…"
+                    confirmColor="#92400e"
+                    loading={saving}
+                    onConfirm={() => { setConfirmZero(false); doSave(pendingSave.orderedQty, pendingSave.unitPrice); }}
+                    onCancel={() => { setConfirmZero(false); setPendingSave(null); }}
                 />
             )}
             {confirmBudget && pendingSave && (

@@ -637,7 +637,24 @@ const PoForm = ({ onClose, onSaved }) => {
                                         <div style={dropStyle}>
                                             {supplierResults.map(s => (
                                                 <div key={s.supplierId} style={dropItem}
-                                                    onClick={() => { setForm(p => ({ ...p, supplierId: String(s.supplierId), supplierLabel: `${s.supplierCode} — ${s.supplierName}`, vendorName: s.supplierName, vatNumber: s.vatNumber || '' })); setSupplierSearch(''); setSupplierResults([]); if (errors.supplierId) setErrors(p => ({ ...p, supplierId: undefined })); }}
+                                                    onClick={() => {
+                                                        // Auto-fill the supplier's default currency (+ its exchange rate)
+                                                        // and payment terms, when the supplier record has them set.
+                                                        const supCur = s.currencyId > 0 ? currencies.find(c => String(c.id) === String(s.currencyId)) : null;
+                                                        setForm(p => ({
+                                                            ...p,
+                                                            supplierId: String(s.supplierId),
+                                                            supplierLabel: `${s.supplierCode} — ${s.supplierName}`,
+                                                            vendorName: s.supplierName,
+                                                            vatNumber: s.vatNumber || '',
+                                                            ...(supCur ? { currencyId: String(supCur.id), exchangeRate: String(supCur.exchangeRate ?? 1) } : {}),
+                                                            ...(s.paymentTermsId > 0 ? { paymentTermsId: String(s.paymentTermsId) } : {}),
+                                                        }));
+                                                        setSupplierSearch(''); setSupplierResults([]);
+                                                        setErrors(p => ({ ...p, supplierId: undefined,
+                                                            ...(supCur ? { currencyId: undefined, exchangeRate: undefined } : {}),
+                                                            ...(s.paymentTermsId > 0 ? { paymentTermsId: undefined } : {}) }));
+                                                    }}
                                                     onMouseEnter={e => e.currentTarget.style.background='#f0f9ff'}
                                                     onMouseLeave={e => e.currentTarget.style.background='#fff'}>
                                                     <strong>{s.supplierCode}</strong> — {s.supplierName}

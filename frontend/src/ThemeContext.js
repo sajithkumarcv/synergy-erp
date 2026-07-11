@@ -183,6 +183,53 @@ export const THEMES = {
     '--fp-group-hover':     '#d4eddf',
     '--fp-border':          '#c8e6d6',
   },
+
+  'apt-teal': {
+    name:        'APT Teal',
+    description: 'Deep teal with emerald accents — matches the login page',
+    preview:     ['#114b52', '#eef5f4', '#c22032'],
+
+    // Header
+    '--header-bg':          '#114b52',
+    '--header-text':        '#ffffff',
+    '--header-sub':         '#8fc7c0',
+    '--header-logo-bg':     '#ffffff',
+    '--header-logo-color':  '#0f766e',
+    '--header-btn-bg':      'rgba(255,255,255,0.16)',
+    '--header-btn-border':  'rgba(255,255,255,0.28)',
+
+    // Sidebar
+    '--side-bg':            '#eef5f4',
+    '--side-border':        '#d7e4e1',
+    '--side-text':          '#33504b',
+    '--side-active-bg':     '#dcecea',
+    '--side-active-text':   '#0f766e',
+    '--side-active-border': '#0f766e',
+    '--side-header-text':   '#33504b',
+    '--side-sub-bg':        '#f4f9f8',
+
+    // Main content
+    '--main-bg':            '#f6faf9',
+    '--main-text':          '#16302d',
+
+    // Primary accent — teal
+    '--primary':            '#0f766e',
+    '--primary-hover':      '#0a5c55',
+    '--primary-light':      '#ccfbf1',
+    '--primary-light-text': '#115e59',
+
+    // Secondary accent — APT logo red
+    '--teal':               '#c22032',
+    '--teal-hover':         '#a31b2b',
+    '--teal-light':         '#fde8ea',
+
+    // Filter panel
+    '--fp-bg':              '#f2f8f7',
+    '--fp-header-bg':       '#114b52',
+    '--fp-group-bg':        '#e8f3f1',
+    '--fp-group-hover':     '#dcecea',
+    '--fp-border':          '#d7e4e1',
+  },
 };
 
 // ─────────────────────────────────────────────────────────────

@@ -10,11 +10,11 @@ import './Dashboard.css';
 const ROLE_CONFIG = {
     'ADMIN': {
         kpis:     ['activeJobs','openPRs','openPOs','pendingApprovals','openInvoices'],
-        sections: ['myDrafts','jobSummary','myApprovals','procurement','inventory','financials','jobCosting'],
+        sections: ['myDrafts','approvedPrs','jobSummary','myApprovals','procurement','inventory','financials','jobCosting'],
     },
     'DEPARTMENT HEAD': {
         kpis:     ['activeJobs','openPRs','openPOs','pendingApprovals','openInvoices'],
-        sections: ['myDrafts','jobSummary','myApprovals','procurement','financials','jobCosting'],
+        sections: ['myDrafts','approvedPrs','jobSummary','myApprovals','procurement','financials','jobCosting'],
     },
     'FINANCE MANAGER': {
         kpis:     ['openInvoices','pendingApprovals'],
@@ -26,7 +26,7 @@ const ROLE_CONFIG = {
     },
     'PROCUREMENT OFFICER': {
         kpis:     ['openPRs','openPOs','pendingApprovals'],
-        sections: ['myDrafts','myApprovals','procurement','inventory'],
+        sections: ['approvedPrs','myDrafts','myApprovals','procurement','inventory'],
     },
     'SR.PROJ.MANAGER': {
         kpis:     ['activeJobs','openPRs','openPOs','pendingApprovals','openInvoices'],
@@ -53,7 +53,7 @@ const ROLE_CONFIG = {
 // Fallback — show everything if role not in map
 const DEFAULT_CONFIG = {
     kpis:     ['activeJobs','openPRs','openPOs','pendingApprovals','openInvoices'],
-    sections: ['myDrafts','jobSummary','myApprovals','procurement','inventory','financials','jobCosting'],
+    sections: ['myDrafts','approvedPrs','jobSummary','myApprovals','procurement','inventory','financials','jobCosting'],
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -215,7 +215,7 @@ const OverBudgetWidget = () => {
         <div className="db-card db-card-wide">
             <div className="db-card-header">
                 <span className="db-card-icon">📉</span> MOST OVER-BUDGET JOBS
-                <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, color: '#1e40af', cursor: 'pointer' }}
+                <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, color: 'var(--db-accent)', cursor: 'pointer' }}
                     onClick={() => navigate('/reports/job-budget')}>View all →</span>
             </div>
             <div className="db-card-body">
@@ -246,6 +246,61 @@ const OverBudgetWidget = () => {
                         </div>
                     );
                 })}
+            </div>
+        </div>
+    );
+};
+
+// ── Approved PRs awaiting PO — procurement work queue (self-fetching) ──────────
+const ApprovedPrsWidget = () => {
+    const navigate = useNavigate();
+    const [rows, setRows] = useState(null);   // null=loading, 'err', or array
+
+    useEffect(() => {
+        fetch(`${variables.API_URL}dashboard/approved-prs`, { headers: authHeaders() })
+            .then(r => r.ok ? r.json() : Promise.reject())
+            .then(d => setRows(Array.isArray(d) ? d : []))
+            .catch(() => setRows('err'));
+    }, []);
+
+    return (
+        <div className="db-card db-card-wide" style={{ borderLeft: '3px solid #16a34a' }}>
+            <div className="db-card-header">
+                <span className="db-card-icon">🧾</span> APPROVED PRs — READY FOR PO
+                {Array.isArray(rows) && rows.length > 0 && (
+                    <span style={{ marginLeft: 8, background: '#dcfce7', color: '#166534', borderRadius: 10, padding: '1px 8px', fontSize: 11, fontWeight: 700 }}>
+                        {rows.length}
+                    </span>
+                )}
+                <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, color: 'var(--db-accent)', cursor: 'pointer' }}
+                    onClick={() => navigate('/purchase-requests')}>View all →</span>
+            </div>
+            <div className="db-card-body">
+                {rows === null && <div style={{ color: '#94a3b8', fontSize: 12 }}>Loading…</div>}
+                {rows === 'err' && <div style={{ color: '#94a3b8', fontSize: 12 }}>Unable to load.</div>}
+                {Array.isArray(rows) && rows.length === 0 && (
+                    <div style={{ color: '#16a34a', fontSize: 12.5, fontWeight: 600 }}>✓ No approved PRs waiting — all caught up.</div>
+                )}
+                {Array.isArray(rows) && rows.map(pr => (
+                    <div key={pr.prId} className="db-stat-row" onClick={() => navigate(`/purchase-requests/${pr.prId}`)}
+                        style={{ cursor: 'pointer', alignItems: 'center' }}>
+                        <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <span style={{ fontFamily: 'Courier New', fontWeight: 700, color: '#166534', fontSize: 12, background: '#dcfce7', padding: '1px 6px', borderRadius: 4 }}>{pr.prNumber}</span>
+                                {pr.jobId && <span style={{ fontSize: 11, color: '#64748b' }}>{pr.jobId}</span>}
+                            </span>
+                            <span style={{ fontSize: 10.5, color: '#94a3b8', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>
+                                {pr.requestedBy || '—'} · {pr.openLines} line{pr.openLines !== 1 ? 's' : ''}
+                            </span>
+                        </span>
+                        <span style={{ textAlign: 'right' }}>
+                            <span style={{ display: 'block', fontWeight: 700, fontSize: 12.5, color: '#166534' }}>{fmtM(pr.openValue)}</span>
+                            <span style={{ fontSize: 10.5, color: pr.daysWaiting >= 3 ? '#dc2626' : '#94a3b8', fontWeight: pr.daysWaiting >= 3 ? 600 : 400 }}>
+                                {pr.daysWaiting === 0 ? 'today' : `${pr.daysWaiting}d waiting`}
+                            </span>
+                        </span>
+                    </div>
+                ))}
             </div>
         </div>
     );
@@ -315,29 +370,47 @@ const Dashboard = () => {
         1
     );
 
+    // Time-of-day greeting
+    const hr = new Date().getHours();
+    const greeting = hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening';
+    const todayStr = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    const firstName = (auth?.fullName || auth?.username || '').split(' ')[0];
+
     return (
         <div className="db-page">
+
+            {/* ── GREETING HERO ── */}
+            <div className="db-hero">
+                <div className="db-hero-left">
+                    <div className="db-hero-greeting">{greeting},</div>
+                    <div className="db-hero-name">{firstName || 'there'} 👋</div>
+                    <div className="db-hero-date">{todayStr}</div>
+                </div>
+                <div className="db-hero-right">
+                    <span className="db-hero-role">{auth?.role || 'USER'}</span>
+                    <span className="db-hero-user">{auth?.fullName || auth?.username}</span>
+                </div>
+            </div>
 
             {/* ── TOP KPI STRIP ── */}
             <div className="db-kpi-strip">
                 {[
-                    { key: 'activeJobs',      label: 'ACTIVE JOBS',      val: fmtN(kpis?.activeJobs),       color: '#166534', bg: '#dcfce7', route: '/jobs' },
-                    { key: 'openPRs',         label: 'OPEN PRs',         val: fmtN(kpis?.openPRs),          color: '#1e40af', bg: '#dbeafe', route: '/purchase-requests' },
-                    { key: 'openPOs',         label: 'OPEN POs',         val: fmtN(kpis?.openPOs),          color: '#065f46', bg: '#d1fae5', route: '/purchase-orders' },
-                    { key: 'pendingApprovals',label: 'PENDING APPROVALS',val: fmtN(kpis?.pendingApprovals), color: '#b45309', bg: '#fef3c7', route: '/my-approvals' },
-                    { key: 'openInvoices',    label: 'OPEN INVOICES',    val: fmtN(kpis?.openInvoices),     color: '#4c1d95', bg: '#ede9fe', route: '/invoices' },
+                    { key: 'activeJobs',      label: 'Active Jobs',      icon: '🏗',  val: fmtN(kpis?.activeJobs),       accent: '#16a34a', soft: '#dcfce7', route: '/jobs' },
+                    { key: 'openPRs',         label: 'Open PRs',         icon: '📝',  val: fmtN(kpis?.openPRs),          accent: '#2563eb', soft: '#dbeafe', route: '/purchase-requests' },
+                    { key: 'openPOs',         label: 'Open POs',         icon: '📦',  val: fmtN(kpis?.openPOs),          accent: '#059669', soft: '#d1fae5', route: '/purchase-orders' },
+                    { key: 'pendingApprovals',label: 'Pending Approvals',icon: '⏳',  val: fmtN(kpis?.pendingApprovals), accent: '#d97706', soft: '#fef3c7', route: '/my-approvals' },
+                    { key: 'openInvoices',    label: 'Open Invoices',    icon: '🧾',  val: fmtN(kpis?.openInvoices),     accent: '#7c3aed', soft: '#ede9fe', route: '/invoices' },
                 ].filter(k => showKpi(k.key)).map(k => (
-                    <div key={k.key} className="db-kpi-card" style={{ background: k.bg }} onClick={() => navigate(k.route)}>
+                    <div key={k.key} className="db-kpi-card" onClick={() => navigate(k.route)}
+                         style={{ '--kpi-accent': k.accent }}>
+                        <div className="db-kpi-top">
+                            <span className="db-kpi-icon" style={{ background: k.soft }}>{k.icon}</span>
+                            <span className="db-kpi-arrow">→</span>
+                        </div>
+                        <div className="db-kpi-val" style={{ color: k.accent }}>{k.val}</div>
                         <div className="db-kpi-label">{k.label}</div>
-                        <div className="db-kpi-val" style={{ color: k.color }}>{k.val}</div>
                     </div>
                 ))}
-            </div>
-
-            {/* ── Role badge ── */}
-            <div className="db-role-badge">
-                <span className="db-role-label">👤 {auth?.fullName || auth?.username}</span>
-                <span className="db-role-tag">{auth?.role || 'USER'}</span>
             </div>
 
             {/* ── MAIN GRID ── */}
@@ -345,6 +418,9 @@ const Dashboard = () => {
 
                 {/* ── My Draft Documents ── */}
                 {showSection('myDrafts') && <MyDraftsWidget userId={userId} />}
+
+                {/* ── Approved PRs awaiting PO (procurement work queue) ── */}
+                {showSection('approvedPrs') && <ApprovedPrsWidget />}
 
                 {/* ── Job Summary ── */}
                 {showSection('jobSummary') && (
@@ -415,7 +491,7 @@ const Dashboard = () => {
                 <div className="db-card">
                     <div className="db-card-header">
                         <span className="db-card-icon">📦</span> INVENTORY STATUS
-                        <span style={{ marginLeft: 'auto', fontSize: 11, color: '#2563eb', cursor: 'pointer', fontWeight: 600 }}
+                        <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--db-accent)', cursor: 'pointer', fontWeight: 600 }}
                               onClick={() => navigate('/inventory-alerts')}>Stock Alerts →</span>
                     </div>
                     <div className="db-card-body">
@@ -489,7 +565,7 @@ const Dashboard = () => {
                             </div>
                         </div>
                         <div className="db-costing-donut">
-                            <Donut pct={completion} color="#1e40af" size={110} />
+                            <Donut pct={completion} color="var(--db-accent)" size={110} />
                         </div>
                     </div>
                 </div>

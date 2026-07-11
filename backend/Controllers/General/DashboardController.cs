@@ -34,6 +34,34 @@ namespace ERPWEB.Controllers.General
             }
         }
 
+        // Approved PRs that still have un-ordered balance — the procurement work queue.
+        [HttpGet("approved-prs")]
+        public async Task<IActionResult> GetApprovedPRsAwaitingPO()
+        {
+            try
+            {
+                var rows = await _dbcon.QueryAsync<dynamic>("sp_GetApprovedPRsAwaitingPO");
+                var result = rows.Select(r => new {
+                    prId         = (int)r.PrId,
+                    prNumber     = (string?)r.PrNumber,
+                    jobId        = (string?)r.JobId,
+                    projectName  = (string?)r.ProjectName,
+                    requestedBy  = (string?)r.RequestedBy,
+                    priority     = (string?)r.Priority,
+                    approvedDate = (DateTime?)r.ApprovedDate,
+                    daysWaiting  = (int)r.DaysWaiting,
+                    openLines    = (int)r.OpenLines,
+                    openValue    = (decimal?)r.OpenValue ?? 0m,
+                });
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                await _dbcon.WriteLog(ex, controller: "Dashboard", action: "GetApprovedPRsAwaitingPO", requestPath: HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Failed to load approved PRs." });
+            }
+        }
+
         [HttpGet]
         public async Task<IActionResult> Get([FromQuery] int userId = 0)
         {

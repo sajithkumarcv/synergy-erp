@@ -1,6 +1,7 @@
 using Dapper;
 using ERPWEB.Dbcontext;
 using ERPWEB.Models.Approval;
+using ERPWEB.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Text.Json;
@@ -13,12 +14,87 @@ namespace ERPWEB.Controllers.Approval
     public class ApprovalController : ControllerBase
     {
         private readonly DbCon _dbcon;
-        public ApprovalController(DbCon dbcon) { _dbcon = dbcon; }
+        private readonly EmailService _email;
+        private readonly IConfiguration _config;
+        public ApprovalController(DbCon dbcon, EmailService email, IConfiguration config)
+        {
+            _dbcon  = dbcon;
+            _email  = email;
+            _config = config;
+        }
 
         private static string Sha256Hex(string raw)
         {
             using var sha = System.Security.Cryptography.SHA256.Create();
             return Convert.ToHexString(sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(raw ?? string.Empty))).ToLower();
+        }
+
+        // Emails the procurement team when a PR is fully approved so they can raise the PO.
+        // Never throws back to the caller — a mail failure must not fail the approval.
+        private async Task NotifyProcurementOnPRApproval(int prId)
+        {
+            try
+            {
+                if (!await _email.IsConfiguredAsync()) return;
+
+                using var grid = await _dbcon.QueryMultipleAsync("sp_GetPRApprovalNotify", new { PrId = prId });
+                var pr         = (await grid.ReadAsync<dynamic>()).FirstOrDefault();
+                var recipients = (await grid.ReadAsync<dynamic>()).ToList();
+                if (pr == null || recipients.Count == 0) return;
+
+                string prNumber = (string?)pr.PrNumber ?? $"PR #{prId}";
+                string jobId    = (string?)pr.JobId ?? "—";
+                string project  = (string?)pr.ProjectName ?? "";
+                string reqBy    = (string?)pr.RequestedBy ?? "—";
+                int    openLines = pr.OpenLines != null ? (int)pr.OpenLines : 0;
+                decimal openVal  = pr.OpenValue != null ? (decimal)pr.OpenValue : 0m;
+
+                string baseUrl = (_config["App:FrontendUrl"] ?? "http://localhost:3000").TrimEnd('/');
+                string link    = $"{baseUrl}/purchase-requests/{prId}";
+                string subject = $"PR Approved — {prNumber} ready for PO";
+                string body    = BuildPRApprovedEmail(prNumber, jobId, project, reqBy, openLines, openVal, link);
+
+                foreach (var r in recipients)
+                {
+                    string? to = (string?)r.Email;
+                    if (string.IsNullOrWhiteSpace(to)) continue;
+                    await _email.SendAsync(to.Trim(), subject, body);
+                }
+            }
+            catch (Exception ex)
+            {
+                await _dbcon.WriteLog(ex, controller: "Approval", action: "NotifyProcurementOnPRApproval",
+                    requestPath: HttpContext.Request.Path);
+            }
+        }
+
+        private static string BuildPRApprovedEmail(string prNumber, string jobId, string project,
+            string requestedBy, int openLines, decimal openValue, string link)
+        {
+            string proj = string.IsNullOrWhiteSpace(project) ? jobId : $"{jobId} — {System.Net.WebUtility.HtmlEncode(project)}";
+            return $@"
+<div style=""font-family:Segoe UI,Arial,sans-serif;max-width:520px;margin:0 auto;color:#1e293b;"">
+  <div style=""background:linear-gradient(135deg,#1e40af,#2e5fa3);padding:22px;border-radius:10px 10px 0 0;text-align:center;"">
+    <h1 style=""color:#fff;margin:0;font-size:20px;"">Purchase Request Approved</h1>
+  </div>
+  <div style=""border:1px solid #e2e8f0;border-top:none;border-radius:0 0 10px 10px;padding:26px;background:#fff;"">
+    <p style=""font-size:14px;line-height:1.6;color:#475569;margin-top:0;"">
+      A purchase request has been fully approved and is ready to be converted into a Purchase Order.
+    </p>
+    <table style=""width:100%;font-size:13px;border-collapse:collapse;margin:16px 0;"">
+      <tr><td style=""padding:6px 0;color:#64748b;width:150px;"">PR Number</td><td style=""padding:6px 0;font-weight:700;"">{System.Net.WebUtility.HtmlEncode(prNumber)}</td></tr>
+      <tr><td style=""padding:6px 0;color:#64748b;"">Job</td><td style=""padding:6px 0;"">{proj}</td></tr>
+      <tr><td style=""padding:6px 0;color:#64748b;"">Requested By</td><td style=""padding:6px 0;"">{System.Net.WebUtility.HtmlEncode(requestedBy)}</td></tr>
+      <tr><td style=""padding:6px 0;color:#64748b;"">Open Lines</td><td style=""padding:6px 0;"">{openLines}</td></tr>
+      <tr><td style=""padding:6px 0;color:#64748b;"">Est. Open Value</td><td style=""padding:6px 0;font-weight:600;"">{openValue:N2}</td></tr>
+    </table>
+    <div style=""text-align:center;margin:24px 0 8px;"">
+      <a href=""{link}"" style=""background:#1e40af;color:#fff;text-decoration:none;padding:11px 30px;border-radius:8px;font-size:14px;font-weight:600;display:inline-block;"">
+        Open PR &amp; Create PO
+      </a>
+    </div>
+  </div>
+</div>";
         }
 
         // ── POST api/approval/submit ─────────────────────────────────────
@@ -224,14 +300,26 @@ namespace ERPWEB.Controllers.Approval
                     return BadRequest(new { message = amsg });
                 }
 
+                var doneModule = (string?)result.ModuleCode;
+                var doneDocId  = result.DocumentId != null ? (int?)result.DocumentId : null;
+
+                // A fully-approved PR notifies the procurement team so they can raise the PO.
+                if (isComplete
+                    && string.Equals((string?)result.NewStatus, "Approved", StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(doneModule, "PR", StringComparison.OrdinalIgnoreCase)
+                    && doneDocId is int prId)
+                {
+                    await NotifyProcurementOnPRApproval(prId);
+                }
+
                 return Ok(new
                 {
                     transactionId = (int)result.TransactionId,
                     newStatus     = (string?)result.NewStatus,
                     isComplete    = isComplete,
                     message       = (string)result.Message,
-                    moduleCode    = (string?)result.ModuleCode,
-                    documentId    = result.DocumentId != null ? (int?)result.DocumentId : null,
+                    moduleCode    = doneModule,
+                    documentId    = doneDocId,
                 });
             }
             catch (Exception ex)

@@ -622,6 +622,9 @@ const PoDetailPage = () => {
                     po.linkedPRs   && { label: 'PR Refs',      val: po.linkedPRs,                      cls: 'jd-kpi-mono' },
                     po.vendorRef   && { label: 'Vendor Ref',   val: po.vendorRef,                      cls: 'jd-kpi-mono' },
                     po.paymentTermName && { label: 'Payment Terms', val: po.paymentTermName,            cls: '' },
+                    po.expenseCategoryName && { label: 'Budget Category',
+                        val: po.expenseCategoryCode ? `${po.expenseCategoryCode} — ${po.expenseCategoryName}` : po.expenseCategoryName,
+                        cls: '', hl: true },
                     po.deliveryDate    && { label: 'Delivery',      val: fmtDate(po.deliveryDate),      cls: '' },
                     { label: 'Total',          val: fmt(po.totalAmount),                cls: 'jd-kpi-blue' },
                     { label: 'Total w/ Tax',   val: fmt(po.linesTotalWithTax),          cls: 'jd-kpi-blue' },
@@ -635,7 +638,11 @@ const PoDetailPage = () => {
                         {i > 0 && <div className="jd-kpi-div" />}
                         <div className="jd-kpi">
                             <div className="jd-kpi-label">{k.label}</div>
-                            <div className={`jd-kpi-val ${k.cls}`}>{k.val}</div>
+                            <div className={`jd-kpi-val ${k.cls}`}
+                                 style={k.hl ? { background: '#fef3c7', color: '#92400e', padding: '2px 10px',
+                                                 borderRadius: 8, fontWeight: 700, display: 'inline-block' } : undefined}>
+                                {k.val}
+                            </div>
                         </div>
                     </React.Fragment>
                 ))}

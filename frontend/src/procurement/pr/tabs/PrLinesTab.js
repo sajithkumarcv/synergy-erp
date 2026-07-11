@@ -70,8 +70,16 @@ const BomImportModal = ({ pr, onClose, onImported }) => {
     const [importing, setImporting] = useState(false);
     const [error,     setError]     = useState('');
     const [search,    setSearch]    = useState('');
+    const [catFilter, setCatFilter] = useState('');   // budget-category filter ('' = all)
     const [sortKey,   setSortKey]   = useState('');
     const [sortDir,   setSortDir]   = useState('asc');
+
+    // Distinct budget categories present in the BOM, for the filter dropdown
+    const categories = React.useMemo(() => {
+        const seen = new Map();
+        bomLines.forEach(b => { if (b.budgetCategoryName && !seen.has(b.budgetCategoryName)) seen.set(b.budgetCategoryName, true); });
+        return [...seen.keys()].sort((a, b) => a.localeCompare(b));
+    }, [bomLines]);
 
     useEffect(() => {
         setLoading(true);
@@ -80,16 +88,15 @@ const BomImportModal = ({ pr, onClose, onImported }) => {
             .then(d => {
                 const rows = Array.isArray(d) ? d : [];
                 setBomLines(rows);
-                // Pre-select lines not already added; pre-fill editable qty
-                const sel = {};
+                // Start with nothing selected — the user chooses which lines to import.
+                // Still pre-fill each line's editable qty so a tick is one click away.
                 const qMap = {};
                 rows.forEach(r => {
                     if (!r.alreadyAdded) {
-                        sel[r.bomDetailId]  = true;
                         qMap[r.bomDetailId] = String(r.remainingQty > 0 ? r.remainingQty : r.plannedQty);
                     }
                 });
-                setSelected(sel);
+                setSelected({});
                 setQtys(qMap);
             })
             .catch(() => setError('Failed to load BOM materials.'))
@@ -103,6 +110,9 @@ const BomImportModal = ({ pr, onClose, onImported }) => {
 
     const displayLines = React.useMemo(() => {
         let rows = bomLines;
+        if (catFilter) {
+            rows = rows.filter(b => b.budgetCategoryName === catFilter);
+        }
         if (search.trim()) {
             const q = search.toLowerCase();
             rows = rows.filter(b =>
@@ -118,7 +128,7 @@ const BomImportModal = ({ pr, onClose, onImported }) => {
             });
         }
         return rows;
-    }, [bomLines, search, sortKey, sortDir]);
+    }, [bomLines, search, catFilter, sortKey, sortDir]);
 
     const toggle = (id) => setSelected(p => ({ ...p, [id]: !p[id] }));
     const toggleAll = () => {
@@ -215,8 +225,8 @@ const BomImportModal = ({ pr, onClose, onImported }) => {
             zIndex: 600, display: 'flex', alignItems: 'center', justifyContent: 'center'
         }} onClick={e => e.target === e.currentTarget && onClose()}>
             <div style={{
-                background: '#fff', borderRadius: 10, width: 880, maxWidth: '95vw',
-                maxHeight: '85vh', display: 'flex', flexDirection: 'column',
+                background: '#fff', borderRadius: 10, width: 1160, maxWidth: '96vw',
+                maxHeight: '88vh', display: 'flex', flexDirection: 'column',
                 boxShadow: '0 20px 60px rgba(0,0,0,.2)'
             }}>
                 {/* Header */}
@@ -249,10 +259,20 @@ const BomImportModal = ({ pr, onClose, onImported }) => {
                                 style={{ flex: 1, padding: '5px 10px', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 12, outline: 'none' }}
                                 autoFocus
                             />
-                            {search && (
-                                <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 14, padding: '2px 4px' }}>✕</button>
+                            {/* Budget-category filter */}
+                            <select
+                                value={catFilter}
+                                onChange={e => setCatFilter(e.target.value)}
+                                title="Filter by budget category"
+                                style={{ padding: '5px 10px', border: `1px solid ${catFilter ? '#a78bfa' : '#cbd5e1'}`, borderRadius: 6, fontSize: 12, outline: 'none',
+                                    background: catFilter ? '#f5f3ff' : '#fff', color: catFilter ? '#5b21b6' : '#475569', fontWeight: catFilter ? 600 : 400, minWidth: 170 }}>
+                                <option value="">All budget categories</option>
+                                {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                            {(search || catFilter) && (
+                                <button onClick={() => { setSearch(''); setCatFilter(''); }} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 14, padding: '2px 4px' }} title="Clear filters">✕</button>
                             )}
-                            {search && <span style={{ fontSize: 11, color: '#64748b', whiteSpace: 'nowrap' }}>{displayLines.length} of {bomLines.length}</span>}
+                            {(search || catFilter) && <span style={{ fontSize: 11, color: '#64748b', whiteSpace: 'nowrap' }}>{displayLines.length} of {bomLines.length}</span>}
                         </div>
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
                             <thead>
@@ -264,6 +284,7 @@ const BomImportModal = ({ pr, onClose, onImported }) => {
                                     </th>
                                     <SortTH colKey="code">Item Code</SortTH>
                                     <SortTH colKey="name">Description</SortTH>
+                                    <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: '#3a5070', textTransform: 'uppercase', fontSize: 10, letterSpacing: '.4px', borderBottom: '1px solid #d4dce9' }}>Budget Category</th>
                                     <th style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 600, color: '#3a5070', textTransform: 'uppercase', fontSize: 10, letterSpacing: '.4px', borderBottom: '1px solid #d4dce9' }}>BOM Qty</th>
                                     <th style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 600, color: '#3a5070', textTransform: 'uppercase', fontSize: 10, letterSpacing: '.4px', borderBottom: '1px solid #d4dce9' }}>Requested</th>
                                     <th style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 600, color: '#3a5070', textTransform: 'uppercase', fontSize: 10, letterSpacing: '.4px', borderBottom: '1px solid #d4dce9' }}>Balance</th>
@@ -275,7 +296,7 @@ const BomImportModal = ({ pr, onClose, onImported }) => {
                             </thead>
                             <tbody>
                                 {displayLines.length === 0 ? (
-                                    <tr><td colSpan={10} style={{ padding: 30, textAlign: 'center', color: '#94a3b8', fontStyle: 'italic' }}>No items match your search.</td></tr>
+                                    <tr><td colSpan={11} style={{ padding: 30, textAlign: 'center', color: '#94a3b8', fontStyle: 'italic' }}>No items match your search.</td></tr>
                                 ) : displayLines.map(b => {
                                     const isAdded   = !!b.alreadyAdded;
                                     const isChecked = !!selected[b.bomDetailId];
@@ -300,6 +321,14 @@ const BomImportModal = ({ pr, onClose, onImported }) => {
                                             </td>
                                             <td style={{ padding: '8px 10px', borderBottom: '1px solid #f0f4f8', color: isAdded ? '#64748b' : '#1e3a5f' }}>
                                                 {b.componentItemName}
+                                            </td>
+                                            <td style={{ padding: '8px 10px', borderBottom: '1px solid #f0f4f8' }}>
+                                                {b.budgetCategoryName ? (
+                                                    <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10, whiteSpace: 'nowrap',
+                                                        background: '#ede9fe', color: '#5b21b6', border: '1px solid #ddd6fe' }}>
+                                                        {b.budgetCategoryName}
+                                                    </span>
+                                                ) : <span style={{ color: '#94a3b8', fontSize: 11 }}>—</span>}
                                             </td>
                                             <td style={{ padding: '8px 10px', textAlign: 'right', borderBottom: '1px solid #f0f4f8', fontVariantNumeric: 'tabular-nums' }}>{fmt(b.plannedQty)}</td>
                                             <td style={{ padding: '8px 10px', textAlign: 'right', borderBottom: '1px solid #f0f4f8', fontVariantNumeric: 'tabular-nums', color: '#64748b' }}>{fmt(b.issuedQty)}</td>
@@ -368,10 +397,16 @@ const BomImportModal = ({ pr, onClose, onImported }) => {
                         <button onClick={onClose} style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', padding: '7px 16px', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>
                             Cancel
                         </button>
-                        <button onClick={doImport} disabled={importing || eligible.length === 0}
-                            style={{ background: '#2e5fa3', color: '#fff', border: 'none', padding: '7px 20px', borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: 'pointer', opacity: (importing || eligible.length === 0) ? .6 : 1 }}>
-                            {importing ? 'Importing…' : `Import ${Object.values(selected).filter(Boolean).length || ''} Lines`}
-                        </button>
+                        {(() => {
+                            const selCount = Object.values(selected).filter(Boolean).length;
+                            const disabled = importing || selCount === 0;
+                            return (
+                                <button onClick={doImport} disabled={disabled}
+                                    style={{ background: '#2e5fa3', color: '#fff', border: 'none', padding: '7px 20px', borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: disabled ? 'default' : 'pointer', opacity: disabled ? .6 : 1 }}>
+                                    {importing ? 'Importing…' : selCount === 0 ? 'Select lines to import' : `Import ${selCount} Line${selCount === 1 ? '' : 's'}`}
+                                </button>
+                            );
+                        })()}
                     </div>
                 </div>
             </div>

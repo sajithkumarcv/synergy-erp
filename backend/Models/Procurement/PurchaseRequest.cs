@@ -107,6 +107,9 @@ namespace ERPWEB.Models.Procurement
         public DateTime? RequiredDate { get; set; }
         public decimal? EstUnitPrice  { get; set; }
         public string?  Remarks       { get; set; }
+        public string?  LineStatus         { get; set; }
+        public int?     BudgetCategoryId   { get; set; }
+        public string?  BudgetCategoryName { get; set; }
         public bool     AlreadyAdded  { get; set; }
     }
 
