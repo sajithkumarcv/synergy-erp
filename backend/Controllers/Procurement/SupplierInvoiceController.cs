@@ -1,4 +1,5 @@
 using ERPWEB.Dbcontext;
+using ERPWEB.Models.Job;
 using ERPWEB.Models.Procurement;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -312,9 +313,11 @@ namespace ERPWEB.Controllers.Procurement
         {
             try
             {
-                var rows = await _dbcon.QueryAsync<dynamic>(
+                // Return the SAME typed row as the budget endpoint so JSON keys are
+                // camelCased consistently (dynamic serialized PascalCase → blank UI).
+                var rows = await _dbcon.QueryAsync<RoleSecretStatusRow>(
                     "sp_GetRolesWithSecretStatus", new { SecretKey = "INVOICE_REVISE" });
-                return Ok(rows ?? Enumerable.Empty<dynamic>());
+                return Ok(rows ?? Enumerable.Empty<RoleSecretStatusRow>());
             }
             catch (Exception ex)
             {

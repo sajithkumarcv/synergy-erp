@@ -11,23 +11,25 @@ const downloadTemplate = () => {
     // ── Sheet 1: Item Master ──────────────────────────────────────────────────
     const imHeaders = [
         'ItemCode', 'ItemName', 'ItemNameAr', 'ShortDescription',
-        'CategoryName', 'ItemTypeName',
+        'CategoryName', 'BudgetHeader', 'ItemTypeName',
         'BaseUom', 'PurchaseUom', 'SalesUom',
         'Barcode', 'HSCode',
         'IsStockable', 'IsSaleable', 'IsPurchasable', 'IsActive',
     ];
+    // Sample rows use values that exist in the DB masters so they import as-is.
+    // Category / BudgetHeader / Item Type / UOM may be a name, code, or numeric id.
     const imSamples = [
-        ['ITM-001', 'Steel Pipe 50mm',    'أنبوب فولاذي',  'MS pipe 50mm OD sch 40',     'Pipes & Fittings', 'Stock Item', 'MTR', 'MTR', 'MTR', '6291041500213', '7306.30', 'YES', 'YES', 'YES', 'YES'],
-        ['ITM-002', 'Copper Cable 4mm',   '',               '4mm copper flex cable',       'Electrical',       'Stock Item', 'MTR', 'MTR', 'MTR', '',              '8544.49', 'YES', 'YES', 'YES', 'YES'],
-        ['ITM-003', 'Safety Helmet',      '',               'HDPE safety helmet white',    'Safety Equipment', 'Stock Item', 'PC',  'PC',  'PC',  '6291041500220', '6506.10', 'YES', 'YES', 'YES', 'YES'],
+        ['ITM-001', 'GI Pipe 50mm',       'أنبوب مجلفن',   'GI pipe 50mm OD',            'Galvanized Iron', 'Steel Materials',      'Material',   'MTR', 'MTR', 'MTR', '6291041500213', '7306.30', 'YES', 'YES', 'YES', 'YES'],
+        ['ITM-002', 'Copper Cable 4mm',   '',               '4mm copper flex cable',      'Electrical',      'Electrical Materials', 'Material',   'MTR', 'MTR', 'MTR', '',              '8544.49', 'YES', 'YES', 'YES', 'YES'],
+        ['ITM-003', 'Welding Consumable', '',               'Consumable for welding',     'Consumable',      'Consumables',          'Consumable', 'NOS', 'NOS', 'NOS', '6291041500220', '',        'YES', 'YES', 'YES', 'YES'],
     ];
     const imWs = XLSX.utils.aoa_to_sheet([imHeaders, ...imSamples]);
-    imWs['!cols'] = [12, 32, 22, 36, 22, 18, 10, 10, 10, 16, 12, 11, 11, 13, 11].map(w => ({ wch: w }));
+    imWs['!cols'] = [12, 32, 22, 36, 22, 20, 18, 10, 10, 10, 16, 12, 11, 11, 13, 11].map(w => ({ wch: w }));
 
-    // YES/NO dropdown validation on flag columns (cols L–O = index 11–14)
+    // YES/NO dropdown validation on flag columns (cols M–P = index 12–15)
     const yesNoDV = {
         type: 'list', formula1: '"YES,NO"', showErrorMessage: true,
-        errorTitle: 'Invalid', error: 'Enter YES or NO', sqref: 'L2:O10000',
+        errorTitle: 'Invalid', error: 'Enter YES or NO', sqref: 'M2:P10000',
     };
     if (!imWs['!dataValidations']) imWs['!dataValidations'] = [];
     imWs['!dataValidations'].push(yesNoDV);
@@ -55,31 +57,40 @@ const downloadTemplate = () => {
     varWs['!cols'] = [12, 14, 15, 15, 11, 11, 11, 18, 20, 13, 11, 11, 10, 10, 13, 13, 12, 12, 12, 22, 10, 10].map(w => ({ wch: w }));
     XLSX.utils.book_append_sheet(wb, varWs, 'Item Variants');
 
-    // ── Sheet 3: Reference Data ───────────────────────────────────────────────
-    const refRows = [
-        ['UOM Code', 'UOM Name',        'Type',     '', 'Item Type Name',  'Description',                              '', 'Category (sample)',      '', 'Currency', '', 'Weight UOM'],
-        ['PC',       'Piece',           'Count',    '', 'Stock Item',      'Physical goods tracked in inventory',      '', 'Pipes & Fittings',       '', 'AED',       '', 'KG'],
-        ['MTR',      'Metre',           'Length',   '', 'Service',         'Non-physical service – no stock',          '', 'Electrical',             '', 'USD',       '', 'G'],
-        ['KG',       'Kilogram',        'Weight',   '', 'Asset',           'Capital / fixed asset',                    '', 'Safety Equipment',       '', 'EUR',       '', 'LB'],
-        ['LTR',      'Litre',           'Volume',   '', 'Consumable',      'Low-value item, expensed on purchase',     '', 'Tools & Hardware',       '', 'GBP',       '', 'TON'],
-        ['BOX',      'Box',             'Count',    '', 'Raw Material',    'Input used in BOM / manufacturing',        '', 'Civil & Structural',     '', 'SAR',       '', 'OZ'],
-        ['SET',      'Set',             'Count',    '', 'Finished Good',   'Manufactured end product',                 '', 'Mechanical',             '', 'QAR',       ''],
-        ['SHT',      'Sheet',           'Count',    '', 'Sub-Assembly',    'Intermediate manufactured component',      '', 'HVAC',                   '', 'KWD',       ''],
-        ['ROL',      'Roll',            'Count',    '', '',                '',                                          '', 'Instrumentation',        '', 'OMR',       ''],
-        ['BAG',      'Bag',             'Count',    '', '',                '',                                          '', 'IT & Communications',    '', 'INR',       ''],
-        ['TN',       'Tonne',           'Weight',   '', '',                '',                                          '', 'Office Supplies',        '', '',           ''],
-        ['M2',       'Square Metre',    'Area',     '', '',                '',                                          '', 'Chemicals',              '', '',           ''],
-        ['M3',       'Cubic Metre',     'Volume',   '', '',                '',                                          '', 'Spare Parts',            '', '',           ''],
-        ['HR',       'Hour',            'Time',     '', '',                '',                                          '', 'Consumables',            '', '',           ''],
-        ['DAY',      'Day',             'Time',     '', '',                '',                                          '', 'Raw Materials',          '', '',           ''],
-        ['LS',       'Lump Sum',        'Service',  '', '',                '',                                          '', 'Services',               '', '',           ''],
-        ['JOB',      'Job',             'Service',  '', '',                '',                                          '', 'Equipment & Machinery',  '', '',           ''],
-        ['NOS',      'Numbers',         'Count',    '', '',                '',                                          '', 'Finished Goods',         '', '',           ''],
-        ['CTN',      'Carton',          'Count',    '', '',                '',                                          '', 'Packaging Materials',    '', '',           ''],
-        ['G',        'Gram',            'Weight',   '', '',                '',                                          '', 'Vehicles & Transport',   '', '',           ''],
+    // ── Sheet 3: Reference Data (valid values from the live masters) ──────────
+    // A cell in the Item Master sheet may use the Code, the Name, or the id.
+    const uomRef = [
+        ['EA', 'Each'], ['PCS', 'Pieces'], ['NOS', 'Numbers'], ['MTR', 'Metre'],
+        ['CM', 'Centimetre'], ['MM', 'Millimetre'], ['FT', 'Feet'], ['INCH', 'Inch'],
+        ['KG', 'Kilogram'], ['GM', 'Gram'], ['TON', 'Metric Ton'], ['LTR', 'Litre'],
+        ['ML', 'Millilitre'], ['GAL', 'Gallon'], ['M3', 'Cubic Metre'], ['BOX', 'Box'],
+        ['BAG', 'Bag'], ['DRUM', 'Drum'], ['PLT', 'Pallet'], ['HR', 'Hour'],
+        ['DAY', 'Day'], ['MTH', 'Month'], ['JOB', 'Job'], ['LS', 'Lump Sum'], ['LOT', 'Lot'],
     ];
+    const typeRef = ['Material', 'Service', 'Equipment', 'Consumable', 'Labour',
+        'Subcontract', 'Equipment Hire', 'Overhead', 'Commission / Agency Fee'];
+    const catRef = ['Aluminium', 'Bellow', 'Consumable', 'Container', 'Electrical',
+        'Enclosure Accessories', 'Fastener', 'Free issue material', 'Galvanized Iron',
+        'Gas', 'HVAC systems', 'Hydraulic', 'Instrumentation', 'Insulation'];
+    const budgetRef = ['Steel Materials', 'Electrical Materials', 'Consumables', 'Pipes & Fittings',
+        'Instrumentation', 'Insulation Materials', 'Non Ferrous Materials', 'Enclosure Accessories',
+        'Bought Outs', 'Sub Contract', 'Miscellaneous'];
+    const curRef = ['AED', 'USD', 'EUR', 'GBP', 'SAR', 'QAR', 'KWD', 'OMR', 'INR'];
+
+    const refHeader = ['UOM Code', 'UOM Name', '', 'Item Type', '', 'Category (examples)', '', 'Budget Header (examples)', '', 'Currency'];
+    const maxLen = Math.max(uomRef.length, typeRef.length, catRef.length, budgetRef.length, curRef.length);
+    const refRows = [refHeader];
+    for (let i = 0; i < maxLen; i++) {
+        refRows.push([
+            uomRef[i]?.[0] || '', uomRef[i]?.[1] || '', '',
+            typeRef[i] || '', '',
+            catRef[i] || '', '',
+            budgetRef[i] || '', '',
+            curRef[i] || '',
+        ]);
+    }
     const refWs = XLSX.utils.aoa_to_sheet(refRows);
-    refWs['!cols'] = [10, 16, 10, 3, 18, 38, 3, 24, 3, 12, 3, 12].map(w => ({ wch: w }));
+    refWs['!cols'] = [10, 16, 3, 24, 3, 26, 3, 26, 3, 10].map(w => ({ wch: w }));
     XLSX.utils.book_append_sheet(wb, refWs, 'Reference Data');
 
     XLSX.writeFile(wb, 'Item_Master_Import_Template.xlsx');
@@ -92,6 +103,9 @@ const COL_MAP = {
     'itemnamear':       'itemNameAr',
     'shortdescription': 'shortDescription',
     'categoryname':     'categoryName',
+    'budgetheader':     'budgetHeader',
+    'budgetcategory':   'budgetHeader',
+    'costheader':       'budgetHeader',
     'itemtypename':     'itemTypeName',
     'baseuom':          'baseUom',
     'purchaseuom':      'purchaseUom',
@@ -104,11 +118,12 @@ const COL_MAP = {
     'isactive':         'isActive',
 };
 
-const REQUIRED = ['itemName', 'itemTypeName', 'baseUom'];
+const REQUIRED = ['itemName', 'budgetHeader', 'itemTypeName', 'baseUom'];
 const DISPLAY_COLS = [
     { key: 'itemCode',      label: 'Item Code' },
     { key: 'itemName',      label: 'Item Name' },
     { key: 'categoryName',  label: 'Category' },
+    { key: 'budgetHeader',  label: 'Budget Header' },
     { key: 'itemTypeName',  label: 'Type' },
     { key: 'baseUom',       label: 'Base UOM' },
     { key: 'isStockable',   label: 'Stockable' },
@@ -229,6 +244,7 @@ const ItemImportModal = ({ onClose, onImported }) => {
                     itemNameAr:       r.itemNameAr        || null,
                     shortDescription: r.shortDescription  || null,
                     categoryName:     r.categoryName      || null,
+                    budgetHeader:     r.budgetHeader      || null,
                     itemTypeName:     r.itemTypeName,
                     baseUom:          r.baseUom,
                     purchaseUom:      r.purchaseUom       || null,
@@ -318,6 +334,7 @@ const ItemImportModal = ({ onClose, onImported }) => {
                             </div>
                             <div className="iim-tip">
                                 💡 <strong>Tip:</strong> Fill the <em>Item Master</em> sheet, delete sample rows (3–5), then upload.
+                                The <em>Category</em>, <em>Budget Header</em>, <em>Item Type</em> and <em>UOM</em> columns accept the <strong>name, code, or numeric id</strong>. Budget Header is required.
                             </div>
                         </div>
                     )}

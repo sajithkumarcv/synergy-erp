@@ -7,7 +7,11 @@ import '../jobs/JobDetail.css';
 import './AdminPage.css';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-const API = variables.API_URL;
+// Read the API base live per call — a module-level snapshot runs on import,
+// BEFORE index.js finishes loading config.json into window.__APP_CONFIG__, so
+// it would freeze to the hardcoded fallback URL and every admin fetch would hit
+// the wrong port.
+const API = () => variables.API_URL;
 
 const badge = (isActive) => isActive
     ? <span className="adm-badge-active">Active</span>
@@ -664,6 +668,37 @@ const SECTIONS = [
         saveMapper: () => ({}),
     },
     {
+        group: 'System', key: 'appTheme',
+        title: 'App Theme',
+        apiBase: 'adminjob/vlist/save',
+        // Filtered endpoint → only the AppTheme rows, not every vlist entry.
+        listBase: 'adminjob/vlist/General/AppTheme',
+        deleteBase: null,
+        idField: 'vListID',
+        columns: [
+            { key: 'itemValue',       label: 'Theme Key' },
+            { key: 'itemDescription', label: 'Display Name' },
+            { key: 'isActive',        label: 'Active', render: r => badge(r.isActive) },
+            { key: 'sortOrder',       label: 'Sort' },
+        ],
+        fields: [
+            { name: 'itemValue',       label: 'Theme Key',    required: true, placeholder: 'e.g. ocean-blue' },
+            { name: 'itemDescription', label: 'Display Name', required: true, placeholder: 'e.g. Ocean Blue' },
+            { name: 'isActive',        label: 'Active',       type: 'checkbox' },
+            { name: 'sortOrder',       label: 'Sort Order',   type: 'number' },
+        ],
+        // typeName/listName are hard-coded so this section only ever writes AppTheme rows.
+        saveMapper: (f) => ({
+            vListID:         parseInt(f.vListID)||0,
+            typeName:        'General',
+            listName:        'AppTheme',
+            itemValue:       f.itemValue,
+            itemDescription: f.itemDescription,
+            isActive:        f.isActive!==false,
+            sortOrder:       parseInt(f.sortOrder)||0,
+        }),
+    },
+    {
         group: 'System', key: 'vlist',
         title: 'VList',
         apiBase: 'adminjob/vlist/save',
@@ -766,7 +801,7 @@ const SmartLookupTable = ({ section }) => {
     const load = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await fetch(`${API}${section.listBase}`, { headers: authHeaders() });
+            const res = await fetch(`${API()}${section.listBase}`, { headers: authHeaders() });
             if (!res.ok) throw new Error();
             setRows(await res.json());
         } catch { setRows([]); }
@@ -782,7 +817,7 @@ const SmartLookupTable = ({ section }) => {
         if (!selectFields.length) return;
         Promise.all(
             selectFields.map(f =>
-                fetch(`${API}${f.optionsListBase}`, { headers: authHeaders() })
+                fetch(`${API()}${f.optionsListBase}`, { headers: authHeaders() })
                     .then(r => r.ok ? r.json() : [])
                     .then(data => ({ name: f.name, options: Array.isArray(data) ? data : [] }))
                     .catch(() => ({ name: f.name, options: [] }))
@@ -831,7 +866,7 @@ const SmartLookupTable = ({ section }) => {
             const body = section.saveMapper
                 ? section.saveMapper(form, currentUser, !form._originalId)
                 : form;
-            const res = await fetch(`${API}${section.apiBase}`, {
+            const res = await fetch(`${API()}${section.apiBase}`, {
                 method: 'POST', headers: authHeaders(), body: JSON.stringify(body),
             });
             if (!res.ok) {
@@ -1037,7 +1072,7 @@ const SmtpPanel = () => {
     const [showPw,  setShowPw]  = useState(false);
 
     useEffect(() => {
-        fetch(`${API}appsettings/smtp`, { headers: authHeaders() })
+        fetch(`${API()}appsettings/smtp`, { headers: authHeaders() })
             .then(r => r.ok ? r.json() : null)
             .then(d => { if (d) setForm({ host:d.host||'', port:d.port||587, username:d.username||'', password:d.password||'', fromAddress:d.fromAddress||'', fromName:d.fromName||'', enableSsl:d.enableSsl!==false }); })
             .catch(()=>{})
@@ -1056,7 +1091,7 @@ const SmtpPanel = () => {
         if (!form.fromAddress.trim()) return setMsg({ type:'err', text:'From Address is required.' });
         setSaving(true); setMsg({ type:'', text:'' });
         try {
-            const r = await fetch(`${API}appsettings/smtp`, {
+            const r = await fetch(`${API()}appsettings/smtp`, {
                 method:'POST', headers: authHeaders(),
                 body: JSON.stringify({ ...form, port: parseInt(form.port)||587 }),
             });

@@ -163,14 +163,54 @@ namespace ERPWEB.Controllers.Item
                 var categories = (await _db.QueryAsync<ItemCategory>("sp_GetItemCategories", null)).ToList();
                 var itemTypes  = (await _db.QueryAsync<ItemType>    ("sp_GetItemTypes",       null)).ToList();
                 var uoms       = (await _db.QueryAsync<ItemUom>     ("sp_GetItemUoms",         null)).ToList();
+                var budgetCats = (await _db.QueryAsync<dynamic>     ("sp_GetExpenseCategoryList")).ToList();
 
-                // Build case-insensitive name→id maps
-                var catMap  = categories.GroupBy(c => (c.CategoryName ?? "").Trim().ToLowerInvariant())
-                                        .ToDictionary(g => g.Key, g => g.First().CategoryId);
-                var typeMap = itemTypes .ToDictionary(t => (t.TypeName  ?? "").Trim().ToLowerInvariant(), t => t.ItemTypeId,
-                                                      StringComparer.OrdinalIgnoreCase);
-                var uomMap  = uoms      .ToDictionary(u => (u.UomCode   ?? "").Trim().ToLowerInvariant(), u => u.UomId,
-                                                      StringComparer.OrdinalIgnoreCase);
+                // Build lookup maps. Each entity is resolvable by numeric Id, by
+                // code, or by name — so an import cell may contain any of them
+                // (e.g. Category: "Aluminium", "CAT-002" or "2").
+                static Dictionary<string, int> ByKey<T>(IEnumerable<T> src, Func<T, string?> key, Func<T, int> id) =>
+                    src.Where(x => !string.IsNullOrWhiteSpace(key(x)))
+                       .GroupBy(x => key(x)!.Trim().ToLowerInvariant())
+                       .ToDictionary(g => g.Key, g => id(g.First()));
+
+                var catByName  = ByKey(categories, c => c.CategoryName, c => c.CategoryId);
+                var catByCode  = ByKey(categories, c => c.CategoryCode, c => c.CategoryId);
+                var catIds     = new HashSet<int>(categories.Select(c => c.CategoryId));
+
+                var typeByName = ByKey(itemTypes, t => t.TypeName, t => t.ItemTypeId);
+                var typeByCode = ByKey(itemTypes, t => t.TypeCode, t => t.ItemTypeId);
+                var typeIds    = new HashSet<int>(itemTypes.Select(t => t.ItemTypeId));
+
+                var uomByCode  = ByKey(uoms, u => u.UomCode, u => u.UomId);
+                var uomByName  = ByKey(uoms, u => u.UomName, u => u.UomId);
+                var uomIds     = new HashSet<int>(uoms.Select(u => u.UomId));
+
+                // Budget header (TBL_JOB_EXPENSE_CATEGORY) — resolvable by name/code/id.
+                var budgetByName = new Dictionary<string, int>();
+                var budgetByCode = new Dictionary<string, int>();
+                var budgetIds    = new HashSet<int>();
+                foreach (var b in budgetCats)
+                {
+                    int bid = (int)b.ExpenseCategoryId;
+                    budgetIds.Add(bid);
+                    var bn = ((string?)b.CategoryName ?? "").Trim().ToLowerInvariant();
+                    var bc = ((string?)b.CategoryCode ?? "").Trim().ToLowerInvariant();
+                    if (bn.Length > 0) budgetByName[bn] = bid;
+                    if (bc.Length > 0) budgetByCode[bc] = bid;
+                }
+
+                // Resolve id/code/name → id; appends an error and returns null when unmatched.
+                int? Resolve(string raw, string label, HashSet<int> ids,
+                             Dictionary<string, int> byCode, Dictionary<string, int> byName, List<string> errs)
+                {
+                    var v = raw.Trim();
+                    if (int.TryParse(v, out var n) && ids.Contains(n)) return n;
+                    var key = v.ToLowerInvariant();
+                    if (byCode.TryGetValue(key, out var id)) return id;
+                    if (byName.TryGetValue(key, out id))     return id;
+                    errs.Add($"{label} not found: '{raw}'");
+                    return null;
+                }
 
                 var results = new List<ItemImportRowResult>();
                 int rowNum  = 0;
@@ -198,36 +238,21 @@ namespace ERPWEB.Controllers.Item
                     int? purchaseUomId = null;
                     int? salesUomId  = null;
 
+                    int? budgetCategoryId = null;
                     if (!string.IsNullOrWhiteSpace(row.CategoryName))
-                    {
-                        var key = row.CategoryName.Trim().ToLowerInvariant();
-                        if (!catMap.TryGetValue(key, out var cid)) errors.Add($"Category not found: '{row.CategoryName}'");
-                        else categoryId = cid;
-                    }
+                        categoryId    = Resolve(row.CategoryName, "Category",   catIds,  catByCode,  catByName,  errors);
+                    if (!string.IsNullOrWhiteSpace(row.BudgetHeader))
+                        budgetCategoryId = Resolve(row.BudgetHeader, "BudgetHeader", budgetIds, budgetByCode, budgetByName, errors);
+                    else
+                        errors.Add("BudgetHeader is required");
                     if (!string.IsNullOrWhiteSpace(row.ItemTypeName))
-                    {
-                        var key = row.ItemTypeName.Trim().ToLowerInvariant();
-                        if (!typeMap.TryGetValue(key, out var tid)) errors.Add($"ItemType not found: '{row.ItemTypeName}'");
-                        else itemTypeId = tid;
-                    }
+                        itemTypeId    = Resolve(row.ItemTypeName, "ItemType",   typeIds, typeByCode, typeByName, errors);
                     if (!string.IsNullOrWhiteSpace(row.BaseUom))
-                    {
-                        var key = row.BaseUom.Trim().ToLowerInvariant();
-                        if (!uomMap.TryGetValue(key, out var uid)) errors.Add($"BaseUom not found: '{row.BaseUom}'");
-                        else baseUomId = uid;
-                    }
+                        baseUomId     = Resolve(row.BaseUom,      "BaseUom",     uomIds, uomByCode,  uomByName,  errors);
                     if (!string.IsNullOrWhiteSpace(row.PurchaseUom))
-                    {
-                        var key = row.PurchaseUom.Trim().ToLowerInvariant();
-                        if (!uomMap.TryGetValue(key, out var uid)) errors.Add($"PurchaseUom not found: '{row.PurchaseUom}'");
-                        else purchaseUomId = uid;
-                    }
+                        purchaseUomId = Resolve(row.PurchaseUom,  "PurchaseUom", uomIds, uomByCode,  uomByName,  errors);
                     if (!string.IsNullOrWhiteSpace(row.SalesUom))
-                    {
-                        var key = row.SalesUom.Trim().ToLowerInvariant();
-                        if (!uomMap.TryGetValue(key, out var uid)) errors.Add($"SalesUom not found: '{row.SalesUom}'");
-                        else salesUomId = uid;
-                    }
+                        salesUomId    = Resolve(row.SalesUom,     "SalesUom",    uomIds, uomByCode,  uomByName,  errors);
 
                     if (errors.Count > 0)
                     {
@@ -252,6 +277,7 @@ namespace ERPWEB.Controllers.Item
                             ItemNameAr    = row.ItemNameAr?.Trim(),
                             ShortDescription = row.ShortDescription?.Trim(),
                             CategoryId    = categoryId,
+                            BudgetCategoryId = budgetCategoryId,
                             ItemTypeId    = itemTypeId,
                             BaseUomId     = baseUomId,
                             PurchaseUomId = purchaseUomId,

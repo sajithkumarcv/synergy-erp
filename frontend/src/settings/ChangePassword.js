@@ -4,8 +4,9 @@ import { useAuth } from '../AuthContext';
 import './Settings.css';
 
 const ChangePassword = () => {
-    const { authHeader, logout } = useAuth();
+    const { auth, authHeader, logout } = useAuth();
 
+    const [username, setUsername] = useState('');
     const [oldPwd,   setOldPwd]   = useState('');
     const [newPwd,   setNewPwd]   = useState('');
     const [confirm,  setConfirm]  = useState('');
@@ -18,7 +19,10 @@ const ChangePassword = () => {
     const submit = async (e) => {
         e.preventDefault();
         setErr('');
-        if (!oldPwd || !newPwd || !confirm) { setErr('Please fill in all fields.'); return; }
+        if (!username || !oldPwd || !newPwd || !confirm) { setErr('Please fill in all fields.'); return; }
+        if (username.trim().toLowerCase() !== (auth?.username || '').toLowerCase()) {
+            setErr('The username does not match your account.'); return;
+        }
         if (newPwd.length < 6)              { setErr('New password must be at least 6 characters.'); return; }
         if (newPwd !== confirm)             { setErr('New passwords do not match.'); return; }
         if (newPwd === oldPwd)              { setErr('New password must be different from the current one.'); return; }
@@ -28,14 +32,14 @@ const ChangePassword = () => {
             const res = await fetch(`${variables.API_URL}Auth/change-password`, {
                 method: 'POST',
                 headers: authHeader(),
-                body: JSON.stringify({ oldPassword: oldPwd, newPassword: newPwd }),
+                body: JSON.stringify({ username: username.trim(), oldPassword: oldPwd, newPassword: newPwd }),
             });
             const d = await res.json().catch(() => ({}));
             if (!res.ok) { setErr(d?.message || 'Password change failed.'); return; }
 
             // Success → show confirmation briefly, then force re-login.
             setDone(true);
-            setOldPwd(''); setNewPwd(''); setConfirm('');
+            setUsername(''); setOldPwd(''); setNewPwd(''); setConfirm('');
             setTimeout(() => { logout(); }, 1800);
         } catch {
             setErr('Network error. Please try again.');
@@ -77,6 +81,16 @@ const ChangePassword = () => {
                                 </div>
                             )}
 
+                            {/* Username */}
+                            <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>
+                                Username
+                            </label>
+                            <input
+                                type="text"
+                                className="pf-input" autoComplete="username"
+                                style={{ width: '100%', padding: '8px 10px', fontSize: 13, marginBottom: 14 }}
+                                value={username} onChange={e => setUsername(e.target.value)} disabled={saving} />
+
                             {/* Current password */}
                             <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>
                                 Current password
@@ -117,7 +131,7 @@ const ChangePassword = () => {
 
                             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                                 <button className="pf-btn-pri" type="submit"
-                                    disabled={saving || !oldPwd || !newPwd || !confirm}
+                                    disabled={saving || !username || !oldPwd || !newPwd || !confirm}
                                     style={{ padding: '8px 20px', fontSize: 13 }}>
                                     {saving ? 'Updating…' : 'Change Password'}
                                 </button>

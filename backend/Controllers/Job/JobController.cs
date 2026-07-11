@@ -703,10 +703,15 @@ namespace ERPWEB.Controllers.Job
         public async Task<IActionResult> SaveExpense(string jobId, [FromBody] JobExpense model)
         {
             // Financial-edit guard: reason (≥10 chars) + budget password required.
-            var reasonErr = ERPWEB.Security.FinancialGuard.ValidateReason(model.Reason);
-            if (reasonErr != null) return BadRequest(new { message = reasonErr });
-            if (!await ERPWEB.Security.FinancialGuard.VerifyBudgetPasswordAsync(_dbcon, User.Identity?.Name ?? model.ModifiedBy ?? model.CreatedBy, model.Password))
-                return BadRequest(new { message = "Incorrect budget password." });
+            // Only editing an existing expense is gated — adding a new expense
+            // (ExpenseId == 0, incl. reversals) is not, matching the client flow.
+            if (model.ExpenseId > 0)
+            {
+                var reasonErr = ERPWEB.Security.FinancialGuard.ValidateReason(model.Reason);
+                if (reasonErr != null) return BadRequest(new { message = reasonErr });
+                if (!await ERPWEB.Security.FinancialGuard.VerifyBudgetPasswordAsync(_dbcon, User.Identity?.Name ?? model.ModifiedBy ?? model.CreatedBy, model.Password))
+                    return BadRequest(new { message = "Incorrect budget password." });
+            }
             try
             {
                 model.JobId = jobId;

@@ -17,7 +17,15 @@ public class LicenseService
 {
     // After running LicenseTool generate-keys, paste the printed public key here.
     private const string PublicKeyPem = """
-        PASTE_YOUR_PUBLIC_KEY_HERE
+        -----BEGIN PUBLIC KEY-----
+        MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArLUD6cbLVUS/nNOBSqSY
+        vXdThH26Xhg0VPpt0juI4uXGOYGL6JMb3Fxtah4yr2cvXtguZjD8Df7Rx/orB/+y
+        IGkl9RmT7Pq3VMLjrYRAoJsBrqg0lFvNtgfSfrQVZMUihDjqbJSPcMA82w2Ub5Y9
+        klqmTnQo+LgaPKwpeJTw0PuVKrpdvgkFzqxY6+4kMPhy6UtEwO8kWbrfNJvww8I0
+        oxzTqYt6LgfX9ALo+HDB1fVabJMp/0Vr0PcWO/2GgKhSJfRamG0ut80Edt8Mqxrc
+        xsRSxFUepxHsNeQ7+jGu2FLbVB3tQzThU70XjWZs8nxD3F8WdUpMQ9cS9ffvn49q
+        3QIDAQAB
+        -----END PUBLIC KEY-----
         """;
 
     public LicenseInfo? License { get; private set; }
@@ -46,7 +54,7 @@ public class LicenseService
 
             if (info == null) { StatusMessage = "Invalid license file format."; return; }
 
-            if (PublicKeyPem.Contains("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArLUD6cbLVUS/nNOBSqSY\nvXdThH26Xhg0VPpt0juI4uXGOYGL6JMb3Fxtah4yr2cvXtguZjD8Df7Rx/orB/+y\nIGkl9RmT7Pq3VMLjrYRAoJsBrqg0lFvNtgfSfrQVZMUihDjqbJSPcMA82w2Ub5Y9\nklqmTnQo+LgaPKwpeJTw0PuVKrpdvgkFzqxY6+4kMPhy6UtEwO8kWbrfNJvww8I0\noxzTqYt6LgfX9ALo+HDB1fVabJMp/0Vr0PcWO/2GgKhSJfRamG0ut80Edt8Mqxrc\nxsRSxFUepxHsNeQ7+jGu2FLbVB3tQzThU70XjWZs8nxD3F8WdUpMQ9cS9ffvn49q\n3QIDAQAB"))
+            if (PublicKeyPem.Contains("PASTE_YOUR_PUBLIC_KEY_HERE"))
             {
                 StatusMessage = "Public key not configured in LicenseService.cs.";
                 return;

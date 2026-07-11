@@ -121,6 +121,7 @@ if (!app.Environment.IsDevelopment())
 app.UseStaticFiles();               // serves wwwroot (uploads, logos, etc.)
 app.UseHttpsRedirection();
 app.UseAuthentication();            // MUST come before UseAuthorization
+app.UseMiddleware<SessionValidationMiddleware>();   // single-PC session enforcement (needs the authenticated user)
 app.UseAuthorization();
 
 app.MapControllers();

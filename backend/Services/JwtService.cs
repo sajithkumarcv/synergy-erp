@@ -14,7 +14,7 @@ namespace ERPWEB.Services
             _config = config;
         }
 
-        public string GenerateToken(string userId, string username, string role)
+        public string GenerateToken(string userId, string username, string role, string? sessionId = null)
         {
             var jwtKey = _config["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key is not configured.");
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
@@ -27,7 +27,9 @@ namespace ERPWEB.Services
                 new Claim(JwtRegisteredClaimNames.Sub, userId),
                 new Claim(JwtRegisteredClaimNames.UniqueName, username),
                 new Claim(ClaimTypes.Role, role),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+                // jti carries the server-side login-session id (TBL_LOGIN_HISTORY.SessionId)
+                // so SessionValidationMiddleware can validate the session on every request.
+                new Claim(JwtRegisteredClaimNames.Jti, sessionId ?? Guid.NewGuid().ToString())
             };
 
             var token = new JwtSecurityToken(

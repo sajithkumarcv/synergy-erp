@@ -6,16 +6,17 @@ import reportWebVitals from './reportWebVitals';
 import { BrowserRouter } from "react-router-dom";
 import ErrorBoundary from './ErrorBoundary';
 import { installGlobalErrorLogging } from './errorLog';
+import { loadBrand } from './branding';
 
 // Capture uncaught errors & unhandled promise rejections app-wide → backend log.
 installGlobalErrorLogging();
 
-// Load runtime config before rendering — allows API_URL to be changed
-// per environment by editing public/config.json without rebuilding.
-fetch('/config.json')
-  .then(r => r.json())
-  .then(cfg => { window.__APP_CONFIG__ = cfg; })
-  .catch(() => { /* fallback to defaults in Variable.js */ })
+// Load runtime config + per-client login branding before rendering.
+// loadBrand() reads public/config.json (API_URL + BRAND) and the selected
+// brand folder, so API URL and login appearance are both changeable
+// per environment by editing files on the server — no rebuild.
+loadBrand()
+  .catch(() => { /* fallback to compiled defaults in Variable.js / branding.js */ })
   .finally(() => {
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(

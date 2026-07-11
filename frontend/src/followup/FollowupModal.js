@@ -141,12 +141,17 @@ const FollowupModal = ({ customerId, customerName, currentUser, onClose, onSaved
     };
 
     const markPromise = (followupId, status) => {
+        setSaveErr('');
         fetch(`${variables.API_URL}paymentfollowup/promise-status`, {
             method: 'POST', headers: authHeaders(),
             body: JSON.stringify({ followupId, status, actionBy: currentUser }),
         })
-            .then(r => { if (!r.ok) throw new Error(); reload(); onSaved && onSaved(); })
-            .catch(() => {});
+            .then(r => r.json().then(j => ({ ok: r.ok, j })).catch(() => ({ ok: r.ok, j: {} })))
+            .then(({ ok, j }) => {
+                if (!ok) throw new Error(j.message || 'Failed to update promise status.');
+                reload(); onSaved && onSaved();
+            })
+            .catch(e => setSaveErr(e.message || 'Failed to update promise status.'));
     };
 
     const s = data?.summary;

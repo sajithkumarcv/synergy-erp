@@ -120,9 +120,18 @@ const ExpensesTab = ({ job, onRefresh }) => {
                 })
             });
             const d = await res.json().catch(() => ({}));
-            if (!res.ok) { setSaveGuardErr(d?.message || 'Failed to save expense.'); return; }
+            if (!res.ok) {
+                const msg = d?.message || 'Failed to save expense.';
+                // Edits show the error inside the guard modal; new expenses have no
+                // modal open, so surface it via an alert instead of failing silently.
+                if (isEdit) setSaveGuardErr(msg); else setAlertMsg(msg);
+                return;
+            }
             setSaveGuard(false); load(); setForm(null); if (onRefresh) onRefresh();
-        } catch { setSaveGuardErr('Network error. Please try again.'); }
+        } catch {
+            if (isEdit) setSaveGuardErr('Network error. Please try again.');
+            else setAlertMsg('Network error. Please try again.');
+        }
         finally { setSaveBusy(false); }
     };
 

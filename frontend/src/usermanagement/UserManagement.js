@@ -233,6 +233,7 @@ const AssignRoleForm = ({ user, roles, onClose, onDone }) => {
     const [assigned, setAssigned] = useState([]);
     const [loading,  setLoading]  = useState(true);
     const [saving,   setSaving]   = useState(null);
+    const [error,    setError]    = useState('');
 
     useEffect(() => {
         fetch(`${variables.API_URL}user/${user.userId}/roles`, { headers: authHeaders() })
@@ -240,19 +241,27 @@ const AssignRoleForm = ({ user, roles, onClose, onDone }) => {
             .catch(console.error).finally(() => setLoading(false));
     }, [user.userId]);
 
-    const toggle = (roleId) => {
+    const toggle = async (roleId) => {
         const action = assigned.includes(roleId) ? 'REMOVE' : 'ASSIGN';
-        setSaving(roleId);
-        fetch(`${variables.API_URL}user/role`, {
-            method: 'POST', headers: authHeaders(),
-            body: JSON.stringify({ userId: user.userId, roleId, action }),
-        })
-            .then(r => r.json())
-            .then(() => setAssigned(prev =>
-                action === 'ASSIGN' ? [...prev, roleId] : prev.filter(id => id !== roleId)
-            ))
-            .catch(console.error)
-            .finally(() => setSaving(null));
+        setSaving(roleId); setError('');
+        try {
+            const res = await fetch(`${variables.API_URL}user/role`, {
+                method: 'POST', headers: authHeaders(),
+                body: JSON.stringify({ userId: user.userId, roleId, action }),
+            });
+            const d = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                // Only reflect the change when the server confirms it — otherwise
+                // the checkbox would lie about a role that wasn't actually saved.
+                setError(d?.message || 'Failed to update role. Please try again.');
+                return;
+            }
+            setAssigned(prev => action === 'ASSIGN' ? [...prev, roleId] : prev.filter(id => id !== roleId));
+        } catch {
+            setError('Network error. Please try again.');
+        } finally {
+            setSaving(null);
+        }
     };
 
     return (
@@ -266,6 +275,7 @@ const AssignRoleForm = ({ user, roles, onClose, onDone }) => {
                     <button className="pf-close" onClick={onClose}>✕</button>
                 </div>
                 <div className="pf-body">
+                    {error && <div className="pf-err" style={{ marginBottom: 10 }}>{error}</div>}
                     {loading ? (
                         <div style={{ color: '#64748b', fontSize: 13 }}>Loading roles…</div>
                     ) : (

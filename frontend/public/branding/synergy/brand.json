@@ -1,0 +1,29 @@
+{
+  "layout": "split-left",
+  "appName": "SYNERGY ERP",
+  "tagline": "Enterprise Resource Planning",
+  "title": "Synergy India — ERP",
+  "logo": "logo.svg",
+  "features": [
+    "Procurement & Inventory",
+    "Job Costing & Finance",
+    "Customer Management",
+    "Real-time Reporting"
+  ],
+  "footer": "© {year} Synergy India — All rights reserved",
+  "text": {
+    "signInTitle": "Welcome Back",
+    "signInSubtitle": "Sign in to your Synergy ERP account",
+    "resetTitle": "Reset Password",
+    "resetSubtitle": "Enter your account email and we will send you a reset link"
+  },
+  "colors": {
+    "primary": "#0f7a4d",
+    "primary-hover": "#0b5f3b",
+    "primary-ring": "rgba(15,122,77,0.16)",
+    "panel-bg": "linear-gradient(160deg, #06301d 0%, #0f7a4d 100%)",
+    "page-bg": "#f4faf7",
+    "card-bg": "#ffffff",
+    "title": "#0b3a26"
+  }
+}

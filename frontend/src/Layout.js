@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { variables, authHeaders } from './Variable';
 import { useAuth } from './AuthContext';
 import { useFilters } from './FilterContext';
@@ -30,6 +30,8 @@ import PrDetailPage from './procurement/pr/PrDetailPage';
 import { Po } from './procurement/po/Po';
 import PoDetailPage from './procurement/po/PoDetailPage';
 import ProcurementGrn from './procurement/grn/Grn';
+import FreeIssueGrn from './procurement/freeissuegrn/FreeIssueGrn';
+import FreeIssueGrnDetailPage from './procurement/freeissuegrn/FreeIssueGrnDetailPage';
 import ProcurementGrnDetailPage from './procurement/grn/GrnDetailPage';
 import SupplierInvoice from './procurement/invoice/SupplierInvoice';
 import SupplierInvoiceDetailPage from './procurement/invoice/SupplierInvoiceDetailPage';
@@ -44,9 +46,9 @@ import { Subcontract } from './procurement/subcontract/Subcontract';
 import SubcontractDetailPage from './procurement/subcontract/SubcontractDetailPage';
 import DocumentSeries       from './settings/DocumentSeries';
 import DocumentStatus       from './settings/DocumentStatus';
-import BudgetPassword          from './settings/BudgetPassword';
-import InvoiceRevisePassword   from './settings/InvoiceRevisePassword';
+import PasswordManage          from './settings/PasswordManage';
 import ChangePassword          from './settings/ChangePassword';
+import LoginHistory            from './settings/LoginHistory';
 import ErrorLog                 from './settings/ErrorLog';
 import CompanySettings          from './settings/CompanySettings';
 import SmtpSettings             from './settings/SmtpSettings';
@@ -541,10 +543,21 @@ const PageTitle = () => {
   );
 };
 
+// Old settings URLs that were merged into /settings/password-manage.
+// Redirect these BEFORE the permission check so old bookmarks don't hit
+// Access-Denied (their menu rows no longer exist / are inactive).
+const LEGACY_REDIRECTS = {
+  '/settings/budget-password':         '/settings/password-manage?tab=budget',
+  '/settings/invoice-revise-password': '/settings/password-manage?tab=invoice',
+};
+
 // ── RouteGuard — blocks direct URL access to screens not in the user's menus ─
 const RouteGuard = ({ children }) => {
   const location = useLocation();
   const { canAccessPath, loaded } = usePermission();
+
+  const legacy = LEGACY_REDIRECTS[location.pathname];
+  if (legacy) return <Navigate to={legacy} replace />;
 
   // While permissions are still loading show a spinner (prevents false
   // Access-Denied flash and gives visual feedback during the initial fetch).
@@ -659,6 +672,8 @@ const Layout = () => {
             <Route path="/purchase-orders/:poId"      element={<PoDetailPage />} />
             <Route path="/grn"                        element={<ProcurementGrn />} />
             <Route path="/grn/:grnId"                 element={<ProcurementGrnDetailPage />} />
+            <Route path="/free-issue-grn"             element={<FreeIssueGrn />} />
+            <Route path="/free-issue-grn/:id"         element={<FreeIssueGrnDetailPage />} />
             <Route path="/supplier-invoice"              element={<SupplierInvoice />} />
             <Route path="/supplier-invoice/:invoiceId"  element={<SupplierInvoiceDetailPage />} />
             <Route path="/grn-unregistration"           element={<GrnUnregistrationPage />} />
@@ -670,9 +685,9 @@ const Layout = () => {
             <Route path="/subcontracts/:id"           element={<SubcontractDetailPage />} />
             <Route path="/settings/document-series"   element={<DocumentSeries />} />
             <Route path="/settings/document-status"   element={<DocumentStatus />} />
-            <Route path="/settings/budget-password"          element={<BudgetPassword />} />
-            <Route path="/settings/invoice-revise-password"  element={<InvoiceRevisePassword />} />
+            <Route path="/settings/password-manage"          element={<PasswordManage />} />
             <Route path="/settings/change-password"          element={<ChangePassword />} />
+            <Route path="/settings/login-history"            element={<LoginHistory />} />
             <Route path="/settings/error-log"                element={<ErrorLog />} />
             <Route path="/settings/company"                  element={<CompanySettings />} />
             <Route path="/settings/smtp"                     element={<SmtpSettings />} />

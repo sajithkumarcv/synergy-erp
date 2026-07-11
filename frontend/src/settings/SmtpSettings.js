@@ -2,7 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { variables, authHeaders } from '../Variable';
 import './Settings.css';
 
-const API = variables.API_URL;
+// Read live per call — a module-level snapshot would freeze to the fallback URL
+// before config.json loads window.__APP_CONFIG__.
+const API = () => variables.API_URL;
 
 const Field = ({ label, hint, children }) => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
@@ -37,7 +39,7 @@ export default function SmtpSettings() {
     const load = useCallback(async () => {
         setLoading(true);
         try {
-            const r = await fetch(`${API}appsettings/smtp`, { headers: authHeaders() });
+            const r = await fetch(`${API()}appsettings/smtp`, { headers: authHeaders() });
             if (r.ok) {
                 const d = await r.json();
                 setForm({
@@ -70,7 +72,7 @@ export default function SmtpSettings() {
         setSaving(true);
         setMsg({ type: '', text: '' });
         try {
-            const r = await fetch(`${API}appsettings/smtp`, {
+            const r = await fetch(`${API()}appsettings/smtp`, {
                 method: 'POST', headers: authHeaders(),
                 body: JSON.stringify({
                     ...form,

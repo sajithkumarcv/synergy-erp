@@ -1,3 +1,4 @@
 {
-  "API_URL": "https://localhost:7151/api/"
+  "API_URL": "https://localhost:7151/api/",
+  "BRAND": "default"
 }

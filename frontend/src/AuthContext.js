@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { variables } from './Variable';
 
 const AuthContext = createContext(null);
 
@@ -20,6 +21,19 @@ const USER_KEY  = 'erp_user';
 const SYNC_REQUEST = 'erp_session_request';   // new tab → "anyone have a session?"
 const SYNC_SHARE   = 'erp_session_share';     // existing tab → here it is
 const SYNC_LOGOUT  = 'erp_session_logout';    // any tab → everyone log out
+
+// Why the last sign-out happened — read + cleared by the Login page banner.
+export const LOGOUT_REASON_KEY = 'erp_logout_reason';
+
+const LOGOUT_REASONS = {
+  SESSION_IDLE:  'You were signed out due to inactivity.',
+  SESSION_ENDED: 'You were signed out because this account signed in on another PC.',
+  DEFAULT:       'Your session has expired. Please sign in again.',
+};
+
+// Heartbeat cadence and how recent user input must be to count as "active".
+const HEARTBEAT_MS   = 60000;
+const ACTIVITY_WINDOW_MS = 70000;
 
 const clearLegacyLocalStorage = () => {
   // Never persist tokens in localStorage; also clear any transient sync keys
@@ -66,12 +80,42 @@ export const AuthProvider = ({ children }) => {
     setAuth({ token: data.token, ...userData });
   };
 
-  const logout = () => {
+  // Real user activity (heartbeat sends ?active=1 only when this is recent,
+  // so an idle tab can't keep its own session alive).
+  const activityRef = useRef(Date.now());
+
+  const clearSession = () => {
     sessionStorage.removeItem(TOKEN_KEY);
     sessionStorage.removeItem(USER_KEY);
     setAuth(null);
     // Tell other tabs to log out too (keeps all tabs consistent)
     try { localStorage.setItem(SYNC_LOGOUT, String(Date.now())); localStorage.removeItem(SYNC_LOGOUT); } catch {}
+  };
+
+  // User-initiated sign-out: end the server-side session first (fire-and-forget,
+  // keepalive survives page unload) so the account frees up for another PC instantly.
+  const logout = () => {
+    const token = sessionStorage.getItem(TOKEN_KEY);
+    if (token) {
+      try {
+        fetch(variables.API_URL + 'Auth/logout', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          keepalive: true,
+        }).catch(() => {});
+      } catch {}
+    }
+    clearSession();
+  };
+
+  // Server-initiated sign-out (session idle / ended / token expired): the session
+  // is already dead server-side, so just record why and clear local state.
+  const forceLogout = (code) => {
+    if (!sessionStorage.getItem(TOKEN_KEY)) return; // already signed out
+    try {
+      sessionStorage.setItem(LOGOUT_REASON_KEY, LOGOUT_REASONS[code] || LOGOUT_REASONS.DEFAULT);
+    } catch {}
+    clearSession();
   };
 
   // ── Cross-tab session sync ────────────────────────────────────────────────
@@ -122,6 +166,71 @@ export const AuthProvider = ({ children }) => {
 
     return () => window.removeEventListener('storage', onStorage);
   }, []);
+
+  // ── Session enforcement: activity tracking, heartbeat, 401 interceptor ────
+  useEffect(() => {
+    if (!auth?.token) return;
+
+    const markActivity = () => { activityRef.current = Date.now(); };
+    const activityEvents = ['mousedown', 'keydown', 'mousemove', 'scroll', 'touchstart'];
+    activityEvents.forEach(ev => window.addEventListener(ev, markActivity, { passive: true }));
+
+    // Heartbeat: lets the server idle-close / detect a forced-out session even
+    // when the user isn't making API calls. ?active=1 only if there was real
+    // user input within the activity window, so an open-but-idle tab times out.
+    let checking = false;
+    const checkSession = async () => {
+      if (checking) return;
+      checking = true;
+      try {
+        const active = Date.now() - activityRef.current < ACTIVITY_WINDOW_MS;
+        const res = await fetch(
+          variables.API_URL + 'Auth/session-check' + (active ? '?active=1' : ''),
+          { headers: { 'Authorization': `Bearer ${auth.token}` } }
+        );
+        if (res.status === 401) {
+          const body = await res.json().catch(() => ({}));
+          forceLogout(body.code);
+        }
+      } catch {
+        // Network hiccup — leave the session alone, next heartbeat will retry.
+      } finally {
+        checking = false;
+      }
+    };
+
+    const interval = setInterval(checkSession, HEARTBEAT_MS);
+    const onFocus = () => checkSession();
+    const onVisibility = () => { if (!document.hidden) checkSession(); };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+
+    // Global 401 interceptor: if ANY API call comes back 401 with a session
+    // code, sign out immediately instead of letting the user keep browsing
+    // cached pages until the next heartbeat.
+    const origFetch = window.fetch;
+    window.fetch = async (input, init) => {
+      const res = await origFetch(input, init);
+      try {
+        const url = typeof input === 'string' ? input : (input && input.url) || '';
+        if (res.status === 401 && url.startsWith(variables.API_URL)) {
+          const body = await res.clone().json().catch(() => null);
+          if (body && (body.code === 'SESSION_ENDED' || body.code === 'SESSION_IDLE')) {
+            forceLogout(body.code);
+          }
+        }
+      } catch {}
+      return res;
+    };
+
+    return () => {
+      activityEvents.forEach(ev => window.removeEventListener(ev, markActivity));
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.fetch = origFetch;
+    };
+  }, [auth?.token]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Update theme in both storage and auth state (no re-login needed)
   const updateTheme = (theme) => {

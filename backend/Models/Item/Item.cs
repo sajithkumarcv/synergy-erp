@@ -130,6 +130,7 @@ namespace ERPWEB.Models.Item
         public string? ItemNameAr       { get; set; }
         public string? ShortDescription { get; set; }
         public string? CategoryName     { get; set; }
+        public string? BudgetHeader     { get; set; }   // budget category — name / code / id
         public string? ItemTypeName     { get; set; }
         public string? BaseUom          { get; set; }
         public string? PurchaseUom      { get; set; }
