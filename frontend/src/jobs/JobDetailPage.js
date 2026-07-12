@@ -17,7 +17,6 @@ import MetaTab            from './tabs/MetaTab';
 import AdditionalJobsTab  from './tabs/AdditionalJobsTab';
 import JobBudgetTab       from './tabs/JobBudgetTab';
 import HistoryTab         from './tabs/HistoryTab';
-import { useFieldConfig } from '../FieldConfigContext';
 import JobReportModal from './JobReportModal';
 import AlertModal from '../common/AlertModal';
 import './JobDetail.css';
@@ -754,7 +753,6 @@ const JobDetailPage = () => {
 const JobEditSlideOver = ({ job, jobTypes, jobStages, onClose, onSaved }) => {
     const currentUser = useCurrentUser();
     const { lookups } = useLookup();
-    const { isReq } = useFieldConfig('JOB');
     const { currencies, jobStatuses } = lookups;
 
     // Does the current job type require a parent job?
@@ -935,7 +933,7 @@ const JobEditSlideOver = ({ job, jobTypes, jobStages, onClose, onSaved }) => {
                             <Sec label="Parent Job" />
                             <div className="jf-row">
                                 <div className="jf-field jf-f2" style={{ position: 'relative' }}>
-                                    <label>Parent Job {isReq('parentJobId') && <span className="req">*</span>}</label>
+                                    <label>Parent Job <span className="req">*</span></label>
                                     <input
                                         className={`jf-input ${form.parentJobId ? 'jf-input-ok' : ''}`}
                                         placeholder="Type Job ID or description to search…"

@@ -34,6 +34,85 @@ namespace ERPWEB.Controllers.General
             }
         }
 
+        // Procurement analytics — overview, payment monitoring, top suppliers,
+        // supplier engagement, category shares, and monthly spend trend.
+        [HttpGet("procurement-analytics")]
+        public async Task<IActionResult> GetProcurementAnalytics()
+        {
+            try
+            {
+                using var multi = await _dbcon.QueryMultipleAsync("sp_GetProcurementAnalytics");
+                var overview   = (await multi.ReadAsync<dynamic>()).FirstOrDefault();
+                var payments   = (await multi.ReadAsync<dynamic>()).FirstOrDefault();
+                var topSup     = (await multi.ReadAsync<dynamic>()).ToList();
+                var engagement = (await multi.ReadAsync<dynamic>()).FirstOrDefault();
+                var categories = (await multi.ReadAsync<dynamic>()).ToList();
+                var trend      = (await multi.ReadAsync<dynamic>()).ToList();
+
+                return Ok(new
+                {
+                    overview = overview == null ? null : new {
+                        totalPR             = (int)overview.totalPR,
+                        totalPO             = (int)overview.totalPO,
+                        poOutstanding       = (int)overview.poOutstanding,
+                        materialOutstanding = (int)overview.materialOutstanding,
+                    },
+                    payments = payments == null ? null : new {
+                        totalInvoice = (int)payments.totalInvoice,
+                        openPayment  = (int)payments.openPayment,
+                        vendorCount  = (int)payments.vendorCount,
+                    },
+                    topSuppliers = topSup.Select(r => new {
+                        supplierName = (string?)r.supplierName,
+                        supplierCode = (string?)r.supplierCode,
+                        poCount      = (int)r.poCount,
+                        spendBase    = (decimal?)r.spendBase ?? 0m,
+                    }),
+                    engagement = engagement == null ? null : new {
+                        totalSuppliers   = (int)engagement.totalSuppliers,
+                        engagedSuppliers = (int)engagement.engagedSuppliers,
+                    },
+                    categories = categories.Select(r => new {
+                        categoryName  = (string?)r.categoryName,
+                        supplierCount = (int)r.supplierCount,
+                    }),
+                    trend = trend.Select(r => new {
+                        monthLabel = (string?)r.monthLabel,
+                        spendBase  = (decimal?)r.spendBase ?? 0m,
+                    }),
+                });
+            }
+            catch (Exception ex)
+            {
+                await _dbcon.WriteLog(ex, controller: "Dashboard", action: "GetProcurementAnalytics", requestPath: HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Failed to load procurement analytics." });
+            }
+        }
+
+        // Today's document activity for the signed-in user (PO / GRN / Issue / PR created today).
+        [HttpGet("today-activity")]
+        public async Task<IActionResult> GetTodayActivity([FromQuery] int userId = 0)
+        {
+            try
+            {
+                var rows = await _dbcon.QueryAsync<dynamic>("sp_GetTodayActivity", new { UserId = userId });
+                var r = rows.FirstOrDefault();
+                if (r == null) return Ok(new { poCount = 0, poValue = 0m, grnCount = 0, issueCount = 0, prCount = 0 });
+                return Ok(new {
+                    poCount    = (int)r.poCount,
+                    poValue    = (decimal?)r.poValue ?? 0m,
+                    grnCount   = (int)r.grnCount,
+                    issueCount = (int)r.issueCount,
+                    prCount    = (int)r.prCount,
+                });
+            }
+            catch (Exception ex)
+            {
+                await _dbcon.WriteLog(ex, controller: "Dashboard", action: "GetTodayActivity", requestPath: HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Failed to load today's activity." });
+            }
+        }
+
         // Approved PRs that still have un-ordered balance — the procurement work queue.
         [HttpGet("approved-prs")]
         public async Task<IActionResult> GetApprovedPRsAwaitingPO()

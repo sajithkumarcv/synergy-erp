@@ -10,7 +10,7 @@ import './Dashboard.css';
 const ROLE_CONFIG = {
     'ADMIN': {
         kpis:     ['activeJobs','openPRs','openPOs','pendingApprovals','openInvoices'],
-        sections: ['myDrafts','approvedPrs','jobSummary','myApprovals','procurement','inventory','financials','jobCosting'],
+        sections: ['todayActivity','myDrafts','approvedPrs','jobSummary','myApprovals','procurement','inventory','financials','jobCosting'],
     },
     'DEPARTMENT HEAD': {
         kpis:     ['activeJobs','openPRs','openPOs','pendingApprovals','openInvoices'],
@@ -26,7 +26,7 @@ const ROLE_CONFIG = {
     },
     'PROCUREMENT OFFICER': {
         kpis:     ['openPRs','openPOs','pendingApprovals'],
-        sections: ['approvedPrs','myDrafts','myApprovals','procurement','inventory'],
+        sections: ['todayActivity','approvedPrs','myDrafts','myApprovals','procurement','inventory'],
     },
     'SR.PROJ.MANAGER': {
         kpis:     ['activeJobs','openPRs','openPOs','pendingApprovals','openInvoices'],
@@ -251,6 +251,59 @@ const OverBudgetWidget = () => {
     );
 };
 
+// ── Today's activity — docs the user created today (self-fetching) ─────────────
+const TodayActivityWidget = ({ userId }) => {
+    const navigate = useNavigate();
+    const [d, setD] = useState(null);   // null=loading, 'err', or data object
+
+    useEffect(() => {
+        if (!userId) return;
+        fetch(`${variables.API_URL}dashboard/today-activity?userId=${userId}`, { headers: authHeaders() })
+            .then(r => r.ok ? r.json() : Promise.reject())
+            .then(setD)
+            .catch(() => setD('err'));
+    }, [userId]);
+
+    const tiles = [
+        { key: 'po',    label: 'POs Created',    icon: '📦', accent: '#059669', soft: '#d1fae5', count: d?.poCount,    sub: d?.poValue > 0 ? fmtM(d.poValue) : null, route: '/purchase-orders' },
+        { key: 'grn',   label: 'GRNs',           icon: '📥', accent: '#7c3aed', soft: '#ede9fe', count: d?.grnCount,   sub: null, route: '/grn' },
+        { key: 'issue', label: 'Issue Notes',    icon: '📤', accent: '#b45309', soft: '#fef3c7', count: d?.issueCount, sub: null, route: '/inventory-issue' },
+        { key: 'pr',    label: 'PRs',            icon: '📝', accent: '#2563eb', soft: '#dbeafe', count: d?.prCount,    sub: null, route: '/purchase-requests' },
+    ];
+
+    return (
+        <div className="db-card db-card-wide" style={{ borderLeft: '3px solid #0891b2' }}>
+            <div className="db-card-header">
+                <span className="db-card-icon">📅</span> TODAY'S ACTIVITY
+                <span style={{ marginLeft: 8, fontSize: 10.5, fontWeight: 500, color: '#94a3b8', textTransform: 'none', letterSpacing: 0 }}>
+                    documents you created today
+                </span>
+            </div>
+            <div className="db-card-body">
+                {d === null && <div style={{ color: '#94a3b8', fontSize: 12 }}>Loading…</div>}
+                {d === 'err' && <div style={{ color: '#94a3b8', fontSize: 12 }}>Unable to load.</div>}
+                {d && d !== 'err' && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+                        {tiles.map(t => (
+                            <div key={t.key} onClick={() => navigate(t.route)}
+                                style={{ cursor: 'pointer', border: '1px solid #eef1f6', borderRadius: 10, padding: '12px 10px',
+                                    display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 4,
+                                    transition: 'border-color .12s, transform .12s' }}
+                                onMouseEnter={e => { e.currentTarget.style.borderColor = t.accent; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.borderColor = '#eef1f6'; e.currentTarget.style.transform = 'none'; }}>
+                                <span style={{ width: 34, height: 34, borderRadius: 10, background: t.soft, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 17 }}>{t.icon}</span>
+                                <span style={{ fontSize: 24, fontWeight: 800, lineHeight: 1, color: (t.count || 0) > 0 ? t.accent : '#cbd5e1' }}>{t.count ?? 0}</span>
+                                <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>{t.label}</span>
+                                {t.sub && <span style={{ fontSize: 10.5, color: '#94a3b8' }}>{t.sub}</span>}
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
 // ── Approved PRs awaiting PO — procurement work queue (self-fetching) ──────────
 const ApprovedPrsWidget = () => {
     const navigate = useNavigate();
@@ -415,6 +468,9 @@ const Dashboard = () => {
 
             {/* ── MAIN GRID ── */}
             <div className="db-grid">
+
+                {/* ── Today's Activity ── */}
+                {showSection('todayActivity') && <TodayActivityWidget userId={userId} />}
 
                 {/* ── My Draft Documents ── */}
                 {showSection('myDrafts') && <MyDraftsWidget userId={userId} />}

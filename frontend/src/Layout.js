@@ -30,6 +30,7 @@ import { Pr } from './procurement/pr/Pr';
 import PrDetailPage from './procurement/pr/PrDetailPage';
 import { Po } from './procurement/po/Po';
 import PoDetailPage from './procurement/po/PoDetailPage';
+import ProcurementDashboard from './procurement/ProcurementDashboard';
 import ProcurementGrn from './procurement/grn/Grn';
 import FreeIssueGrn from './procurement/freeissuegrn/FreeIssueGrn';
 import FreeIssueGrnDetailPage from './procurement/freeissuegrn/FreeIssueGrnDetailPage';
@@ -668,6 +669,7 @@ const Layout = () => {
             <Route path="/items/:itemId"    element={<ItemDetailPage />} />
             <Route path="/bom"              element={<Bom />} />
             <Route path="/bom/:bomId"       element={<BomDetailPage />} />
+            <Route path="/procurement-analytics"      element={<ProcurementDashboard />} />
             <Route path="/purchase-requests"          element={<Pr />} />
             <Route path="/purchase-requests/:prId"    element={<PrDetailPage />} />
             <Route path="/purchase-orders"            element={<Po />} />

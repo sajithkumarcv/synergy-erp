@@ -428,7 +428,7 @@ const JobForm = ({ jobTypes, jobStages, onClose, onSaved }) => {
               <Sec label="Parent Job" />
               <div className="jf-row">
                 <div className="jf-field jf-f2" style={{ position: 'relative' }}>
-                  <label>Parent Job {isReq('parentJobId') && <span className="req">*</span>}</label>
+                  <label>Parent Job <span className="req">*</span></label>
                   <input
                     className={`jf-input ${form.parentJobId ? 'jf-input-ok' : ''}${errors.parentJobId ? ' jf-input-err' : ''}`}
                     placeholder="Type Job ID or description to search…"
