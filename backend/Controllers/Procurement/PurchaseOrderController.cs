@@ -144,6 +144,7 @@ namespace ERPWEB.Controllers.Procurement
                     model.CurrencyId,
                     model.ExchangeRate,
                     model.PaymentTermsId,
+                    model.PaymentTermsOther,
                     model.DeliveryDate,
                     model.DeliveryAddr,
                     model.DeliveryTerms,

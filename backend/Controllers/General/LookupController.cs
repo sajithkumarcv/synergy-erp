@@ -121,6 +121,31 @@ namespace ERPWEB.Controllers.General
             }
         }
 
+        // ── Payment Terms ─────────────────────────────────────────
+        // Explicit route (takes precedence over the generic {type} switch below)
+        // so we can also expose TermCode — needed by the PO form to detect the
+        // "Other" term and require its free-text specification.
+        [HttpGet("paymentterms")]
+        public async Task<IActionResult> GetPaymentTermsWithCode()
+        {
+            try
+            {
+                var rows = await _dbcon.QueryAsync<dynamic>("sp_GetPaymentTerms");
+                var result = (rows ?? Enumerable.Empty<dynamic>()).Select(r => new
+                {
+                    id   = (int)r.PaymentTermsId,
+                    name = (string)r.DisplayName,
+                    code = (string)r.TermCode,
+                });
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                await _dbcon.WriteLog(ex, controller: "Lookup", action: "GetPaymentTermsWithCode", requestPath: HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Error loading payment terms." });
+            }
+        }
+
         // ── Delivery Terms ───────────────────────────────────────
         [HttpGet("deliveryterms")]
         public async Task<IActionResult> GetDeliveryTerms()

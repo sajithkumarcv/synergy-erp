@@ -177,7 +177,10 @@ const PoPrintModal = ({ po, onClose, preview }) => {
                         {po.vendorRef       && <InfoRow label="Vendor Quote Ref" value={po.vendorRef} />}
                         {po.vendorQuoteDate && <InfoRow label="Quote Date"       value={fmtDate(po.vendorQuoteDate)} />}
                         <InfoRow label="Currency"     value={currency} />
-                        <InfoRow label="Payment Terms" value={po.paymentTermName} />
+                        <InfoRow label="Payment Terms" value={
+                            (po.paymentTermCode === 'OTHER' && po.paymentTermsOther)
+                                ? `${po.paymentTermName} — ${po.paymentTermsOther}` : po.paymentTermName
+                        } />
                         {po.deliveryTerms  && <InfoRow label="Del. Terms"  value={po.deliveryTerms} />}
                         {po.deliveryAddr   && <InfoRow label="Del. Address" value={po.deliveryAddr} />}
                     </div>

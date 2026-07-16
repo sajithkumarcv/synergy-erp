@@ -42,8 +42,10 @@ namespace ERPWEB.Models.Procurement
         public string? CurrencyShort   { get; set; }
         public string? CurrencySymbol  { get; set; }
         public decimal ExchangeRate    { get; set; } = 1;
-        public int?    PaymentTermsId  { get; set; }
-        public string? PaymentTermName { get; set; }
+        public int?    PaymentTermsId    { get; set; }
+        public string? PaymentTermName   { get; set; }
+        public string? PaymentTermCode   { get; set; }
+        public string? PaymentTermsOther { get; set; }
         public decimal? Discount       { get; set; }
         public decimal? TaxAmount      { get; set; }
         public decimal? TotalAmount    { get; set; }

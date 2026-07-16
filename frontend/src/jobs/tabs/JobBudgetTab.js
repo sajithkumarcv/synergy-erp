@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { variables, authHeaders } from '../../Variable';
 import { useCurrentUser } from '../../AuthContext';
@@ -352,6 +353,14 @@ const JobBudgetEditor = ({ job }) => {
     const [expandedCat, setExpandedCat] = useState(null);
     const [allItems,    setAllItems]    = useState([]);   // every budget item line for the revision
     const [itemDraft,   setItemDraft]   = useState({ budgetItemId: 0, itemId: '', qty: '', unitPrice: '' });
+    // Item picker options loaded per category from the server (the global lookup is
+    // capped at 500 items, which hides most of a category's items in a 3,000+ catalog).
+    const [catItems,        setCatItems]        = useState({});   // costCategoryId → item option array
+    const [catItemsLoading, setCatItemsLoading] = useState(null); // costCategoryId currently loading
+    const [itemSearch,      setItemSearch]      = useState('');   // typeahead text for the item picker
+    const [itemPickerOpen,  setItemPickerOpen]  = useState(false);
+    const itemInputRef = useRef(null);
+    const [pickerRect, setPickerRect] = useState(null);  // input screen rect for the portaled dropdown
     // Filters (BOM-detail style)
     const [headerFilter, setHeaderFilter] = useState('');
     const [searchText,   setSearchText]   = useState('');
@@ -407,19 +416,67 @@ const JobBudgetEditor = ({ job }) => {
         return m;
     }, [allItems]);
 
+    // When a category is expanded, load ALL of its purchasable items from the server
+    // (scoped by budgetCategoryId) — the global lookup only holds the first 500 items
+    // catalog-wide, so most of a category's items are otherwise missing from the picker.
+    useEffect(() => {
+        if (expandedCat == null || catItems[expandedCat]) return;
+        let cancelled = false;
+        setCatItemsLoading(expandedCat);
+        fetch(`${variables.API_URL}item/search?budgetCategoryId=${expandedCat}&isActive=true&pageSize=500&page=1&sortCol=ItemName&sortDir=ASC`,
+              { headers: authHeaders() })
+            .then(r => r.ok ? r.json() : { data: [] })
+            .then(d => {
+                if (cancelled) return;
+                const opts = (d.data || []).map(i => ({
+                    id: i.itemId, name: i.itemName || i.itemNameEn || '', code: i.itemCode || '',
+                    budgetCategoryId: i.budgetCategoryId ?? null,
+                    lastPurchasePrice: i.lastPurchasePrice ?? null,
+                    lastPurchaseCurrencyShort: i.lastPurchaseCurrencyShort ?? null,
+                }));
+                setCatItems(prev => ({ ...prev, [expandedCat]: opts }));
+            })
+            .catch(() => { if (!cancelled) setCatItems(prev => ({ ...prev, [expandedCat]: [] })); })
+            .finally(() => { if (!cancelled) setCatItemsLoading(null); });
+        return () => { cancelled = true; };
+    }, [expandedCat, catItems]);
+
+    // Keep the portaled item-picker dropdown aligned to its input (the dropdown is
+    // portaled to <body> to escape the accordion's overflow:hidden clipping).
+    useEffect(() => {
+        if (!itemPickerOpen) return;
+        const update = () => {
+            const el = itemInputRef.current;
+            if (el) setPickerRect(el.getBoundingClientRect());
+        };
+        update();
+        window.addEventListener('scroll', update, true);
+        window.addEventListener('resize', update);
+        return () => {
+            window.removeEventListener('scroll', update, true);
+            window.removeEventListener('resize', update);
+        };
+    }, [itemPickerOpen]);
+
     const blankDraft = { budgetItemId: 0, itemId: '', qty: '', unitPrice: '' };
+    const itemOptLabel = (it) => `${it.code ? `[${it.code}] ` : ''}${it.name}`;
 
     const toggleItems = (catId) => {
         setItemDraft(blankDraft);
+        setItemSearch(''); setItemPickerOpen(false);
         setExpandedCat(prev => prev === catId ? null : catId);
     };
 
-    const editBudgetItem = (it) => setItemDraft({
-        budgetItemId: it.budgetItemId,
-        itemId: String(it.itemId),
-        qty: it.qty != null ? String(it.qty) : '',
-        unitPrice: it.unitPrice != null ? String(it.unitPrice) : '',
-    });
+    const editBudgetItem = (it) => {
+        setItemDraft({
+            budgetItemId: it.budgetItemId,
+            itemId: String(it.itemId),
+            qty: it.qty != null ? String(it.qty) : '',
+            unitPrice: it.unitPrice != null ? String(it.unitPrice) : '',
+        });
+        setItemSearch(`${it.itemCode ? `[${it.itemCode}] ` : ''}${it.itemName || ''}`);
+        setItemPickerOpen(false);
+    };
 
     // ── Budget item save / delete (no password — draft budget is free to edit) ──
     const [itemBusy, setItemBusy] = useState(false);
@@ -440,6 +497,7 @@ const JobBudgetEditor = ({ job }) => {
             const d = await res.json().catch(() => ({}));
             if (!res.ok) { setItemErr(d?.message || 'Save failed.'); return; }
             setItemDraft(blankDraft);
+            setItemSearch(''); setItemPickerOpen(false);
             loadAllItems();
         } catch { setItemErr('Network error.'); }
         finally { setItemBusy(false); }
@@ -842,7 +900,11 @@ const JobBudgetEditor = ({ job }) => {
                 const src      = SOURCE_INFO[row.categoryCode] || {};
                 const items    = itemsByCat[row.costCategoryId] || [];
                 const expanded = expandedCat === row.costCategoryId;
-                const pickItems = itemsLookup.filter(it => String(it.budgetCategoryId) === String(row.costCategoryId));
+                // Prefer the full server-loaded list for this category; fall back to the
+                // (capped) global lookup only until that fetch completes.
+                const pickItems = catItems[row.costCategoryId]
+                    ?? itemsLookup.filter(it => String(it.budgetCategoryId) === String(row.costCategoryId));
+                const pickLoading = catItemsLoading === row.costCategoryId && !catItems[row.costCategoryId];
                 const spendPct = row.amountInBaseCurrency > 0
                     ? Math.min((row.actualAmount / row.amountInBaseCurrency) * 100, 100).toFixed(0) : null;
                 const Stat = ({ label, children, alignEditable }) => (
@@ -935,26 +997,54 @@ const JobBudgetEditor = ({ job }) => {
                                 </table>
                                 {canEdit && (
                                     <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 8 }}>
-                                        <select value={itemDraft.itemId}
-                                            onChange={e => {
-                                                const selId = e.target.value;
-                                                const selItem = pickItems.find(it => String(it.id) === String(selId));
-                                                setItemDraft(p => ({
-                                                    ...p,
-                                                    itemId: selId,
-                                                    // Pre-fill last purchase price as an indicative hint (overridable)
-                                                    unitPrice: selItem?.lastPurchasePrice != null ? String(selItem.lastPurchasePrice) : p.unitPrice,
-                                                }));
-                                            }}
-                                            style={{ flex: 1, minWidth: 0, padding: 6, border: '1px solid #cbd5e1', borderRadius: 5, fontSize: 12, background: '#fff' }}>
-                                            <option value="">{pickItems.length ? '-- Select item --' : '— no items linked to this header —'}</option>
-                                            {pickItems.map(it => (
-                                                <option key={it.id} value={it.id}>
-                                                    {it.code ? `[${it.code}] ` : ''}{it.name}
-                                                    {it.lastPurchasePrice ? ` · last: ${fmt(it.lastPurchasePrice)} ${it.lastPurchaseCurrencyShort || ''}` : ''}
-                                                </option>
-                                            ))}
-                                        </select>
+                                        <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
+                                            <input type="text"
+                                                ref={itemInputRef}
+                                                value={itemSearch}
+                                                disabled={pickLoading || !pickItems.length}
+                                                placeholder={pickLoading ? 'Loading items…' : pickItems.length ? `Search ${pickItems.length} items by code or name…` : 'No items linked to this header'}
+                                                onChange={e => { setItemSearch(e.target.value); setItemPickerOpen(true); setItemDraft(p => ({ ...p, itemId: '' })); }}
+                                                onFocus={() => pickItems.length && setItemPickerOpen(true)}
+                                                onBlur={() => setTimeout(() => setItemPickerOpen(false), 150)}
+                                                style={{ width: '100%', boxSizing: 'border-box', padding: 6,
+                                                         border: `1px solid ${itemDraft.itemId ? '#0f766e' : '#cbd5e1'}`, borderRadius: 5, fontSize: 12,
+                                                         background: (pickLoading || !pickItems.length) ? '#f1f5f9' : '#fff' }} />
+                                            {itemPickerOpen && pickItems.length > 0 && pickerRect && ReactDOM.createPortal((() => {
+                                                const q = itemSearch.trim().toLowerCase();
+                                                const matches = q
+                                                    ? pickItems.filter(it => (it.name || '').toLowerCase().includes(q) || (it.code || '').toLowerCase().includes(q))
+                                                    : pickItems;
+                                                const shown = matches.slice(0, 50);
+                                                return (
+                                                    <div style={{ position: 'fixed', top: pickerRect.bottom + 2, left: pickerRect.left, width: pickerRect.width,
+                                                                  zIndex: 9999, background: '#fff', border: '1px solid #c8d4e4', borderRadius: 6,
+                                                                  boxShadow: '0 4px 16px rgba(0,0,0,.18)', maxHeight: 240, overflowY: 'auto' }}>
+                                                        {shown.length === 0
+                                                            ? <div style={{ padding: '7px 10px', fontSize: 12, color: '#94a3b8' }}>No matching items.</div>
+                                                            : shown.map(it => (
+                                                                <div key={it.id}
+                                                                    onMouseDown={() => {
+                                                                        setItemDraft(p => ({ ...p, itemId: String(it.id),
+                                                                            unitPrice: it.lastPurchasePrice != null ? String(it.lastPurchasePrice) : p.unitPrice }));
+                                                                        setItemSearch(itemOptLabel(it));
+                                                                        setItemPickerOpen(false);
+                                                                    }}
+                                                                    style={{ padding: '7px 10px', cursor: 'pointer', fontSize: 12, borderBottom: '1px solid #f1f5f9' }}
+                                                                    onMouseEnter={e => e.currentTarget.style.background = '#f0f9ff'}
+                                                                    onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
+                                                                    {itemOptLabel(it)}
+                                                                    {it.lastPurchasePrice ? <span style={{ color: '#94a3b8' }}> · last: {fmt(it.lastPurchasePrice)} {it.lastPurchaseCurrencyShort || ''}</span> : ''}
+                                                                </div>
+                                                            ))}
+                                                        {!q && matches.length > 50 && (
+                                                            <div style={{ padding: '6px 10px', fontSize: 11, color: '#94a3b8', fontStyle: 'italic' }}>
+                                                                Showing 50 of {matches.length} — type to narrow.
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })(), document.body)}
+                                        </div>
                                         <input type="number" placeholder="Qty" value={itemDraft.qty} onChange={e => setItemDraft(p => ({ ...p, qty: e.target.value }))}
                                             style={{ width: 80, padding: 6, border: '1px solid #cbd5e1', borderRadius: 5, fontSize: 12 }} />
                                         <div style={{ position: 'relative' }}>
@@ -970,7 +1060,7 @@ const JobBudgetEditor = ({ job }) => {
                                             {itemBusy ? '…' : itemDraft.budgetItemId ? 'Update' : 'Add'}
                                         </button>
                                         {itemDraft.budgetItemId ? (
-                                            <button type="button" onClick={() => setItemDraft(blankDraft)}
+                                            <button type="button" onClick={() => { setItemDraft(blankDraft); setItemSearch(''); setItemPickerOpen(false); }}
                                                 style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: 5, padding: '6px 10px', cursor: 'pointer', fontSize: 12 }}>Cancel</button>
                                         ) : null}
                                     </div>

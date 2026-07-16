@@ -81,6 +81,7 @@ const PoOverviewTab = ({ po, onRefresh }) => {
             currencyId:     po.currencyId     ? String(po.currencyId)           : '',
             exchangeRate:   po.exchangeRate   != null ? String(po.exchangeRate) : '1',
             paymentTermsId: po.paymentTermsId ? String(po.paymentTermsId)       : '',
+            paymentTermsOther: po.paymentTermsOther || '',
             deliveryDate:   po.deliveryDate   ? po.deliveryDate.slice(0, 10)    : '',
             deliveryAddr:   po.deliveryAddr   || '',
             deliveryTerms:  po.deliveryTerms  || '',
@@ -109,6 +110,8 @@ const PoOverviewTab = ({ po, onRefresh }) => {
         setForm(p => ({ ...p, currencyId: id, exchangeRate: cur ? String(cur.exchangeRate ?? 1) : '1' }));
     };
 
+    const isOtherPaymentTerm = paymentTerms.find(pt => String(pt.id) === String(form.paymentTermsId))?.code === 'OTHER';
+
     const save = () => {
         if (!form.poDate)                                         { setError('PO Date is required.');              return; }
         if (!form.jobId)                                          { setError('Job is required.');                  return; }
@@ -116,6 +119,7 @@ const PoOverviewTab = ({ po, onRefresh }) => {
         if (!form.currencyId)                                     { setError('Currency is required.');             return; }
         if (!form.exchangeRate || Number(form.exchangeRate) <= 0) { setError('Exchange rate must be greater than 0.'); return; }
         if (!form.paymentTermsId)                                 { setError('Payment Terms is required.');        return; }
+        if (isOtherPaymentTerm && !form.paymentTermsOther.trim()) { setError('Please specify the payment terms.'); return; }
         if (!form.deliveryTerms)                                  { setError('Delivery Terms is required.');       return; }
         setError(''); setSaving(true);
         fetch(`${variables.API_URL}purchaseorder/save`, {
@@ -131,6 +135,7 @@ const PoOverviewTab = ({ po, onRefresh }) => {
                 currencyId:    form.currencyId   ? Number(form.currencyId)    : null,
                 exchangeRate:  form.exchangeRate ? Number(form.exchangeRate)  : 1,
                 paymentTermsId:form.paymentTermsId ? Number(form.paymentTermsId) : null,
+                paymentTermsOther: isOtherPaymentTerm ? form.paymentTermsOther.trim() : null,
                 deliveryDate:  form.deliveryDate || null,
                 deliveryAddr:  form.deliveryAddr.trim()  || null,
                 deliveryTerms: form.deliveryTerms        || null,
@@ -312,6 +317,13 @@ const PoOverviewTab = ({ po, onRefresh }) => {
                             {paymentTerms.map(pt => <option key={pt.id} value={pt.id}>{pt.name}</option>)}
                         </select>
                     </div>
+                    {isOtherPaymentTerm && (
+                        <div style={field}>
+                            <label style={lbl}>Specify Payment Terms <span className="req">*</span></label>
+                            <input className="pf-input" type="text" name="paymentTermsOther" value={form.paymentTermsOther} onChange={handle}
+                                placeholder="e.g. Net 45 days via LC" />
+                        </div>
+                    )}
                     <div style={{ ...field, flex: '0 0 110px' }}>
                         <label style={lbl}>Discount %</label>
                         <input className="pf-input" type="number" name="discount" value={form.discount} onChange={handle} placeholder="0.00" min="0" max="100" step="0.01" />
@@ -413,7 +425,11 @@ const PoOverviewTab = ({ po, onRefresh }) => {
                         </span>
                     )}
                 </Field>
-                <Field label="Payment Terms">{po.paymentTermName}</Field>
+                <Field label="Payment Terms">
+                    {po.paymentTermCode === 'OTHER' && po.paymentTermsOther
+                        ? `${po.paymentTermName} — ${po.paymentTermsOther}`
+                        : po.paymentTermName}
+                </Field>
                 <Field label="Expected Delivery">{fmtDate(po.deliveryDate)}</Field>
                 <Field label="Delivery Terms" mono>{po.deliveryTerms}</Field>
                 <Field label="Delivery Address">{po.deliveryAddr}</Field>

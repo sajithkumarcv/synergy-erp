@@ -244,7 +244,10 @@ const PoPrintModal3 = ({ po, onClose, preview }) => {
                         </div>
                         <KV label="Quote Date"       value={fmtDate(po.vendorQuoteDate)} />
                         <KV label="Currency"      value={currency} />
-                        <KV label="Payment Terms" value={po.paymentTermName} />
+                        <KV label="Payment Terms" value={
+                            (po.paymentTermCode === 'OTHER' && po.paymentTermsOther)
+                                ? `${po.paymentTermName} — ${po.paymentTermsOther}` : po.paymentTermName
+                        } />
                         <KV label="Del. Terms"    value={po.deliveryTerms} />
                         <KV label="Deliver To"    value={po.deliveryAddr} />
                     </div>

@@ -49,6 +49,19 @@
   box-shadow: 0 4px 20px rgba(0,0,0,0.2);
 }
 
+/* Brand logo tile — white rounded plate so a colored logo stays legible
+   on any panel background. Used by split-left / split-right layouts. */
+.login-brand-logo {
+  width: 92px;
+  height: 92px;
+  border-radius: 20px;
+  margin-bottom: 20px;
+  background: var(--brand-logo-tile, #fff);
+  padding: 14px;
+  object-fit: contain;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.20);
+}
+
 .login-app-name {
   font-size: 28px;
   font-weight: 700;

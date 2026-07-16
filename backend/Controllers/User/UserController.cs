@@ -32,8 +32,20 @@ namespace ERPWEB.Controllers.User
                     SortColumn    = "FullName",
                     SortDirection = "ASC"
                 });
-                return Ok((rows ?? new List<UserListRow>())
-                    .Select(u => new { u.UserId, u.UserName, u.FullName }));
+                // sp_SearchUsers LEFT JOINs roles, so a multi-role user appears once per
+                // role — group by user and join their role names into one label.
+                var result = (rows ?? new List<UserListRow>())
+                    .GroupBy(u => u.UserId)
+                    .Select(g =>
+                    {
+                        var u = g.First();
+                        var roles = string.Join(", ",
+                            g.Select(x => x.RoleName)
+                             .Where(rn => !string.IsNullOrWhiteSpace(rn))
+                             .Distinct());
+                        return new { u.UserId, u.UserName, u.FullName, RoleName = roles };
+                    });
+                return Ok(result);
             }
             catch (Exception ex)
             {
@@ -194,7 +206,8 @@ namespace ERPWEB.Controllers.User
                 {
                     req.UserId,
                     req.RoleId,
-                    Action = req.Action
+                    Action = req.Action,
+                    req.ActionBy
                 });
                 var r = rows.FirstOrDefault();
                 if (r?.Success != 1) return BadRequest(new { message = r?.ErrorMessage ?? "Operation failed." });

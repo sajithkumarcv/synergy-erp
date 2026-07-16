@@ -173,7 +173,9 @@ export default function UserGroups() {
                 <select style={{ ...S.input, flex:1 }} value={addUserId} onChange={e => setAddUserId(e.target.value)}>
                   <option value="">— Select user to add —</option>
                   {availableUsers.map(u => (
-                    <option key={u.userId} value={u.userId}>{u.fullName} ({u.userName})</option>
+                    <option key={u.userId} value={u.userId}>
+                      {u.fullName} ({u.userName}){u.roleName ? ` — ${u.roleName}` : ''}
+                    </option>
                   ))}
                 </select>
                 <button style={S.btnPrimary} onClick={addMember} disabled={!addUserId}>Add</button>

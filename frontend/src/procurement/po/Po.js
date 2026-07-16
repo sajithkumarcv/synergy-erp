@@ -341,6 +341,7 @@ const PoForm = ({ onClose, onSaved }) => {
         currencyId:          '',
         exchangeRate:        '1',
         paymentTermsId:      '',
+        paymentTermsOther:   '',
         deliveryDate:        '',
         deliveryAddr:        '',
         deliveryTerms:       '',
@@ -358,6 +359,9 @@ const PoForm = ({ onClose, onSaved }) => {
     const [error,           setError]           = useState('');
     const [previewNo,       setPreviewNo]       = useState('');
     const [draftWarn,       setDraftWarn]       = useState(null);
+
+    // "Other" payment term requires the free-text specification field
+    const isOtherPaymentTerm = paymentTerms.find(pt => String(pt.id) === String(form.paymentTermsId))?.code === 'OTHER';
 
     useEffect(() => {
         fetch(`${variables.API_URL}documentseries/preview/PO`, { headers: authHeaders() })
@@ -430,6 +434,8 @@ const PoForm = ({ onClose, onSaved }) => {
         if (!form.exchangeRate || Number(form.exchangeRate) <= 0)
                                                                e.exchangeRate   = 'Exchange rate must be greater than 0.';
         if (!form.paymentTermsId)                              e.paymentTermsId = 'Payment Terms is required.';
+        if (isOtherPaymentTerm && !form.paymentTermsOther.trim())
+                                                               e.paymentTermsOther = 'Please specify the payment terms.';
         if (!form.deliveryTerms)                               e.deliveryTerms  = 'Delivery Terms is required.';
         if (!form.expenseCategoryId)                           e.expenseCategoryId = 'Budget Category is required.';
         setErrors(e);
@@ -452,6 +458,7 @@ const PoForm = ({ onClose, onSaved }) => {
                 currencyId:        form.currencyId        ? Number(form.currencyId)        : null,
                 exchangeRate:      form.exchangeRate      ? Number(form.exchangeRate)       : 1,
                 paymentTermsId:    form.paymentTermsId    ? Number(form.paymentTermsId)    : null,
+                paymentTermsOther: isOtherPaymentTerm ? form.paymentTermsOther.trim() : null,
                 deliveryDate:      form.deliveryDate      || null,
                 deliveryAddr:      form.deliveryAddr?.trim() || null,
                 deliveryTerms:     form.deliveryTerms     || null,
@@ -717,6 +724,15 @@ const PoForm = ({ onClose, onSaved }) => {
                             </select>
                             {errors.paymentTermsId && <span className="pf-field-err">{errors.paymentTermsId}</span>}
                         </div>
+                        {isOtherPaymentTerm && (
+                            <div className="pf-field">
+                                <label>Specify Payment Terms <span className="req">*</span></label>
+                                <input className={`pf-input${errors.paymentTermsOther ? ' pf-input-err' : ''}`}
+                                    type="text" name="paymentTermsOther" value={form.paymentTermsOther} onChange={handle}
+                                    placeholder="e.g. Net 45 days via LC" />
+                                {errors.paymentTermsOther && <span className="pf-field-err">{errors.paymentTermsOther}</span>}
+                            </div>
+                        )}
                         <div className="pf-field" style={{ flex: '0 0 110px' }}>
                             <label>Discount %</label>
                             <input className="pf-input" type="number" name="discount" value={form.discount} onChange={handle} placeholder="0.00" />

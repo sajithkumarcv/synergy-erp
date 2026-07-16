@@ -98,6 +98,13 @@ namespace ERPWEB.Controllers.Admin
                 var r = rows.FirstOrDefault();
                 return Ok(new { newId = r?.NewId, message = "Saved." });
             }
+            catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+            {
+                // Deliberate RAISERROR / constraint messages are meant for the user
+                // (e.g. "Job Type is required for a BOM Section.") — surface them
+                // instead of the generic message below.
+                return BadRequest(new { message = sqlEx.Message });
+            }
             catch (Exception ex)
             {
                 await _dbcon.WriteLog(ex, controller: "AdminLookup", action: "Save",

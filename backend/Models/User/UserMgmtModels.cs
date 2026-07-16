@@ -88,14 +88,17 @@ namespace ERPWEB.Models.User
         public string RoleCode    { get; set; } = string.Empty;
         public string? Description{ get; set; }
         public bool   IsActive    { get; set; }
+        public string?   AssignedBy   { get; set; }
+        public DateTime? AssignedDate { get; set; }
     }
 
     // ── Assign/remove role request ───────────────────────────────
     public class UserRoleRequest
     {
-        public int    UserId { get; set; }
-        public int    RoleId { get; set; }
-        public string Action { get; set; } = "ASSIGN";   // "ASSIGN" | "REMOVE"
+        public int     UserId   { get; set; }
+        public int     RoleId   { get; set; }
+        public string  Action   { get; set; } = "ASSIGN";   // "ASSIGN" | "REMOVE"
+        public string? ActionBy { get; set; }
     }
 
     // ── Menu permission row ──────────────────────────────────────

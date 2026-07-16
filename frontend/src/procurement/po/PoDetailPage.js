@@ -621,7 +621,10 @@ const PoDetailPage = () => {
                     po.jobId       && { label: 'Job',          val: po.jobId,                          cls: 'jd-kpi-mono' },
                     po.linkedPRs   && { label: 'PR Refs',      val: po.linkedPRs,                      cls: 'jd-kpi-mono' },
                     po.vendorRef   && { label: 'Vendor Ref',   val: po.vendorRef,                      cls: 'jd-kpi-mono' },
-                    po.paymentTermName && { label: 'Payment Terms', val: po.paymentTermName,            cls: '' },
+                    po.paymentTermName && { label: 'Payment Terms',
+                        val: (po.paymentTermCode === 'OTHER' && po.paymentTermsOther)
+                            ? `${po.paymentTermName} — ${po.paymentTermsOther}` : po.paymentTermName,
+                        cls: '' },
                     po.expenseCategoryName && { label: 'Budget Category',
                         val: po.expenseCategoryCode ? `${po.expenseCategoryCode} — ${po.expenseCategoryName}` : po.expenseCategoryName,
                         cls: '', hl: true },

@@ -9,9 +9,7 @@ export default function SplitLeft({ form }) {
       <div className="login-left">
         <div className="login-left-inner">
           {b.logo && (
-            <img src={brandAsset(b.logo)} alt={b.appName}
-                 className="login-logo-img"
-                 style={{ width: 108, height: 108, borderRadius: 24, marginBottom: 16 }} />
+            <img src={brandAsset(b.logo)} alt={b.appName} className="login-brand-logo" />
           )}
           <h1 className="login-app-name">{b.appName}</h1>
           <p className="login-app-desc">{b.tagline}</p>

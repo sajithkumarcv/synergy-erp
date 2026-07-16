@@ -99,12 +99,171 @@ const DEFAULT_FILTERS = {
     dateTo:      '',
 };
 
+// ── Responsive hook — true on phone-width screens ─────────────────────────
+const useIsMobile = (bp = 768) => {
+    const [m, setM] = useState(() =>
+        typeof window !== 'undefined' && window.matchMedia(`(max-width:${bp}px)`).matches);
+    useEffect(() => {
+        const mq = window.matchMedia(`(max-width:${bp}px)`);
+        const on = e => setM(e.matches);
+        mq.addEventListener ? mq.addEventListener('change', on) : mq.addListener(on);
+        return () => mq.removeEventListener ? mq.removeEventListener('change', on) : mq.removeListener(on);
+    }, [bp]);
+    return m;
+};
+
+// ── Shared action form (remarks + password + approve/reject) ──────────────
+// Used by both the desktop expanded row and the mobile card, so the approve
+// logic lives in exactly one place.
+const ActionPanel = ({ item, busy, onAction }) => {
+    const [remarks,  setRemarks]  = useState('');
+    const [password, setPassword] = useState('');
+
+    if (!item.canAct) {
+        return (
+            <div style={{ marginTop: 12, borderTop: '1px dashed #e2e8f0', paddingTop: 12, fontSize: 12, color: '#b45309', background: '#fffbeb', padding: '8px 10px', borderRadius: 6 }}>
+                ⓘ You can't act on this — it was submitted by you and this level doesn't allow self-approval.
+            </div>
+        );
+    }
+    return (
+        <div style={{ marginTop: 12, borderTop: '1px dashed #e2e8f0', paddingTop: 12 }}>
+            <textarea
+                value={remarks}
+                onChange={e => setRemarks(e.target.value)}
+                placeholder="Remarks (optional for approve, recommended for reject)…"
+                rows={2}
+                disabled={busy}
+                style={{ width: '100%', boxSizing: 'border-box', fontSize: 12.5, padding: '7px 10px',
+                         border: '1px solid #cbd5e1', borderRadius: 6, resize: 'vertical', fontFamily: 'inherit' }}
+            />
+            <div style={{ marginTop: 8, marginBottom: 8 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 4 }}>
+                    Login Password <span style={{ color: '#dc2626' }}>*</span>
+                    <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, marginLeft: 6, color: '#94a3b8' }}>(required to approve)</span>
+                </div>
+                <input
+                    type="password" autoComplete="new-password"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    placeholder="Enter your login password…"
+                    disabled={busy}
+                    onKeyDown={e => { if (e.key === 'Enter' && password.trim()) onAction(item, 'Approve', remarks, null, false, password.trim()); }}
+                    style={{ width: '100%', boxSizing: 'border-box', fontSize: 12.5, padding: '7px 10px',
+                             border: '1px solid #bfdbfe', borderRadius: 6, fontFamily: 'inherit' }}
+                />
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                <button
+                    onClick={() => onAction(item, 'Reject', remarks)}
+                    disabled={busy}
+                    style={{ padding: '8px 16px', fontSize: 12.5, fontWeight: 600, borderRadius: 6,
+                             border: '1px solid #fca5a5', background: '#fee2e2', color: '#991b1b',
+                             cursor: busy ? 'not-allowed' : 'pointer' }}>
+                    {busy ? '…' : '✗ Reject'}
+                </button>
+                <button
+                    onClick={() => onAction(item, 'Approve', remarks, null, false, password.trim())}
+                    disabled={busy}
+                    style={{ padding: '8px 16px', fontSize: 12.5, fontWeight: 600, borderRadius: 6,
+                             border: 'none', background: '#16a34a', color: '#fff',
+                             cursor: busy ? 'not-allowed' : 'pointer' }}>
+                    {busy ? '…' : '✓ Approve'}
+                </button>
+            </div>
+        </div>
+    );
+};
+
+// ── Expanded detail (document summary + open button + action form) ────────
+const ExpandedDetail = ({ item, route, busy, onOpen, onAction }) => (
+    <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, padding: 14 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+            <div style={{ fontSize: 12.5, color: '#475569', lineHeight: 1.8 }}>
+                <div><strong>Document:</strong> {item.documentNo}
+                    {item.documentAmount != null && <> · <strong>Amount:</strong> {fmt(item.documentAmount)}</>}
+                </div>
+                <div><strong>Submitted by:</strong> {item.submittedBy} on {fmtDateTime(item.submittedDate)}</div>
+                <div><strong>Current level:</strong> L{item.currentLevelNo} of {item.totalLevels}{item.levelName ? ` (${item.levelName})` : ''}</div>
+            </div>
+            <button className="po-act-btn po-act-open"
+                    disabled={!route}
+                    onClick={() => onOpen(item)}
+                    title={route ? 'Open the full document page' : 'No detail page available for this module'}>
+                Open full document →
+            </button>
+        </div>
+        <ActionPanel item={item} busy={busy} onAction={onAction} />
+    </div>
+);
+
+// ── Approval card (mobile) ────────────────────────────────────────────────
+const ApprovalCard = ({ item, meta, expanded, onToggle, onOpen, onAction, acting, selected, onSelect, onPreview }) => {
+    const busy         = acting === item.transactionId;
+    const currentUsers = (item.approverUsers     || '').split(', ').filter(Boolean);
+    return (
+        <div style={{
+            border: '1px solid #e2e8f0', borderLeft: `4px solid ${meta.color}`,
+            borderRadius: 8, padding: 12, marginBottom: 10, background: item.canAct ? '#fff' : '#fafafa',
+            opacity: item.canAct ? 1 : 0.75,
+        }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {item.canAct && (
+                    <input type="checkbox" checked={selected} onChange={() => onSelect(item.transactionId)}
+                           style={{ width: 16, height: 16, cursor: 'pointer', accentColor: '#16a34a', flexShrink: 0 }} />
+                )}
+                <span onClick={() => onToggle(item)} style={{ fontWeight: 700, color: '#1d4ed8', fontSize: 14, flex: 1 }}>
+                    {item.documentNo}
+                </span>
+                <span style={{ fontFamily: 'monospace', fontSize: 13, color: '#334155' }}>
+                    {item.documentAmount != null ? fmt(item.documentAmount) : ''}
+                </span>
+            </div>
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 12px', marginTop: 8, fontSize: 12, color: '#475569' }}>
+                <div style={{ fontWeight: 600, color: '#92400e' }}>
+                    L{item.currentLevelNo}/{item.totalLevels}{item.levelName ? ` · ${item.levelName}` : ''}
+                </div>
+                {item.nextLevelName
+                    ? <div style={{ color: '#1d4ed8' }}>→ L{item.nextLevelNo} {item.nextLevelName}</div>
+                    : <div style={{ color: '#94a3b8' }}>→ Final level</div>}
+            </div>
+
+            {currentUsers.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginTop: 6 }}>
+                    {currentUsers.map(name => (
+                        <span key={name} style={{ fontSize: 10.5, background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', borderRadius: 10, padding: '1px 6px', fontWeight: 600 }}>{name}</span>
+                    ))}
+                </div>
+            )}
+
+            <div style={{ marginTop: 6, fontSize: 11.5, color: '#64748b' }}>
+                {item.submittedBy} · {fmtDateTime(item.submittedDate)}
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                <button onClick={() => onPreview(item)}
+                        style={{ flex: '0 0 auto', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 6, padding: '7px 12px', fontSize: 13, cursor: 'pointer' }}>
+                    👁 Preview
+                </button>
+                <button className="po-act-btn po-act-open" style={{ flex: 1 }} onClick={() => onToggle(item)}>
+                    {expanded ? 'Close' : 'Review'}
+                </button>
+            </div>
+
+            {expanded && (
+                <div style={{ marginTop: 10 }}>
+                    <ExpandedDetail item={item} route={meta.route} busy={busy} onOpen={onOpen} onAction={onAction} />
+                </div>
+            )}
+        </div>
+    );
+};
+
 // ── Approval row ──────────────────────────────────────────────────────────
 const ApprovalRow = ({ item, route, colSpan, expanded, onToggle, onOpen, onAction, acting, selected, onSelect, onPreview }) => {
     const currentUsers = (item.approverUsers     || '').split(', ').filter(Boolean);
     const nextUsers    = (item.nextApproverUsers || '').split(', ').filter(Boolean);
-    const [remarks,  setRemarks]  = useState('');
-    const [password, setPassword] = useState('');
     const busy = acting === item.transactionId;
 
     return (
@@ -186,75 +345,7 @@ const ApprovalRow = ({ item, route, colSpan, expanded, onToggle, onOpen, onActio
             {expanded && (
                 <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                     <td colSpan={colSpan} style={{ padding: '0 16px 14px 30px' }}>
-                        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, padding: 14 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
-                                <div style={{ fontSize: 12.5, color: '#475569', lineHeight: 1.8 }}>
-                                    <div><strong>Document:</strong> {item.documentNo}
-                                        {item.documentAmount != null && <> · <strong>Amount:</strong> {fmt(item.documentAmount)}</>}
-                                    </div>
-                                    <div><strong>Submitted by:</strong> {item.submittedBy} on {fmtDateTime(item.submittedDate)}</div>
-                                    <div><strong>Current level:</strong> L{item.currentLevelNo} of {item.totalLevels}{item.levelName ? ` (${item.levelName})` : ''}</div>
-                                </div>
-                                <button className="po-act-btn po-act-open"
-                                        disabled={!route}
-                                        onClick={() => onOpen(item)}
-                                        title={route ? 'Open the full document page' : 'No detail page available for this module'}>
-                                    Open full document →
-                                </button>
-                            </div>
-
-                            {item.canAct ? (
-                                <div style={{ marginTop: 12, borderTop: '1px dashed #e2e8f0', paddingTop: 12 }}>
-                                    <textarea
-                                        value={remarks}
-                                        onChange={e => setRemarks(e.target.value)}
-                                        placeholder="Remarks (optional for approve, recommended for reject)…"
-                                        rows={2}
-                                        disabled={busy}
-                                        style={{ width: '100%', boxSizing: 'border-box', fontSize: 12.5, padding: '7px 10px',
-                                                 border: '1px solid #cbd5e1', borderRadius: 6, resize: 'vertical', fontFamily: 'inherit' }}
-                                    />
-                                    <div style={{ marginTop: 8, marginBottom: 8 }}>
-                                        <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 4 }}>
-                                            Login Password <span style={{ color: '#dc2626' }}>*</span>
-                                            <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, marginLeft: 6, color: '#94a3b8' }}>(required to approve)</span>
-                                        </div>
-                                        <input
-                                            type="password" autoComplete="new-password"
-                                            value={password}
-                                            onChange={e => setPassword(e.target.value)}
-                                            placeholder="Enter your login password…"
-                                            disabled={busy}
-                                            onKeyDown={e => { if (e.key === 'Enter' && password.trim()) onAction(item, 'Approve', remarks, null, false, password.trim()); }}
-                                            style={{ width: '100%', boxSizing: 'border-box', fontSize: 12.5, padding: '7px 10px',
-                                                     border: '1px solid #bfdbfe', borderRadius: 6, fontFamily: 'inherit' }}
-                                        />
-                                    </div>
-                                    <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                                        <button
-                                            onClick={() => onAction(item, 'Reject', remarks)}
-                                            disabled={busy}
-                                            style={{ padding: '6px 16px', fontSize: 12.5, fontWeight: 600, borderRadius: 6,
-                                                     border: '1px solid #fca5a5', background: '#fee2e2', color: '#991b1b',
-                                                     cursor: busy ? 'not-allowed' : 'pointer' }}>
-                                            {busy ? '…' : '✗ Reject'}
-                                        </button>
-                                        <button
-                                            onClick={() => onAction(item, 'Approve', remarks, null, false, password.trim())}
-                                            disabled={busy}
-                                            style={{ padding: '6px 16px', fontSize: 12.5, fontWeight: 600, borderRadius: 6,
-                                                     border: 'none', background: '#16a34a', color: '#fff',
-                                                     cursor: busy ? 'not-allowed' : 'pointer' }}>
-                                            {busy ? '…' : '✓ Approve'}
-                                        </button>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div style={{ marginTop: 12, borderTop: '1px dashed #e2e8f0', paddingTop: 12, fontSize: 12, color: '#b45309', background: '#fffbeb', padding: '8px 10px', borderRadius: 6 }}>
-                                    ⓘ You can't act on this — it was submitted by you and this level doesn't allow self-approval.
-                                </div>
-                            )}
-                        </div>
+                        <ExpandedDetail item={item} route={route} busy={busy} onOpen={onOpen} onAction={onAction} />
                     </td>
                 </tr>
             )}
@@ -266,6 +357,7 @@ const ApprovalRow = ({ item, route, colSpan, expanded, onToggle, onOpen, onActio
 const CategorySection = ({ moduleCode, items, onOpen, onToggle, onAction, expandedId, acting, selected, onSelect, onSelectAll, onPreview, defaultOpen = true }) => {
     const meta         = moduleMeta(moduleCode);
     const [open, setOpen] = useState(defaultOpen);
+    const isMobile     = useIsMobile();
 
     const actionableIds = items.filter(i => i.canAct).map(i => i.transactionId);
     const allChecked    = actionableIds.length > 0 && actionableIds.every(id => selected.has(id));
@@ -310,7 +402,23 @@ const CategorySection = ({ moduleCode, items, onOpen, onToggle, onAction, expand
                 </div>
                 <span style={{ fontSize: 14, color: meta.color, fontWeight: 700 }}>{open ? '▾' : '▸'}</span>
             </div>
-            {open && (
+            {open && (isMobile ? (
+                <div style={{ padding: '10px 12px' }}>
+                    {items.map(item => (
+                        <ApprovalCard key={item.transactionId}
+                                      item={item}
+                                      meta={meta}
+                                      expanded={expandedId === item.transactionId}
+                                      onToggle={onToggle}
+                                      onOpen={onOpen}
+                                      onAction={onAction}
+                                      acting={acting}
+                                      selected={selected.has(item.transactionId)}
+                                      onSelect={onSelect}
+                                      onPreview={onPreview} />
+                    ))}
+                </div>
+            ) : (
                 <div style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
                         <thead>
@@ -344,7 +452,7 @@ const CategorySection = ({ moduleCode, items, onOpen, onToggle, onAction, expand
                         </tbody>
                     </table>
                 </div>
-            )}
+            ))}
         </div>
     );
 };

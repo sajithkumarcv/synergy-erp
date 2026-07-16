@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { variables, authHeaders } from '../Variable';
+import { useCurrentUser } from '../AuthContext';
 import '../procurement/Procurement.css';
 import AlertModal from '../common/AlertModal';
 
 // ── Assign Roles to Users — standalone page ───────────────────
 // Allows searching for a user, then toggling their role assignments.
 const AssignRole = () => {
+    const currentUser  = useCurrentUser();
     const [users,       setUsers]       = useState([]);
     const [roles,       setRoles]       = useState([]);
     const [searchText,  setSearchText]  = useState('');
@@ -54,7 +56,7 @@ const AssignRole = () => {
         try {
             const res = await fetch(`${variables.API_URL}user/role`, {
                 method: 'POST', headers: authHeaders(),
-                body: JSON.stringify({ userId: selectedUser.userId, roleId, action }),
+                body: JSON.stringify({ userId: selectedUser.userId, roleId, action, actionBy: currentUser }),
             });
             const d = await res.json();
             if (!res.ok) { setAlertMsg(d?.message || 'Failed to update role.'); return; }

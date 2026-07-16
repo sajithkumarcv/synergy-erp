@@ -229,7 +229,10 @@ const PoPrintModal2 = ({ po, onClose, preview }) => {
                             <InfoRow label="Vendor Quote Ref" value={po.vendorRef}   mono />
                             <InfoRow label="Quote Date"      value={fmtDate(po.vendorQuoteDate)} />
                             <InfoRow label="Currency"      value={currency} />
-                            <InfoRow label="Payment Terms" value={po.paymentTermName} />
+                            <InfoRow label="Payment Terms" value={
+                                (po.paymentTermCode === 'OTHER' && po.paymentTermsOther)
+                                    ? `${po.paymentTermName} — ${po.paymentTermsOther}` : po.paymentTermName
+                            } />
                             <InfoRow label="Job Ref"       value={po.jobId || null} mono />
                             {po.discount > 0 && <InfoRow label="Discount" value={`${po.discount}%`} />}
                             <InfoRow label="Raised by"     value={po.createdBy} />

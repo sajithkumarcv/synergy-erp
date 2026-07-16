@@ -230,6 +230,7 @@ const ResetPasswordForm = ({ user, onClose, onDone }) => {
 
 // ── Assign Role form (per-user) ───────────────────────────────
 const AssignRoleForm = ({ user, roles, onClose, onDone }) => {
+    const currentUser = useCurrentUser();
     const [assigned, setAssigned] = useState([]);
     const [loading,  setLoading]  = useState(true);
     const [saving,   setSaving]   = useState(null);
@@ -247,7 +248,7 @@ const AssignRoleForm = ({ user, roles, onClose, onDone }) => {
         try {
             const res = await fetch(`${variables.API_URL}user/role`, {
                 method: 'POST', headers: authHeaders(),
-                body: JSON.stringify({ userId: user.userId, roleId, action }),
+                body: JSON.stringify({ userId: user.userId, roleId, action, actionBy: currentUser }),
             });
             const d = await res.json().catch(() => ({}));
             if (!res.ok) {

@@ -43,9 +43,10 @@ const Field = ({ label, required, error, children }) => (
     </div>
 );
 
-const Input = ({ value, onChange, name, placeholder, type = 'text', className = '' }) => (
-    <input className={`ds-input ${className}`} type={type}
-        name={name} value={value ?? ''} onChange={onChange} placeholder={placeholder} />
+const Input = ({ value, onChange, name, placeholder, type = 'text', className = '', disabled = false }) => (
+    <input className={`ds-input ${className}`} type={type} disabled={disabled}
+        name={name} value={value ?? ''} onChange={onChange} placeholder={placeholder}
+        style={disabled ? { background: '#f1f5f9', color: '#64748b', cursor: 'not-allowed' } : undefined} />
 );
 
 const Checkbox = ({ label, checked, onChange, name }) => (
@@ -173,6 +174,11 @@ const SECTIONS = [
         saveMapper: (f) => ({ id: f.id||'0', name: f.name, code: f.code, description: f.description,
             extra1: f.extra1?'true':'false', extra2: f.extra2?'true':'false', extra3: f.extra3?'true':'false',
             isActive: f.isActive!==false, sortOrder: parseInt(f.sortOrder)||0 }),
+        // extra1 = Is Stockable, extra2 = Is Service. DB constraint CK_ITEM_TYPE_SVC
+        // forbids both being true — a service can't also be a stockable item.
+        validate: (f) => (f.extra1 && f.extra2)
+            ? 'An item type cannot be both Stockable and Service — a service is not held in stock. Please uncheck one.'
+            : null,
     },
 
     // ── Procurement ──────────────────────────────────────────────────────────
@@ -222,19 +228,25 @@ const SECTIONS = [
         deleteBase: 'adminlookup/bomSection',
         idField: 'id',
         columns: [
+            { key: 'extra2', label: 'Job Type' },
             { key: 'name', label: 'Section Name' },
             { key: 'code', label: 'Code' },
             { key: 'isActive', label: 'Active', render: r => badge(r.isActive) },
             { key: 'sortOrder', label: 'Sort' },
         ],
         fields: [
+            // BOM sections are scoped per job type (TBL_BOM_SECTION.JobTypeId is NOT NULL) —
+            // e.g. "Steel Materials" exists once for Enclosure and once for In House Jobs.
+            { name: 'extra1',      label: 'Job Type', type: 'select', required: true,
+              optionsListBase: 'adminjob/jobtype', valueKey: 'jobTypeId', labelKey: 'jobTypeName' },
             { name: 'name',        label: 'Section Name', required: true },
             { name: 'code',        label: 'Code' },
             { name: 'description', label: 'Description', type: 'textarea' },
             { name: 'isActive',    label: 'Active', type: 'checkbox' },
             { name: 'sortOrder',   label: 'Sort Order', type: 'number' },
         ],
-        saveMapper: (f) => ({ id: f.id||'0', name: f.name, code: f.code, description: f.description, isActive: f.isActive!==false, sortOrder: parseInt(f.sortOrder)||0 }),
+        saveMapper: (f) => ({ id: f.id||'0', name: f.name, code: f.code, description: f.description,
+            extra1: f.extra1, isActive: f.isActive!==false, sortOrder: parseInt(f.sortOrder)||0 }),
     },
     {
         group: 'Procurement', key: 'issueType',
@@ -380,7 +392,7 @@ const SECTIONS = [
             { key: 'sortOrder', label: 'Sort' },
         ],
         fields: [
-            { name: 'code',      label: 'Stage ID (Code)', required: true, placeholder: 'e.g. DESIGN' },
+            { name: 'code',      label: 'Stage ID (Code)', required: true, idAlias: true, placeholder: 'e.g. DESIGN' },
             { name: 'name',      label: 'Stage Name',      required: true },
             { name: 'sortOrder', label: 'Sort Order',      type: 'number' },
         ],
@@ -837,7 +849,23 @@ const SmartLookupTable = ({ section }) => {
     };
     const openEdit = (row) => {
         const init = {};
-        section.fields.forEach(f => { init[f.name] = row[f.name] ?? (f.type==='checkbox' ? false : ''); });
+        section.fields.forEach(f => {
+            const raw = row[f.name];
+            if (f.type === 'checkbox') {
+                // Backend serialises bit columns as strings ("1"/"0", "true"/"false").
+                // Coerce to a real boolean — "0"/"false" are truthy strings otherwise,
+                // which would tick the box (and break cross-field validation).
+                init[f.name] = raw === true || raw === 1 || raw === '1'
+                    || raw === 'true' || raw === 'True';
+            } else if (f.idAlias) {
+                // The field's value IS the row's primary key (e.g. a Stage/Type code
+                // that doubles as the id). The list SP returns it under `id`, not the
+                // field's own name, so pull it from there and lock it (a PK can't change).
+                init[f.name] = raw ?? row[section.idField] ?? '';
+            } else {
+                init[f.name] = raw ?? '';
+            }
+        });
         init[section.idField] = row[section.idField];
         init._originalId = row[section.idField]; // flag: this is an edit
         setForm(init); setErrors({}); setEditing(row);
@@ -854,6 +882,11 @@ const SmartLookupTable = ({ section }) => {
             const v = form[f.name];
             if (!v && v!==0 && v!==false) { errs[f.name]='Required'; msgs.push(`${f.label} is required`); }
         });
+        // Section-level cross-field rule (returns a message string when invalid)
+        if (section.validate) {
+            const msg = section.validate(form);
+            if (msg) msgs.push(msg);
+        }
         setErrors(errs);
         if (msgs.length) { setValMsgs(msgs); return false; }
         return true;
@@ -1051,6 +1084,7 @@ const SmartLookupTable = ({ section }) => {
                             ) : (
                                 <Input name={f.name} value={form[f.name]} onChange={handle}
                                     type={f.type||'text'} placeholder={f.placeholder}
+                                    disabled={f.idAlias && !!form._originalId}
                                     className={errors[f.name] ? 'ds-input-err' : ''} />
                             )}
                         </Field>
