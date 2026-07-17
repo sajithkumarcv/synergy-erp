@@ -19,14 +19,17 @@ namespace ERPWEB.Services
     public class CreditHoldSchedulerService : BackgroundService
     {
         private readonly ILogger<CreditHoldSchedulerService> _logger;
+        private readonly IServiceScopeFactory _scopeFactory;
         private readonly string _connectionString;
         private readonly string _schema;
 
         public CreditHoldSchedulerService(
             IConfiguration config,
-            ILogger<CreditHoldSchedulerService> logger)
+            ILogger<CreditHoldSchedulerService> logger,
+            IServiceScopeFactory scopeFactory)
         {
             _logger           = logger;
+            _scopeFactory     = scopeFactory;
             _connectionString = config.GetConnectionString("DefaultConnection") ?? "";
             _schema           = config["DbSchema"] ?? "proj";
         }
@@ -61,6 +64,9 @@ namespace ERPWEB.Services
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "CreditHoldScheduler encountered an error.");
+                    using var logScope = _scopeFactory.CreateScope();
+                    await logScope.ServiceProvider.GetRequiredService<Dbcontext.DbCon>()
+                        .WriteLog(ex, controller: "CreditHoldSchedulerService", action: "ExecuteAsync");
                 }
 
                 _logger.LogInformation("CreditHoldScheduler next run in {Interval} min(s).", intervalMinutes);

@@ -622,8 +622,9 @@ const PoDetailPage = () => {
                     po.linkedPRs   && { label: 'PR Refs',      val: po.linkedPRs,                      cls: 'jd-kpi-mono' },
                     po.vendorRef   && { label: 'Vendor Ref',   val: po.vendorRef,                      cls: 'jd-kpi-mono' },
                     po.paymentTermName && { label: 'Payment Terms',
+                        // "Other" is just a bucket — show the actual terms the user typed.
                         val: (po.paymentTermCode === 'OTHER' && po.paymentTermsOther)
-                            ? `${po.paymentTermName} — ${po.paymentTermsOther}` : po.paymentTermName,
+                            ? po.paymentTermsOther : po.paymentTermName,
                         cls: '' },
                     po.expenseCategoryName && { label: 'Budget Category',
                         val: po.expenseCategoryCode ? `${po.expenseCategoryCode} — ${po.expenseCategoryName}` : po.expenseCategoryName,

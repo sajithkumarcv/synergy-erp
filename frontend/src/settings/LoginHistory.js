@@ -69,6 +69,9 @@ const LoginHistory = () => {
         userAgent:    r.userAgent    ?? r.UserAgent,
         status:       r.status       ?? r.Status,
         lastActivity: r.lastActivity ?? r.LastActivity,
+        browser:      r.browser      ?? r.Browser,
+        os:           r.os           ?? r.OS,
+        region:       r.region       ?? r.Region,
     });
 
     // Server returns the newest @top sessions; status/search narrow it client-side.
@@ -101,7 +104,7 @@ const LoginHistory = () => {
         if (status && r.status !== status) return false;
         if (search) {
             const q = search.toLowerCase();
-            const hay = `${r.userName || ''} ${r.fullName || ''} ${r.ipAddress || ''} ${r.userAgent || ''}`.toLowerCase();
+            const hay = `${r.userName || ''} ${r.fullName || ''} ${r.ipAddress || ''} ${r.userAgent || ''} ${r.browser || ''} ${r.os || ''} ${r.region || ''}`.toLowerCase();
             if (!hay.includes(q)) return false;
         }
         return true;
@@ -185,9 +188,10 @@ const LoginHistory = () => {
                                             { key: 'loginTime',    label: 'Login',        w: 155 },
                                             { key: 'logoutTime',   label: 'Logout',       w: 155 },
                                             { key: 'status',       label: 'Status',       w: 120 },
-                                            { key: 'ipAddress',    label: 'IP Address',   w: 130 },
+                                            { key: 'ipAddress',    label: 'IP / Region',  w: 150 },
+                                            { key: 'browser',      label: 'Browser / OS', w: 160 },
                                             { key: 'lastActivity', label: 'Last Activity', w: 155 },
-                                            { key: 'userAgent',    label: 'Device / Browser' },
+                                            { key: 'userAgent',    label: 'Raw Device' },
                                         ].map(c => (
                                             <th key={c.key} style={{ width: c.w, cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                                                 onClick={() => doSort(c.key)}>
@@ -209,9 +213,15 @@ const LoginHistory = () => {
                                             <td style={{ fontSize: 11, color: '#64748b', whiteSpace: 'nowrap' }}>{fmtDateTime(r.loginTime)}</td>
                                             <td style={{ fontSize: 11, color: '#64748b', whiteSpace: 'nowrap' }}>{fmtDateTime(r.logoutTime)}</td>
                                             <td><StatusBadge status={r.status} /></td>
-                                            <td style={{ fontSize: 11.5, color: '#64748b', fontFamily: 'monospace' }}>{r.ipAddress || '—'}</td>
+                                            <td style={{ fontSize: 11.5, color: '#64748b' }}>
+                                                <div style={{ fontFamily: 'monospace' }}>{r.ipAddress || '—'}</div>
+                                                {r.region && <div style={{ fontSize: 10.5, color: '#94a3b8' }}>{r.region}</div>}
+                                            </td>
+                                            <td style={{ fontSize: 11.5, color: '#64748b', whiteSpace: 'nowrap' }}>
+                                                {(r.browser || r.os) ? `${r.browser || '—'}${r.os ? ` · ${r.os}` : ''}` : '—'}
+                                            </td>
                                             <td style={{ fontSize: 11, color: '#64748b', whiteSpace: 'nowrap' }}>{fmtDateTime(r.lastActivity)}</td>
-                                            <td style={{ fontSize: 11, color: '#94a3b8', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.userAgent || ''}>{r.userAgent || '—'}</td>
+                                            <td style={{ fontSize: 11, color: '#94a3b8', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.userAgent || ''}>{r.userAgent || '—'}</td>
                                         </tr>
                                     ))}
                                 </tbody>

@@ -58,7 +58,18 @@ namespace ERPWEB.Controllers.Approval
                 {
                     string? to = (string?)r.Email;
                     if (string.IsNullOrWhiteSpace(to)) continue;
-                    await _email.SendAsync(to.Trim(), subject, body);
+
+                    // SendAsync never throws — an unchecked result would mean procurement
+                    // silently never hears about an approved PR.
+                    if (!await _email.SendAsync(to.Trim(), subject, body))
+                    {
+                        await _dbcon.WriteRawLog(
+                            message: $"PR approval notification failed to send to '{to.Trim()}' for {prNumber} (PrId {prId}).",
+                            controller: "Approval",
+                            action: "NotifyProcurementOnPRApproval",
+                            requestPath: HttpContext.Request.Path,
+                            logLevel: "Warning");
+                    }
                 }
             }
             catch (Exception ex)

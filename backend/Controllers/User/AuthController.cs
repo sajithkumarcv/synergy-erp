@@ -17,7 +17,7 @@ namespace ERPWEB.Controllers.User
     public class LoginHistoryRow
     {
         public int       Id           { get; set; }
-        public int       UserId       { get; set; }
+        public int?      UserId       { get; set; }
         public string?   UserName     { get; set; }
         public string?   FullName     { get; set; }
         public DateTime  LoginTime    { get; set; }
@@ -27,6 +27,9 @@ namespace ERPWEB.Controllers.User
         public string?   UserAgent    { get; set; }
         public string?   Status       { get; set; }
         public DateTime? LastActivity { get; set; }
+        public string?   Browser      { get; set; }
+        public string?   OS           { get; set; }
+        public string?   Region       { get; set; }
     }
 
     [Route("api/[Controller]")]
@@ -46,6 +49,47 @@ namespace ERPWEB.Controllers.User
             _config = config;
         }
 
+        // Real client IP — prefers X-Forwarded-For (set by IIS/nginx/load balancers)
+        // over the direct connection IP, so the actual client is recorded behind a proxy.
+        private string? ClientIp()
+        {
+            var xff = Request.Headers["X-Forwarded-For"].ToString();
+            if (!string.IsNullOrWhiteSpace(xff))
+            {
+                var first = xff.Split(',')[0].Trim();       // left-most = original client
+                if (!string.IsNullOrWhiteSpace(first)) return first;
+            }
+            return HttpContext.Connection.RemoteIpAddress?.ToString();
+        }
+
+        // Lightweight User-Agent parsing — enough for an audit log without a NuGet dependency.
+        private static (string? Browser, string? Os) ParseUserAgent(string? ua)
+        {
+            if (string.IsNullOrWhiteSpace(ua)) return (null, null);
+
+            string? browser =
+                ua.Contains("Edg/")            ? "Microsoft Edge" :
+                ua.Contains("OPR/") || ua.Contains("Opera") ? "Opera" :
+                ua.Contains("Chrome/")         ? "Chrome" :
+                ua.Contains("Firefox/")        ? "Firefox" :
+                (ua.Contains("Safari/") && ua.Contains("Version/")) ? "Safari" :
+                ua.Contains("MSIE") || ua.Contains("Trident/") ? "Internet Explorer" :
+                null;
+
+            string? os =
+                ua.Contains("Windows NT 10.0") ? "Windows 10/11" :
+                ua.Contains("Windows NT 6.3")  ? "Windows 8.1" :
+                ua.Contains("Windows NT 6.1")  ? "Windows 7" :
+                ua.Contains("Windows")         ? "Windows" :
+                ua.Contains("Android")         ? "Android" :
+                (ua.Contains("iPhone") || ua.Contains("iPad")) ? "iOS" :
+                ua.Contains("Mac OS X")        ? "macOS" :
+                ua.Contains("Linux")           ? "Linux" :
+                null;
+
+            return (browser, os);
+        }
+
         // ── Helpers ──────────────────────────────────────────────────────────
         private static string Sha256Hex(string input) =>
             Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(input))).ToLower();
@@ -59,6 +103,7 @@ namespace ERPWEB.Controllers.User
         }
 
         [HttpPost("login")]
+        [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting(ERPWEB.Security.RateLimitPolicies.Login)]
         public async Task<IActionResult> Login([FromBody] LoginRequest model)
         {
             try
@@ -66,6 +111,13 @@ namespace ERPWEB.Controllers.User
                 string hashedPassword = Convert.ToHexString(
                     SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(model.Password))
                 ).ToLower();
+
+                // Client context captured up-front so it's available for both the
+                // success and the failed-login audit paths.
+                var rawUa         = Request.Headers.UserAgent.ToString();
+                var (browser, os) = ParseUserAgent(rawUa);
+                var clientIp      = ClientIp();
+                var uaTrimmed     = rawUa is { Length: > 0 } ua0 ? ua0[..Math.Min(ua0.Length, 512)] : null;
 
                 var parameters = new Dictionary<string, object>
                 {
@@ -75,10 +127,62 @@ namespace ERPWEB.Controllers.User
 
                 DataSet ds = _dbcon.ExecuteProcedure(parameters, "sp_ValidateUser");
 
+                // sp_ValidateUser counts the failure and decides the lockout; it always
+                // returns a Status. No rows at all means the proc pre-dates login_lockout.sql.
                 if (ds == null || ds.Tables.Count == 0 || ds.Tables[0].Rows.Count == 0)
+                {
+                    await _dbcon.WriteRawLog(
+                        message: $"Failed login attempt for username '{model.Username}' ({browser} on {os}).",
+                        controller: "Auth",
+                        action: "Login",
+                        requestPath: HttpContext.Request.Path,
+                        ipAddress: clientIp,
+                        logLevel: "Warning");
                     return Unauthorized(new { message = "Invalid username or password." });
+                }
 
                 var row = ds.Tables[0].Rows[0];
+                string loginStatus = row.Table.Columns.Contains("Status")
+                                     ? row["Status"]?.ToString() ?? "INVALID"
+                                     : "OK";   // pre-lockout proc: a returned row meant success
+
+                if (loginStatus != "OK")
+                {
+                    DateTime? lockedUntil = row.Table.Columns.Contains("LockedUntil")
+                                            && row["LockedUntil"] != DBNull.Value
+                                            ? Convert.ToDateTime(row["LockedUntil"])
+                                            : null;
+
+                    await _dbcon.WriteRawLog(
+                        message: $"Failed login attempt for username '{model.Username}' ({browser} on {os}) — {loginStatus}"
+                               + (lockedUntil.HasValue ? $", locked until {lockedUntil:u}." : "."),
+                        controller: "Auth",
+                        action: "Login",
+                        requestPath: HttpContext.Request.Path,
+                        ipAddress: clientIp,
+                        logLevel: "Warning");
+
+                    return loginStatus switch
+                    {
+                        // 423 rather than 401: the frontend hard-codes the 401 copy,
+                        // and a locked-out user needs to be told why.
+                        "LOCKED_TEMP" => StatusCode(StatusCodes.Status423Locked, new
+                        {
+                            code    = "ACCOUNT_LOCKED_TEMP",
+                            message = lockedUntil.HasValue
+                                      ? $"Too many failed attempts. Try again in "
+                                        + $"{Math.Max(1, (int)Math.Ceiling((lockedUntil.Value - DateTime.Now).TotalMinutes))} minute(s)."
+                                      : "Too many failed attempts. Please try again later.",
+                            lockedUntil
+                        }),
+                        "LOCKED" => StatusCode(StatusCodes.Status423Locked, new
+                        {
+                            code    = "ACCOUNT_LOCKED",
+                            message = "Your account is locked. Please contact your administrator."
+                        }),
+                        _ => Unauthorized(new { message = "Invalid username or password." })
+                    };
+                }
 
                 string userId   = row["UserId"].ToString()!;
                 string username = row["Username"].ToString()!;
@@ -97,16 +201,27 @@ namespace ERPWEB.Controllers.User
                 {
                     UserId             = int.Parse(userId),
                     SessionId          = sessionId,
-                    IpAddress          = HttpContext.Connection.RemoteIpAddress?.ToString(),
-                    UserAgent          = Request.Headers.UserAgent.ToString() is { Length: > 0 } ua
-                                         ? ua[..Math.Min(ua.Length, 512)] : null,
+                    IpAddress          = clientIp,
+                    UserAgent          = uaTrimmed,
                     ExpiryMinutes      = expiryMinutes,
                     Force              = model.Force,
-                    IdleTimeoutMinutes = _config.GetValue<int>("Session:IdleTimeoutMinutes", 60)
+                    IdleTimeoutMinutes = _config.GetValue<int>("Session:IdleTimeoutMinutes", 60),
+                    Browser            = browser,
+                    OS                 = os,
+                    Region             = (string?)null    // geolocation: pending deployment decision
                 });
 
                 if (session != null && (bool)session.Blocked)
                 {
+                    await _dbcon.WriteRawLog(
+                        message: $"Login blocked for '{username}' — already signed in on another PC "
+                               + $"(active since {(DateTime?)session.ActiveSince:u} from {(string?)session.ActiveIp}).",
+                        controller: "Auth",
+                        action: "Login",
+                        requestPath: HttpContext.Request.Path,
+                        userId: userId,
+                        ipAddress: clientIp,
+                        logLevel: "Warning");
                     return Conflict(new
                     {
                         code        = "ACTIVE_SESSION",
@@ -239,7 +354,20 @@ namespace ERPWEB.Controllers.User
                 string baseUrl  = (_config["App:FrontendUrl"] ?? "http://localhost:3000").TrimEnd('/');
                 string link     = $"{baseUrl}/?reset-token={rawToken}";
 
-                await _email.SendAsync(email, "WebERP — Password Reset Request", BuildResetEmail(fullName, link));
+                bool emailSent = await _email.SendAsync(email, "WebERP — Password Reset Request", BuildResetEmail(fullName, link));
+                if (!emailSent)
+                {
+                    await _dbcon.WriteRawLog(
+                        message: $"Password reset email failed to send to '{email}' for user '{(string)user.UserName}'.",
+                        controller: "Auth",
+                        action: "ForgotPassword",
+                        requestPath: HttpContext.Request.Path,
+                        userId: ((int)user.UserId).ToString(),
+                        ipAddress: ip,
+                        logLevel: "Warning");
+                    return StatusCode(502, new { message = "We could not send the reset email. Please contact support." });
+                }
+
                 return Ok(new { message = "A password reset link has been sent to your email address." });
             }
             catch (Exception ex)

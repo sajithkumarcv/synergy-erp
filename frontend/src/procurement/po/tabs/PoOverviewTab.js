@@ -426,8 +426,9 @@ const PoOverviewTab = ({ po, onRefresh }) => {
                     )}
                 </Field>
                 <Field label="Payment Terms">
+                    {/* "Other" is just a bucket — show the actual terms the user typed. */}
                     {po.paymentTermCode === 'OTHER' && po.paymentTermsOther
-                        ? `${po.paymentTermName} — ${po.paymentTermsOther}`
+                        ? po.paymentTermsOther
                         : po.paymentTermName}
                 </Field>
                 <Field label="Expected Delivery">{fmtDate(po.deliveryDate)}</Field>

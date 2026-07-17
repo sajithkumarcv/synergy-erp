@@ -63,6 +63,14 @@ export default function LoginForm() {
         }
         return;
       }
+      // 423 = account locked out, 429 = per-IP rate limit. Both carry a message
+      // worth showing verbatim, unlike the deliberately vague 401 above.
+      if (res.status === 423 || res.status === 429) {
+        const data = await res.json().catch(() => ({}));
+        setConflict(null);
+        setError(data.message || 'Too many sign-in attempts. Please try again later.');
+        return;
+      }
       if (!res.ok) { setError('Server error. Please try again.'); return; }
       const data = await res.json();
       setConflict(null);

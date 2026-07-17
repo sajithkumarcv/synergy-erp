@@ -58,6 +58,9 @@ namespace ERPWEB.Services
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Alert scheduler encountered an error.");
+                    using var logScope = _scopeFactory.CreateScope();
+                    await logScope.ServiceProvider.GetRequiredService<Dbcontext.DbCon>()
+                        .WriteLog(ex, controller: "AlertSchedulerService", action: "ExecuteAsync");
                 }
 
                 await Task.Delay(TimeSpan.FromSeconds(60), ct).ContinueWith(_ => { }, ct);

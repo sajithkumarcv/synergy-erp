@@ -76,6 +76,18 @@ namespace ERPWEB.Middleware
                             ? ("SESSION_IDLE", "You were signed out due to inactivity.")
                             : ("SESSION_ENDED", "Your session is no longer active. This account may have signed in on another PC.");
 
+                        // Logged so sign-outs can be audited — without this the only
+                        // record of why a user was kicked out is the 401 the browser ate.
+                        await dbcon.WriteRawLog(
+                            message: $"Session rejected ({code}, reason: {check.Reason}) for session {sessionId}.",
+                            controller: "SessionValidationMiddleware",
+                            action: "Invoke",
+                            requestPath: context.Request.Path,
+                            userId: context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                                    ?? context.User.FindFirst("sub")?.Value,
+                            ipAddress: context.Connection.RemoteIpAddress?.ToString(),
+                            logLevel: "Warning");
+
                         context.Response.StatusCode = StatusCodes.Status401Unauthorized;
                         context.Response.ContentType = "application/json";
                         await context.Response.WriteAsJsonAsync(new { code, message });

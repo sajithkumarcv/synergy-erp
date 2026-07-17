@@ -1,4 +1,5 @@
 using Dapper;
+using ERPWEB.Dbcontext;
 using Microsoft.Data.SqlClient;
 using System.Data;
 using System.Net;
@@ -24,21 +25,28 @@ namespace ERPWEB.Services
     /// Loads SMTP credentials from the database (proj.TBL_APP_SETTINGS) at runtime,
     /// so credentials never need to be stored in appsettings.json.
     /// Settings are cached for 10 minutes to avoid a DB hit on every email.
+    ///
+    /// Send failures are reported two ways: SendAsync returns false (callers must
+    /// check it), and the underlying reason is written to TBL_APP_LOG. ILogger
+    /// alone is not enough here — no file/Serilog sink is registered, so those
+    /// entries are not retrievable from a deployed instance.
     /// </summary>
     public class EmailService
     {
         private readonly string _connectionString;
         private readonly ILogger<EmailService> _logger;
+        private readonly DbCon _dbcon;
 
         // Simple in-memory cache so we don't query DB on every send.
         private EmailSettings? _cached;
         private DateTime _cacheExpiry = DateTime.MinValue;
         private readonly TimeSpan _cacheDuration = TimeSpan.FromMinutes(10);
 
-        public EmailService(IConfiguration config, ILogger<EmailService> logger)
+        public EmailService(IConfiguration config, ILogger<EmailService> logger, DbCon dbcon)
         {
             _connectionString = config.GetConnectionString("DefaultConnection") ?? "";
             _logger = logger;
+            _dbcon = dbcon;
         }
 
         // ── Settings loader ──────────────────────────────────────────────────
@@ -72,6 +80,7 @@ namespace ERPWEB.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to load SMTP settings from database.");
+                await _dbcon.WriteLog(ex, controller: "EmailService", action: "GetSettingsAsync");
                 _cached ??= new EmailSettings(); // fall back to empty (won't send)
             }
 
@@ -95,6 +104,11 @@ namespace ERPWEB.Services
                 _logger.LogWarning(
                     "SMTP is not configured in DB — email to {To} (subject: {Subject}) was not sent.",
                     toEmail, subject);
+                await _dbcon.WriteRawLog(
+                    message: $"SMTP is not configured in TBL_APP_SETTINGS — email to '{toEmail}' (subject: {subject}) was not sent.",
+                    controller: "EmailService",
+                    action: "SendAsync",
+                    logLevel: "Warning");
                 return false;
             }
 
@@ -123,6 +137,7 @@ namespace ERPWEB.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to send email to {To}.", toEmail);
+                await _dbcon.WriteLog(ex, controller: "EmailService", action: $"SendAsync → {toEmail}");
                 return false;
             }
         }

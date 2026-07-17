@@ -1,11 +1,14 @@
 using ERPWEB.Dbcontext;
 using ERPWEB.Middleware;
+using ERPWEB.Security;
 using ERPWEB.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
 using System.Text.Json;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -97,6 +100,44 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+// 3b. Per-IP throttle on the login endpoint (backstop to the per-account
+// lockout in sp_ValidateUser, which a distributed username-spray would dodge).
+// The limit is deliberately loose: a whole office can share one NAT address,
+// so it must not trip on a normal 9am sign-in rush — it only has to make
+// automated guessing pointless.
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddPolicy(RateLimitPolicies.Login, ctx =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = builder.Configuration.GetValue<int>("RateLimit:Login:PermitLimit", 20),
+                Window      = TimeSpan.FromMinutes(builder.Configuration.GetValue<int>("RateLimit:Login:WindowMinutes", 1)),
+                QueueLimit  = 0
+            }));
+
+    options.OnRejected = async (ctx, ct) =>
+    {
+        var dbcon = ctx.HttpContext.RequestServices.GetRequiredService<DbCon>();
+        await dbcon.WriteRawLog(
+            message:     $"Login rate limit tripped — too many attempts from {ctx.HttpContext.Connection.RemoteIpAddress}.",
+            controller:  "RateLimiter",
+            action:      "OnRejected",
+            requestPath: ctx.HttpContext.Request.Path,
+            ipAddress:   ctx.HttpContext.Connection.RemoteIpAddress?.ToString(),
+            logLevel:    "Warning");
+
+        ctx.HttpContext.Response.StatusCode  = StatusCodes.Status429TooManyRequests;
+        ctx.HttpContext.Response.ContentType = "application/json";
+        await ctx.HttpContext.Response.WriteAsJsonAsync(new
+        {
+            code    = "RATE_LIMITED",
+            message = "Too many sign-in attempts. Please wait a moment and try again."
+        }, ct);
+    };
+});
+
 // 4. Register services
 builder.Services.AddSingleton<LicenseService>();
 builder.Services.AddScoped<DbCon>();
@@ -116,6 +157,7 @@ var app = builder.Build();
 //}
 
 app.UseCors("AllowReactApp");       // CORS before everything
+app.UseRateLimiter();               // before auth: unauthenticated login floods must be capped too
 if (!app.Environment.IsDevelopment())
     app.UseMiddleware<LicenseMiddleware>();
 app.UseStaticFiles();               // serves wwwroot (uploads, logos, etc.)
