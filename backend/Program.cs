@@ -4,6 +4,7 @@ using ERPWEB.Security;
 using ERPWEB.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
@@ -105,6 +106,7 @@ builder.Services.AddSwaggerGen(c =>
 // The limit is deliberately loose: a whole office can share one NAT address,
 // so it must not trip on a normal 9am sign-in rush — it only has to make
 // automated guessing pointless.
+builder.Services.AddMemoryCache();   // backs the OnRejected log throttle below
 builder.Services.AddRateLimiter(options =>
 {
     options.AddPolicy(RateLimitPolicies.Login, ctx =>
@@ -119,14 +121,25 @@ builder.Services.AddRateLimiter(options =>
 
     options.OnRejected = async (ctx, ct) =>
     {
-        var dbcon = ctx.HttpContext.RequestServices.GetRequiredService<DbCon>();
-        await dbcon.WriteRawLog(
-            message:     $"Login rate limit tripped — too many attempts from {ctx.HttpContext.Connection.RemoteIpAddress}.",
-            controller:  "RateLimiter",
-            action:      "OnRejected",
-            requestPath: ctx.HttpContext.Request.Path,
-            ipAddress:   ctx.HttpContext.Connection.RemoteIpAddress?.ToString(),
-            logLevel:    "Warning");
+        var ip = ctx.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+        // One row per IP per interval. Rejecting a request must stay cheap: a row
+        // per rejection would let a flood turn our own audit log into its
+        // amplifier — the exact cost the limiter exists to avoid. The cache entry
+        // expires itself, so the key set can't grow without bound either.
+        var cache = ctx.HttpContext.RequestServices.GetRequiredService<IMemoryCache>();
+        if (!cache.TryGetValue($"ratelimit-logged:{ip}", out _))
+        {
+            cache.Set($"ratelimit-logged:{ip}", true, TimeSpan.FromMinutes(5));
+            var dbcon = ctx.HttpContext.RequestServices.GetRequiredService<DbCon>();
+            await dbcon.WriteRawLog(
+                message:     $"Login rate limit tripped — too many attempts from {ip}.",
+                controller:  "RateLimiter",
+                action:      "OnRejected",
+                requestPath: ctx.HttpContext.Request.Path,
+                ipAddress:   ip,
+                logLevel:    "Warning");
+        }
 
         ctx.HttpContext.Response.StatusCode  = StatusCodes.Status429TooManyRequests;
         ctx.HttpContext.Response.ContentType = "application/json";
