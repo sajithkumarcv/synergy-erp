@@ -170,9 +170,11 @@ namespace ERPWEB.Controllers.Procurement
             {
                 if (string.IsNullOrWhiteSpace(model.LoginPassword))
                     return BadRequest(new { message = "Your login password is required to mark this GRN as Received." });
-                var valid = await _dbcon.QueryAsync<dynamic>("sp_ValidateUser",
-                    new { Username = model.ChangedBy, Password = Sha256Hex(model.LoginPassword) });
-                if (!valid.Any())
+                // Side-effect-free check — sp_ValidateUser now always returns a row and
+                // counts toward login lockout, so it can't gate an in-app confirmation.
+                var valid = await _dbcon.QueryAsync<dynamic>("sp_CheckUserPassword",
+                    new { UserName = model.ChangedBy, PasswordHash = Sha256Hex(model.LoginPassword) });
+                if (((int?)valid?.FirstOrDefault()?.IsValid ?? 0) != 1)
                 {
                     await _dbcon.WriteRawLog("Incorrect login password on GRN Received attempt.",
                         controller: "Grn", action: "ChangeStatus",

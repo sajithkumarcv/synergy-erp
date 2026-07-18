@@ -94,6 +94,15 @@ namespace ERPWEB.Services
             return !string.IsNullOrWhiteSpace(s.Host) && !string.IsNullOrWhiteSpace(s.FromAddress);
         }
 
+        // Each send opens a fresh TCP+TLS+auth connection to the SMTP host. The
+        // first cold connection to Gmail intermittently fails (handshake / transient
+        // deferral) while an immediate retry succeeds — the classic "first email
+        // fails, second works" symptom. System.Net.Mail.SmtpClient does not retry,
+        // so we do it here.
+        private const int  MaxAttempts   = 3;
+        private const int  AttemptTimeoutMs = 20000;               // fail a hung connection fast, not after the 100s default
+        private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(2);
+
         // ── Send ─────────────────────────────────────────────────────────────
         public async Task<bool> SendAsync(string toEmail, string subject, string htmlBody)
         {
@@ -112,34 +121,53 @@ namespace ERPWEB.Services
                 return false;
             }
 
-            try
+            Exception? last = null;
+            for (int attempt = 1; attempt <= MaxAttempts; attempt++)
             {
-                using var msg = new MailMessage
+                try
                 {
-                    From       = new MailAddress(settings.FromAddress, settings.FromName),
-                    Subject    = subject,
-                    Body       = htmlBody,
-                    IsBodyHtml = true
-                };
-                msg.To.Add(toEmail);
+                    // Rebuilt each attempt: a MailMessage/SmtpClient can't be reused
+                    // after a failed send, and a fresh connection is what recovers.
+                    using var msg = new MailMessage
+                    {
+                        From       = new MailAddress(settings.FromAddress, settings.FromName),
+                        Subject    = subject,
+                        Body       = htmlBody,
+                        IsBodyHtml = true
+                    };
+                    msg.To.Add(toEmail);
 
-                using var client = new SmtpClient(settings.Host, settings.Port)
+                    using var client = new SmtpClient(settings.Host, settings.Port)
+                    {
+                        EnableSsl   = settings.EnableSsl,
+                        Timeout     = AttemptTimeoutMs,
+                        Credentials = string.IsNullOrWhiteSpace(settings.Username)
+                                      ? CredentialCache.DefaultNetworkCredentials
+                                      : new NetworkCredential(settings.Username, settings.Password)
+                    };
+
+                    await client.SendMailAsync(msg);
+
+                    // Leave a durable trace when a retry was needed — confirms the
+                    // transient-first-connection theory and flags a flaky SMTP host.
+                    if (attempt > 1)
+                        await _dbcon.WriteRawLog(
+                            message: $"Email to '{toEmail}' (subject: {subject}) sent on attempt {attempt} of {MaxAttempts}.",
+                            controller: "EmailService", action: "SendAsync", logLevel: "Warning");
+                    return true;
+                }
+                catch (Exception ex)
                 {
-                    EnableSsl   = settings.EnableSsl,
-                    Credentials = string.IsNullOrWhiteSpace(settings.Username)
-                                  ? CredentialCache.DefaultNetworkCredentials
-                                  : new NetworkCredential(settings.Username, settings.Password)
-                };
+                    last = ex;
+                    _logger.LogWarning(ex, "Email send attempt {Attempt}/{Max} to {To} failed.", attempt, MaxAttempts, toEmail);
+                    if (attempt < MaxAttempts)
+                        await Task.Delay(RetryDelay);
+                }
+            }
 
-                await client.SendMailAsync(msg);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to send email to {To}.", toEmail);
-                await _dbcon.WriteLog(ex, controller: "EmailService", action: $"SendAsync → {toEmail}");
-                return false;
-            }
+            _logger.LogError(last, "Failed to send email to {To} after {Max} attempts.", toEmail, MaxAttempts);
+            await _dbcon.WriteLog(last!, controller: "EmailService", action: $"SendAsync → {toEmail} (after {MaxAttempts} attempts)");
+            return false;
         }
     }
 }

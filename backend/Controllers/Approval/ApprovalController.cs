@@ -220,11 +220,14 @@ namespace ERPWEB.Controllers.Approval
                     if (string.IsNullOrWhiteSpace(req.LoginPassword))
                         return BadRequest(new { message = "Your login password is required to approve." });
 
+                    // Side-effect-free password check. sp_ValidateUser must NOT be used
+                    // here: it now always returns a row (Status column) so !Any() no
+                    // longer means "wrong password", and it counts toward login lockout.
                     var rows = await _dbcon.QueryAsync<dynamic>(
-                        "sp_ValidateUser",
-                        new { Username = req.ActionByName, Password = Sha256Hex(req.LoginPassword) });
+                        "sp_CheckUserPassword",
+                        new { UserName = req.ActionByName, PasswordHash = Sha256Hex(req.LoginPassword) });
 
-                    if (!rows.Any())
+                    if (((int?)rows?.FirstOrDefault()?.IsValid ?? 0) != 1)
                     {
                         await _dbcon.WriteRawLog("Incorrect login password on approval attempt.",
                             controller: "Approval", action: "Action",

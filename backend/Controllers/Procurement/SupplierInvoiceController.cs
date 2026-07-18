@@ -235,9 +235,11 @@ namespace ERPWEB.Controllers.Procurement
             {
                 if (string.IsNullOrWhiteSpace(model.LoginPassword))
                     return BadRequest(new { message = $"Your login password is required to mark this invoice as {model.NewStatus}." });
-                var valid = await _dbcon.QueryAsync<dynamic>("sp_ValidateUser",
-                    new { Username = actionBy, Password = Sha256Hex(model.LoginPassword) });
-                if (!valid.Any())
+                // Side-effect-free check — sp_ValidateUser now always returns a row and
+                // counts toward login lockout, so it can't gate an in-app confirmation.
+                var valid = await _dbcon.QueryAsync<dynamic>("sp_CheckUserPassword",
+                    new { UserName = actionBy, PasswordHash = Sha256Hex(model.LoginPassword) });
+                if (((int?)valid?.FirstOrDefault()?.IsValid ?? 0) != 1)
                 {
                     await _dbcon.WriteRawLog($"Incorrect login password on Supplier Invoice status change to {model.NewStatus}.",
                         controller: "SupplierInvoice", action: "ChangeStatus",

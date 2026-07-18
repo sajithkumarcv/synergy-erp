@@ -339,14 +339,30 @@ namespace ERPWEB.Controllers.User
                 var user = rows?.FirstOrDefault();
                 string status = user != null ? (string)user.Status : "USER_NOT_FOUND";
 
-                switch (status)
+                if (status != "OK")
                 {
-                    case "USER_NOT_FOUND":
-                        return BadRequest(new { message = "The specified username does not exist." });
-                    case "EMAIL_INVALID":
-                        return BadRequest(new { message = "Please enter a valid email address." });
-                    case "EMAIL_MISMATCH":
-                        return BadRequest(new { message = "The email address does not match our records." });
+                    // These self-service failures used to leave no trace, so a client
+                    // reporting "no reset email" was undiagnosable. Log the outcome
+                    // and what they typed (username + email) so a recurrence is
+                    // visible — EMAIL_MISMATCH means the address they entered does
+                    // not match the one on record (the usual cause of "no email").
+                    await _dbcon.WriteRawLog(
+                        message: $"Password reset request failed ({status}) — username '{model.Username.Trim()}', email entered '{model.Email.Trim()}'.",
+                        controller: "Auth",
+                        action: "ForgotPassword",
+                        requestPath: HttpContext.Request.Path,
+                        ipAddress: ip,
+                        logLevel: "Warning");
+
+                    switch (status)
+                    {
+                        case "USER_NOT_FOUND":
+                            return BadRequest(new { message = "The specified username does not exist." });
+                        case "EMAIL_INVALID":
+                            return BadRequest(new { message = "Please enter a valid email address." });
+                        case "EMAIL_MISMATCH":
+                            return BadRequest(new { message = "The email address does not match our records." });
+                    }
                 }
 
                 string email    = (string)user!.Email;
