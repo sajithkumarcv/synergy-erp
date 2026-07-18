@@ -1,10 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { variables, authHeaders } from '../../Variable';
 import { useCurrentUser } from '../../AuthContext';
 import { useLookup } from '../../LookupContext';
 import { usePermission } from '../../PermissionContext';
 import { fmtDate, fmtDateTime, today, FormSection } from '../invoiceConstants';
+import LookupSelect from '../../common/LookupSelect';
 import '../../procurement/Procurement.css';
+
+const LOOKUP_PAGE_SIZE = 25;
 
 // ── Read-mode field ──────────────────────────────────────────────────
 const Field = ({ label, children, mono }) => (
@@ -28,18 +31,8 @@ const InvoiceOverviewTab = ({ invoice, onRefresh }) => {
     const [contacts,  setContacts]  = useState([]);
     const [addresses, setAddresses] = useState([]);
 
-    // Job live-search (editable dropdown)
-    const [jobResults, setJobResults] = useState([]);
-    const [jobLoading, setJobLoading] = useState(false);
-    const [showJobDrop, setShowJobDrop] = useState(false);
-    const jobTimerRef = useRef(null);
-
-    // Customer live-search (editable only while Draft)
+    // Customer is editable only while Draft
     const isDraft = invoice?.status === 'Draft';
-    const [custResults,  setCustResults]  = useState([]);
-    const [custLoading,  setCustLoading]  = useState(false);
-    const [showCustDrop, setShowCustDrop] = useState(false);
-    const custTimerRef = useRef(null);
 
     // Populate edit form when invoice changes
     useEffect(() => {
@@ -63,44 +56,12 @@ const InvoiceOverviewTab = ({ invoice, onRefresh }) => {
         });
     }, [invoice]);
 
-    // ── Job search (debounced) ──────────────────────────────────────
-    const onJobInput = (val) => {
-        setForm(p => ({ ...p, jobLabel: val, jobId: '' }));
-        clearTimeout(jobTimerRef.current);
-        if (!val.trim()) { setJobResults([]); setShowJobDrop(false); return; }
-        jobTimerRef.current = setTimeout(() => {
-            setJobLoading(true);
-            fetch(`${variables.API_URL}job/search?searchText=${encodeURIComponent(val)}&pageSize=8&approvalStatus=Approved`,
-                { headers: authHeaders() })
-                .then(r => r.json())
-                .then(d => { setJobResults(d.data || d || []); setShowJobDrop(true); })
-                .catch(console.error)
-                .finally(() => setJobLoading(false));
-        }, 280);
-    };
     const selectJob = (j) => {
         setForm(p => ({ ...p, jobId: j.jobId, jobLabel: `${j.jobId}${j.projectName ? ' — ' + j.projectName : ''}` }));
-        setShowJobDrop(false);
     };
 
-    // ── Customer search (debounced, Draft only) ─────────────────────
-    const onCustInput = (val) => {
-        setForm(p => ({ ...p, customerName: val, customerId: '' }));
-        clearTimeout(custTimerRef.current);
-        if (!val.trim()) { setCustResults([]); setShowCustDrop(false); return; }
-        custTimerRef.current = setTimeout(() => {
-            setCustLoading(true);
-            fetch(`${variables.API_URL}customer/search?searchText=${encodeURIComponent(val)}&pageSize=8`,
-                { headers: authHeaders() })
-                .then(r => r.json())
-                .then(d => { setCustResults(d.data || []); setShowCustDrop(true); })
-                .catch(console.error)
-                .finally(() => setCustLoading(false));
-        }, 280);
-    };
     const selectCustomer = (c) => {
         setForm(p => ({ ...p, customerId: c.customerId, customerName: c.customerName, contactId: '' }));
-        setShowCustDrop(false);
         // reload contacts / addresses for the newly chosen customer
         fetch(`${variables.API_URL}invoice/customer/${c.customerId}`, { headers: authHeaders() })
             .then(r => r.json())
@@ -190,34 +151,22 @@ const InvoiceOverviewTab = ({ invoice, onRefresh }) => {
                     <div className="pf-field pf-f2" style={{ position: 'relative' }}>
                         <label>Customer <span className="req">*</span></label>
                         {isDraft ? (
-                            <>
-                                <input className="pf-input" value={form.customerName || ''} placeholder="Search customer…"
-                                    autoComplete="off"
-                                    onChange={e => onCustInput(e.target.value)}
-                                    onFocus={() => custResults.length > 0 && setShowCustDrop(true)}
-                                    onBlur={() => setTimeout(() => setShowCustDrop(false), 150)} />
-                                {form.customerId && (
-                                    <button type="button" title="Clear customer"
-                                        onClick={() => setForm(p => ({ ...p, customerId: '', customerName: '' }))}
-                                        style={{ position: 'absolute', right: 8, top: 30, background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontWeight: 700 }}>✕</button>
+                            <LookupSelect
+                                value={form.customerId}
+                                label={form.customerName}
+                                tone="blue"
+                                placeholder="Select or search customer…"
+                                buildUrl={t => `${variables.API_URL}customer/search?searchText=${encodeURIComponent(t)}&pageSize=${LOOKUP_PAGE_SIZE}`}
+                                itemKey={c => c.customerId}
+                                renderItem={c => (
+                                    <>
+                                        <span style={{ fontWeight: 600 }}>{c.customerName}</span>
+                                        {c.customerCode && <span style={{ color: '#94a3b8', marginLeft: 6, fontSize: 11 }}>({c.customerCode})</span>}
+                                    </>
                                 )}
-                                {custLoading && <div style={{ position: 'absolute', right: 28, top: 32, fontSize: 11, color: '#94a3b8' }}>…</div>}
-                                {showCustDrop && custResults.length > 0 && (
-                                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
-                                        background: '#fff', border: '1px solid #e2e8f0', borderRadius: 6,
-                                        boxShadow: '0 4px 12px rgba(0,0,0,.1)', maxHeight: 220, overflowY: 'auto', marginTop: 2 }}>
-                                        {custResults.map(c => (
-                                            <div key={c.customerId} onMouseDown={() => selectCustomer(c)}
-                                                style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', fontSize: 13 }}
-                                                onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
-                                                onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
-                                                <span style={{ fontWeight: 600 }}>{c.customerName}</span>
-                                                {c.customerCode && <span style={{ color: '#94a3b8', marginLeft: 6, fontSize: 11 }}>({c.customerCode})</span>}
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </>
+                                onSelect={selectCustomer}
+                                onClear={() => setForm(p => ({ ...p, customerId: '', customerName: '' }))}
+                            />
                         ) : (
                             <input className="pf-input" value={form.customerName || ''} readOnly
                                 style={{ background: '#f1f5f9', color: '#64748b', cursor: 'not-allowed' }}
@@ -287,34 +236,22 @@ const InvoiceOverviewTab = ({ invoice, onRefresh }) => {
                     </div>
                     <div className="pf-field" style={{ position: 'relative' }}>
                         <label>Job <span className="req">*</span></label>
-                        <input className="pf-input" value={form.jobLabel || ''} placeholder="Search job…"
-                            autoComplete="off"
-                            onChange={e => onJobInput(e.target.value)}
-                            onFocus={() => jobResults.length > 0 && setShowJobDrop(true)}
-                            onBlur={() => setTimeout(() => setShowJobDrop(false), 150)} />
-                        {form.jobId && (
-                            <button type="button" title="Clear job"
-                                onClick={() => setForm(p => ({ ...p, jobId: '', jobLabel: '' }))}
-                                style={{ position: 'absolute', right: 8, top: 30, background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontWeight: 700 }}>✕</button>
-                        )}
-                        {jobLoading && (
-                            <div style={{ position: 'absolute', right: 28, top: 32, fontSize: 11, color: '#94a3b8' }}>…</div>
-                        )}
-                        {showJobDrop && jobResults.length > 0 && (
-                            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
-                                background: '#fff', border: '1px solid #e2e8f0', borderRadius: 6,
-                                boxShadow: '0 4px 12px rgba(0,0,0,.1)', maxHeight: 220, overflowY: 'auto', marginTop: 2 }}>
-                                {jobResults.map(j => (
-                                    <div key={j.jobId} onMouseDown={() => selectJob(j)}
-                                        style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', fontSize: 13 }}
-                                        onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
-                                        onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
-                                        <span style={{ fontWeight: 600, fontFamily: 'monospace' }}>{j.jobId}</span>
-                                        {j.projectName && <span style={{ color: '#94a3b8', marginLeft: 6, fontSize: 11 }}>— {j.projectName}</span>}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
+                        <LookupSelect
+                            value={form.jobId}
+                            label={form.jobLabel}
+                            tone="green"
+                            placeholder="Select or search job…"
+                            buildUrl={t => `${variables.API_URL}job/search?searchText=${encodeURIComponent(t)}&pageSize=${LOOKUP_PAGE_SIZE}&approvalStatus=Approved`}
+                            itemKey={j => j.jobId}
+                            renderItem={j => (
+                                <>
+                                    <span style={{ fontWeight: 600, fontFamily: 'monospace' }}>{j.jobId}</span>
+                                    {j.projectName && <span style={{ color: '#94a3b8', marginLeft: 6, fontSize: 11 }}>— {j.projectName}</span>}
+                                </>
+                            )}
+                            onSelect={selectJob}
+                            onClear={() => setForm(p => ({ ...p, jobId: '', jobLabel: '' }))}
+                        />
                     </div>
                 </div>
 

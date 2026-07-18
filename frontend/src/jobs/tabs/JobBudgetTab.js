@@ -464,6 +464,9 @@ const JobBudgetEditor = ({ job }) => {
     const toggleItems = (catId) => {
         setItemDraft(blankDraft);
         setItemSearch(''); setItemPickerOpen(false);
+        // The draft row is shared by every category, so the error must be cleared
+        // with it — otherwise one category's failure shows under the next one.
+        setItemErr('');
         setExpandedCat(prev => prev === catId ? null : catId);
     };
 
@@ -476,6 +479,7 @@ const JobBudgetEditor = ({ job }) => {
         });
         setItemSearch(`${it.itemCode ? `[${it.itemCode}] ` : ''}${it.itemName || ''}`);
         setItemPickerOpen(false);
+        setItemErr('');
     };
 
     // ── Budget item save / delete (no password — draft budget is free to edit) ──
@@ -996,7 +1000,7 @@ const JobBudgetEditor = ({ job }) => {
                                     </tbody>
                                 </table>
                                 {canEdit && (
-                                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 8 }}>
+                                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 8, flexWrap: 'wrap' }}>
                                         <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
                                             <input type="text"
                                                 ref={itemInputRef}
@@ -1054,15 +1058,21 @@ const JobBudgetEditor = ({ job }) => {
                                                          background: itemDraft.unitPrice ? '#fff' : '#fffbeb' }}
                                                 placeholder="Price (opt.)" />
                                         </div>
-                                        {itemErr && <span style={{ fontSize: 11, color: '#dc2626' }}>{itemErr}</span>}
                                         <button type="button" onClick={() => saveBudgetItem(row.costCategoryId)} disabled={itemBusy}
                                             style={{ background: itemDraft.budgetItemId ? '#2563eb' : '#0f766e', color: '#fff', border: 0, borderRadius: 5, padding: '6px 14px', cursor: 'pointer', fontSize: 12 }}>
                                             {itemBusy ? '…' : itemDraft.budgetItemId ? 'Update' : 'Add'}
                                         </button>
                                         {itemDraft.budgetItemId ? (
-                                            <button type="button" onClick={() => { setItemDraft(blankDraft); setItemSearch(''); setItemPickerOpen(false); }}
+                                            <button type="button" onClick={() => { setItemDraft(blankDraft); setItemSearch(''); setItemPickerOpen(false); setItemErr(''); }}
                                                 style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: 5, padding: '6px 10px', cursor: 'pointer', fontSize: 12 }}>Cancel</button>
                                         ) : null}
+                                        {/* Own line below the controls — a long message must not push the buttons around. */}
+                                        {itemErr && (
+                                            <div style={{ flexBasis: '100%', fontSize: 11.5, color: '#b91c1c', background: '#fef2f2',
+                                                          border: '1px solid #fecaca', borderRadius: 5, padding: '5px 8px' }}>
+                                                {itemErr}
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>

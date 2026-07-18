@@ -9,8 +9,13 @@ import { fmt, fmtDate, today, PO_STATUS, PRIORITY_CONFIG, FormSection } from '..
 import { useFieldConfig } from '../../FieldConfigContext';
 import '../Procurement.css';
 import RowLink from '../../common/RowLink';
+import LookupSelect from '../../common/LookupSelect';
 
 const PAGE_SIZES = [100, 200, 500];
+// Rows pulled per job/supplier lookup. Higher than the old 10 because the field
+// is now browsable on click, not just typed into — but still capped, since the
+// supplier list runs into the hundreds and the dropdown scrolls.
+const LOOKUP_PAGE_SIZE = 25;
 
 const DEFAULT_FILTERS = { searchText: '', status: '', supplierId: '', jobId: '', priority: '', createdBy: '', dateFrom: '', dateTo: '' };
 
@@ -349,11 +354,7 @@ const PoForm = ({ onClose, onSaved }) => {
         notes:               '',
         expenseCategoryId:   '',
     });
-    const [supplierSearch,   setSupplierSearch]   = useState('');
-    const [supplierResults,  setSupplierResults]  = useState([]);
     const [contacts,         setContacts]         = useState([]);
-    const [jobSearch,        setJobSearch]        = useState('');
-    const [jobResults,       setJobResults]       = useState([]);
     const [errors,          setErrors]          = useState({});
     const [saving,          setSaving]          = useState(false);
     const [error,           setError]           = useState('');
@@ -375,16 +376,6 @@ const PoForm = ({ onClose, onSaved }) => {
             .catch(console.error);
     }, []);
 
-    // ── Supplier live-search ──────────────────────────────────────
-    useEffect(() => {
-        if (!supplierSearch.trim()) { setSupplierResults([]); return; }
-        const t = setTimeout(() => {
-            fetch(`${variables.API_URL}supplier/search?searchText=${encodeURIComponent(supplierSearch)}&pageSize=10&page=1`, { headers: authHeaders() })
-                .then(r => r.json()).then(d => setSupplierResults(d.data || [])).catch(console.error);
-        }, 280);
-        return () => clearTimeout(t);
-    }, [supplierSearch]);
-
     // ── Supplier contacts ─────────────────────────────────────────
     useEffect(() => {
         if (!form.supplierId) { setContacts([]); return; }
@@ -400,16 +391,6 @@ const PoForm = ({ onClose, onSaved }) => {
             })
             .catch(console.error);
     }, [form.supplierId]);
-
-    // ── Job live-search ───────────────────────────────────────────
-    useEffect(() => {
-        if (!jobSearch.trim()) { setJobResults([]); return; }
-        const t = setTimeout(() => {
-            fetch(`${variables.API_URL}job/search?searchText=${encodeURIComponent(jobSearch)}&pageSize=10&page=1&excludeClosedStatus=true&approvalStatus=Approved`, { headers: authHeaders() })
-                .then(r => r.json()).then(d => setJobResults(d.data || [])).catch(console.error);
-        }, 280);
-        return () => clearTimeout(t);
-    }, [jobSearch]);
 
     // ── Field handlers ────────────────────────────────────────────
     const handle = e => {
@@ -478,9 +459,6 @@ const PoForm = ({ onClose, onSaved }) => {
             .finally(() => setSaving(false));
     };
 
-    // ── Shared dropdown style ─────────────────────────────────────
-    const dropStyle  = { position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 999, background: '#fff', border: '1px solid #c8d4e4', borderRadius: 6, boxShadow: '0 4px 16px rgba(0,0,0,.12)', maxHeight: 200, overflowY: 'auto' };
-    const dropItem   = { padding: '7px 12px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid #f1f5f9' };
 
     return (
         <div className="pf-overlay">
@@ -517,7 +495,7 @@ const PoForm = ({ onClose, onSaved }) => {
                                 style={{ padding: '6px 18px', borderRadius: 6, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#475569', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>
                                 Create Anyway
                             </button>
-                            <button onClick={() => { setDraftWarn(null); setForm(p => ({ ...p, jobId: '', jobLabel: '' })); setJobSearch(''); }}
+                            <button onClick={() => { setDraftWarn(null); setForm(p => ({ ...p, jobId: '', jobLabel: '' })); }}
                                 style={{ padding: '6px 18px', borderRadius: 6, border: 'none', background: '#1e40af', color: '#fff', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>
                                 Cancel
                             </button>
@@ -551,48 +529,36 @@ const PoForm = ({ onClose, onSaved }) => {
 
                     <FormSection label="Job" />
                     <div className="pf-row">
-                        {/* ── Job live-search ── */}
+                        {/* ── Job lookup ── */}
                         <div className="pf-field pf-f2" style={{ position: 'relative' }}>
                             <label>Job {isReq('jobId') && <span className="req">*</span>}</label>
-                            {form.jobId ? (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                    <span className="pf-input" style={{ background: '#f0f9ff', color: '#1e40af', fontWeight: 500, flex: 1 }}>
-                                        ✓ {form.jobLabel}
-                                    </span>
-                                    <button type="button"
-                                        onClick={() => { setForm(p => ({ ...p, jobId: '', jobLabel: '' })); setJobSearch(''); }}
-                                        style={{ background: '#fee2e2', border: 'none', borderRadius: 5, padding: '6px 10px', cursor: 'pointer', color: '#991b1b', fontWeight: 700 }}>✕</button>
-                                </div>
-                            ) : (
-                                <>
-                                    <input className={`pf-input${errors.jobId ? ' pf-input-err' : ''}`} value={jobSearch}
-                                        onChange={e => { setJobSearch(e.target.value); if (errors.jobId) setErrors(p => ({ ...p, jobId: undefined })); }}
-                                        placeholder="Type job ID or description…" autoComplete="off" />
-                                    {errors.jobId && <span className="pf-field-err">{errors.jobId}</span>}
-                                    {jobResults.length > 0 && (
-                                        <div style={dropStyle}>
-                                            {jobResults.map(j => (
-                                                <div key={j.jobId} style={dropItem}
-                                                    onClick={() => {
-                                        setForm(p => ({ ...p, jobId: j.jobId, jobLabel: `${j.jobId}${j.projectName ? ' — ' + j.projectName : ''}` }));
-                                        setJobSearch(''); setJobResults([]);
-                                        if (errors.jobId) setErrors(p => ({ ...p, jobId: undefined }));
-                                        fetch(`${variables.API_URL}purchaseorder/search?jobId=${encodeURIComponent(j.jobId)}&status=Draft&pageSize=50&page=1`, { headers: authHeaders() })
-                                            .then(r => r.ok ? r.json() : null)
-                                            .then(d => { const drafts = d?.data || []; if (drafts.length > 0) setDraftWarn(drafts); })
-                                            .catch(() => {});
-                                    }}
-                                                    onMouseEnter={e => e.currentTarget.style.background='#f0f9ff'}
-                                                    onMouseLeave={e => e.currentTarget.style.background='#fff'}>
-                                                    <strong>{j.jobId}</strong>
-                                                    {j.projectName  && <span style={{ marginLeft: 6 }}>{j.projectName}</span>}
-                                                    {j.customerName && <span style={{ color: '#64748b', marginLeft: 6, fontSize: 11 }}>({j.customerName})</span>}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </>
-                            )}
+                            <LookupSelect
+                                value={form.jobId}
+                                label={form.jobLabel}
+                                error={errors.jobId}
+                                tone="blue"
+                                placeholder="Select or type job ID / description…"
+                                buildUrl={t => `${variables.API_URL}job/search?searchText=${encodeURIComponent(t)}&pageSize=${LOOKUP_PAGE_SIZE}&page=1&excludeClosedStatus=true&approvalStatus=Approved`}
+                                itemKey={j => j.jobId}
+                                renderItem={j => (
+                                    <>
+                                        <strong>{j.jobId}</strong>
+                                        {j.projectName  && <span style={{ marginLeft: 6 }}>{j.projectName}</span>}
+                                        {j.customerName && <span style={{ color: '#64748b', marginLeft: 6, fontSize: 11 }}>({j.customerName})</span>}
+                                    </>
+                                )}
+                                onSelect={j => {
+                                    setForm(p => ({ ...p, jobId: j.jobId, jobLabel: `${j.jobId}${j.projectName ? ' — ' + j.projectName : ''}` }));
+                                    if (errors.jobId) setErrors(p => ({ ...p, jobId: undefined }));
+                                    // Warn if this job already has draft POs open.
+                                    fetch(`${variables.API_URL}purchaseorder/search?jobId=${encodeURIComponent(j.jobId)}&status=Draft&pageSize=50&page=1`, { headers: authHeaders() })
+                                        .then(r => r.ok ? r.json() : null)
+                                        .then(d => { const drafts = d?.data || []; if (drafts.length > 0) setDraftWarn(drafts); })
+                                        .catch(() => {});
+                                }}
+                                onClear={() => setForm(p => ({ ...p, jobId: '', jobLabel: '' }))}
+                            />
+                            {errors.jobId && <span className="pf-field-err">{errors.jobId}</span>}
                             <span style={{ fontSize: 10.5, color: '#64748b', marginTop: 2, display: 'block' }}>
                                 Purchase Requests are linked per line — add them after saving the PO header
                             </span>
@@ -624,53 +590,46 @@ const PoForm = ({ onClose, onSaved }) => {
 
                     <FormSection label="Supplier" />
                     <div className="pf-row">
-                        {/* ── Supplier live-search ── */}
+                        {/* ── Supplier lookup ── */}
                         <div className="pf-field pf-f2" style={{ position: 'relative' }}>
                             <label>Supplier {isReq('supplierId') && <span className="req">*</span>}</label>
-                            {form.supplierId ? (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                    <span className="pf-input" style={{ background: '#f0fdf4', color: '#166534', fontWeight: 500, flex: 1 }}>
-                                        ✓ {form.supplierLabel}
-                                    </span>
-                                    <button type="button" onClick={() => { setForm(p => ({ ...p, supplierId: '', supplierLabel: '', vendorName: '', vatNumber: '', supplierContactId: '' })); setSupplierSearch(''); setContacts([]); if (errors.supplierId) setErrors(p => ({ ...p, supplierId: undefined })); }}
-                                        style={{ background: '#fee2e2', border: 'none', borderRadius: 5, padding: '6px 10px', cursor: 'pointer', color: '#991b1b', fontWeight: 700 }}>✕</button>
-                                </div>
-                            ) : (
-                                <>
-                                    <input className={`pf-input${errors.supplierId ? ' pf-input-err' : ''}`} value={supplierSearch}
-                                        onChange={e => { setSupplierSearch(e.target.value); if (errors.supplierId) setErrors(p => ({ ...p, supplierId: undefined })); }}
-                                        placeholder="Type to search supplier…" autoComplete="off" />
-                                    {supplierResults.length > 0 && (
-                                        <div style={dropStyle}>
-                                            {supplierResults.map(s => (
-                                                <div key={s.supplierId} style={dropItem}
-                                                    onClick={() => {
-                                                        // Auto-fill the supplier's default currency (+ its exchange rate)
-                                                        // and payment terms, when the supplier record has them set.
-                                                        const supCur = s.currencyId > 0 ? currencies.find(c => String(c.id) === String(s.currencyId)) : null;
-                                                        setForm(p => ({
-                                                            ...p,
-                                                            supplierId: String(s.supplierId),
-                                                            supplierLabel: `${s.supplierCode} — ${s.supplierName}`,
-                                                            vendorName: s.supplierName,
-                                                            vatNumber: s.vatNumber || '',
-                                                            ...(supCur ? { currencyId: String(supCur.id), exchangeRate: String(supCur.exchangeRate ?? 1) } : {}),
-                                                            ...(s.paymentTermsId > 0 ? { paymentTermsId: String(s.paymentTermsId) } : {}),
-                                                        }));
-                                                        setSupplierSearch(''); setSupplierResults([]);
-                                                        setErrors(p => ({ ...p, supplierId: undefined,
-                                                            ...(supCur ? { currencyId: undefined, exchangeRate: undefined } : {}),
-                                                            ...(s.paymentTermsId > 0 ? { paymentTermsId: undefined } : {}) }));
-                                                    }}
-                                                    onMouseEnter={e => e.currentTarget.style.background='#f0f9ff'}
-                                                    onMouseLeave={e => e.currentTarget.style.background='#fff'}>
-                                                    <strong>{s.supplierCode}</strong> — {s.supplierName}
-                                                    {s.supplierCategoryName && <span style={{ color: '#64748b', marginLeft: 6, fontSize: 11 }}>{s.supplierCategoryName}</span>}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </>
+                            <LookupSelect
+                                value={form.supplierId}
+                                label={form.supplierLabel}
+                                error={errors.supplierId}
+                                tone="green"
+                                placeholder="Select or type to search supplier…"
+                                buildUrl={t => `${variables.API_URL}supplier/search?searchText=${encodeURIComponent(t)}&pageSize=${LOOKUP_PAGE_SIZE}&page=1`}
+                                itemKey={s => s.supplierId}
+                                renderItem={s => (
+                                    <>
+                                        <strong>{s.supplierCode}</strong> — {s.supplierName}
+                                        {s.supplierCategoryName && <span style={{ color: '#64748b', marginLeft: 6, fontSize: 11 }}>{s.supplierCategoryName}</span>}
+                                    </>
+                                )}
+                                onSelect={s => {
+                                    // Auto-fill the supplier's default currency (+ its exchange rate)
+                                    // and payment terms, when the supplier record has them set.
+                                    const supCur = s.currencyId > 0 ? currencies.find(c => String(c.id) === String(s.currencyId)) : null;
+                                    setForm(p => ({
+                                        ...p,
+                                        supplierId: String(s.supplierId),
+                                        supplierLabel: `${s.supplierCode} — ${s.supplierName}`,
+                                        vendorName: s.supplierName,
+                                        vatNumber: s.vatNumber || '',
+                                        ...(supCur ? { currencyId: String(supCur.id), exchangeRate: String(supCur.exchangeRate ?? 1) } : {}),
+                                        ...(s.paymentTermsId > 0 ? { paymentTermsId: String(s.paymentTermsId) } : {}),
+                                    }));
+                                    setErrors(p => ({ ...p, supplierId: undefined,
+                                        ...(supCur ? { currencyId: undefined, exchangeRate: undefined } : {}),
+                                        ...(s.paymentTermsId > 0 ? { paymentTermsId: undefined } : {}) }));
+                                }}
+                                onClear={() => {
+                                    setForm(p => ({ ...p, supplierId: '', supplierLabel: '', vendorName: '', vatNumber: '', supplierContactId: '' }));
+                                    setContacts([]);
+                                    if (errors.supplierId) setErrors(p => ({ ...p, supplierId: undefined }));
+                                }}
+                            />
                             )}
                             {errors.supplierId && <span className="pf-field-err">{errors.supplierId}</span>}
                         </div>

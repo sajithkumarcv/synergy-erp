@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { variables, authHeaders } from '../../Variable';
 import { useCurrentUser } from '../../AuthContext';
+import LookupSelect from '../../common/LookupSelect';
+
+const LOOKUP_PAGE_SIZE = 25;
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -16,23 +19,12 @@ const NewRtvModal = ({ onClose, onSaved }) => {
         returnReason: '',
         remarks:      '',
     });
-    const [suppSearch,   setSuppSearch]   = useState('');
-    const [suppResults,  setSuppResults]  = useState([]);
     const [grnSearch,    setGrnSearch]    = useState('');
     const [grnResults,   setGrnResults]   = useState([]);
     const [errors,       setErrors]       = useState({});
     const [saving,       setSaving]       = useState(false);
     const [error,        setError]        = useState('');
 
-    // Supplier typeahead
-    useEffect(() => {
-        if (!suppSearch.trim()) { setSuppResults([]); return; }
-        const t = setTimeout(() => {
-            fetch(`${variables.API_URL}supplier/search?searchText=${encodeURIComponent(suppSearch)}&pageSize=8`, { headers: authHeaders() })
-                .then(r => r.json()).then(d => setSuppResults(d.data || [])).catch(() => {});
-        }, 280);
-        return () => clearTimeout(t);
-    }, [suppSearch]);
 
     // GRN typeahead (search by GRN number)
     useEffect(() => {
@@ -50,13 +42,11 @@ const NewRtvModal = ({ onClose, onSaved }) => {
     };
 
     const pickSupplier = (s) => {
-        setSuppSearch(''); setSuppResults([]);
         setForm(p => ({ ...p, supplierId: String(s.supplierId || s.SupplierId), supplierLabel: s.supplierName || s.SupplierName }));
         setErrors(p => ({ ...p, supplierId: undefined }));
     };
 
     const clearSupplier = () => {
-        setSuppSearch('');
         setForm(p => ({ ...p, supplierId: '', supplierLabel: '' }));
     };
 
@@ -137,33 +127,24 @@ const NewRtvModal = ({ onClose, onSaved }) => {
                     {/* Supplier */}
                     <div className="pf-field">
                         <label className="pf-label">Supplier <span style={{ color: '#e53e3e' }}>*</span></label>
-                        {form.supplierLabel ? (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <span style={{ flex: 1, padding: '7px 10px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 5, fontSize: 13, color: '#166534' }}>
-                                    {form.supplierLabel}
-                                </span>
-                                <button onClick={clearSupplier} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 16 }}>✕</button>
-                            </div>
-                        ) : (
-                            <div style={{ position: 'relative' }}>
-                                <input className={`pf-input${errors.supplierId ? ' pf-input-err' : ''}`}
-                                    placeholder="Type to search supplier…"
-                                    value={suppSearch}
-                                    onChange={e => setSuppSearch(e.target.value)}
-                                    autoFocus />
-                                {suppResults.length > 0 && (
-                                    <div style={dropStyle}>
-                                        {suppResults.map(s => (
-                                            <div key={s.supplierId || s.SupplierId} style={dropItem}
-                                                onMouseDown={() => pickSupplier(s)}>
-                                                <span style={{ fontWeight: 600, fontSize: 12 }}>{s.supplierCode || s.SupplierCode}</span>
-                                                <span style={{ color: '#64748b', marginLeft: 8 }}>{s.supplierName || s.SupplierName}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        )}
+                        <LookupSelect
+                            value={form.supplierId}
+                            label={form.supplierLabel}
+                            error={errors.supplierId}
+                            tone="green"
+                            autoFocus
+                            placeholder="Select or type to search supplier…"
+                            buildUrl={t => `${variables.API_URL}supplier/search?searchText=${encodeURIComponent(t)}&pageSize=${LOOKUP_PAGE_SIZE}`}
+                            itemKey={s => s.supplierId || s.SupplierId}
+                            renderItem={s => (
+                                <>
+                                    <span style={{ fontWeight: 600, fontSize: 12 }}>{s.supplierCode || s.SupplierCode}</span>
+                                    <span style={{ color: '#64748b', marginLeft: 8 }}>{s.supplierName || s.SupplierName}</span>
+                                </>
+                            )}
+                            onSelect={pickSupplier}
+                            onClear={clearSupplier}
+                        />
                         {errors.supplierId && <div className="pf-err">{errors.supplierId}</div>}
                     </div>
 

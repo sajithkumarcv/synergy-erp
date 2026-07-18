@@ -4,11 +4,13 @@ import { variables, authHeaders } from '../Variable';
 import { useCurrentUser } from '../AuthContext';
 import { useFilters } from '../FilterContext';
 import AmountInput from '../common/AmountInput';
+import LookupSelect from '../common/LookupSelect';
 import { usePermission } from '../PermissionContext';
 import { useLookup } from '../LookupContext';
 import '../procurement/Procurement.css';
 
 const PAGE_SIZES = [10, 20, 50];
+const LOOKUP_PAGE_SIZE = 25;
 const DEFAULT_FILTERS = { searchText: '', status: '', dateFrom: '', dateTo: '' };
 
 const fmt = (n) => (n == null ? '0.00' : Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
@@ -48,8 +50,6 @@ const CnForm = ({ onClose, onSaved }) => {
         creditAmount: '', creditType: '',
         reason: '', notes: '',
     });
-    const [custSearch, setCustSearch]   = useState('');
-    const [custResults, setCustResults] = useState([]);
     const [errors, setErrors]  = useState({});
     const [saving, setSaving]  = useState(false);
     const [error, setError]    = useState('');
@@ -62,15 +62,6 @@ const CnForm = ({ onClose, onSaved }) => {
         }
     }, [currencies]); // eslint-disable-line
 
-    // Customer search debounce
-    useEffect(() => {
-        if (!custSearch.trim()) { setCustResults([]); return; }
-        const t = setTimeout(() => {
-            fetch(`${variables.API_URL}customer/search?searchText=${encodeURIComponent(custSearch)}&pageSize=8`, { headers: authHeaders() })
-                .then(r => r.json()).then(d => setCustResults(d.data || [])).catch(console.error);
-        }, 280);
-        return () => clearTimeout(t);
-    }, [custSearch]);
 
     const set = (k, v) => { setForm(p => ({ ...p, [k]: v })); if (errors[k]) setErrors(p => ({ ...p, [k]: undefined })); };
 
@@ -81,7 +72,6 @@ const CnForm = ({ onClose, onSaved }) => {
     };
 
     const pickCustomer = (c) => {
-        setCustSearch(''); setCustResults([]);
         setForm(p => ({ ...p, customerId: String(c.customerId), customerLabel: c.customerName }));
         setErrors(p => ({ ...p, customerId: undefined }));
     };
@@ -117,8 +107,6 @@ const CnForm = ({ onClose, onSaved }) => {
             .finally(() => setSaving(false));
     };
 
-    const dropStyle = { position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 999, background: '#fff', border: '1px solid #c8d4e4', borderRadius: 6, boxShadow: '0 4px 16px rgba(0,0,0,.12)', maxHeight: 200, overflowY: 'auto' };
-    const dropItem  = { padding: '7px 12px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid #f1f5f9' };
 
     return (
         <div className="pf-overlay">
@@ -137,31 +125,24 @@ const CnForm = ({ onClose, onSaved }) => {
                     <div className="pf-row">
                         <div className="pf-field pf-f2" style={{ position: 'relative' }}>
                             <label>Customer <span className="req">*</span></label>
-                            {form.customerId ? (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                    <span className="pf-input" style={{ background: '#f0f9ff', color: '#1e40af', fontWeight: 500, flex: 1 }}>✓ {form.customerLabel}</span>
-                                    <button type="button" onClick={() => setForm(p => ({ ...p, customerId: '', customerLabel: '' }))}
-                                        style={{ background: '#fee2e2', border: 'none', borderRadius: 5, padding: '6px 10px', cursor: 'pointer', color: '#991b1b', fontWeight: 700 }}>✕</button>
-                                </div>
-                            ) : (
-                                <>
-                                    <input className={`pf-input${errors.customerId ? ' pf-input-err' : ''}`} value={custSearch}
-                                        onChange={e => setCustSearch(e.target.value)} placeholder="Search by name or code…" autoComplete="off" />
-                                    {errors.customerId && <span className="pf-field-err">{errors.customerId}</span>}
-                                    {custResults.length > 0 && (
-                                        <div style={dropStyle}>
-                                            {custResults.map(c => (
-                                                <div key={c.customerId} style={dropItem} onClick={() => pickCustomer(c)}
-                                                    onMouseEnter={e => e.currentTarget.style.background = '#f0f9ff'}
-                                                    onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
-                                                    <strong>{c.customerName}</strong>
-                                                    {c.customerCode && <span style={{ color: '#64748b', marginLeft: 6, fontSize: 11 }}>{c.customerCode}</span>}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </>
-                            )}
+                            <LookupSelect
+                                value={form.customerId}
+                                label={form.customerLabel}
+                                error={errors.customerId}
+                                tone="blue"
+                                placeholder="Select or search by name / code…"
+                                buildUrl={t => `${variables.API_URL}customer/search?searchText=${encodeURIComponent(t)}&pageSize=${LOOKUP_PAGE_SIZE}`}
+                                itemKey={c => c.customerId}
+                                renderItem={c => (
+                                    <>
+                                        <strong>{c.customerName}</strong>
+                                        {c.customerCode && <span style={{ color: '#64748b', marginLeft: 6, fontSize: 11 }}>{c.customerCode}</span>}
+                                    </>
+                                )}
+                                onSelect={pickCustomer}
+                                onClear={() => setForm(p => ({ ...p, customerId: '', customerLabel: '' }))}
+                            />
+                            {errors.customerId && <span className="pf-field-err">{errors.customerId}</span>}
                         </div>
                         <div className="pf-field">
                             <label>CN Date</label>

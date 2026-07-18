@@ -1,10 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { variables, authHeaders } from '../../../Variable';
 import { useCurrentUser } from '../../../AuthContext';
 import { useLookup } from '../../../LookupContext';
 import { usePermission } from '../../../PermissionContext';
 import { fmt, fmtDate, today } from '../../procurementConstants';
 import { useFieldConfig } from '../../../FieldConfigContext';
+import LookupSelect from '../../../common/LookupSelect';
+
+const LOOKUP_PAGE_SIZE = 25;
 
 // Read-only chip shown for PO-locked fields
 const LockedChip = ({ value, bg = '#f0f9ff', color = '#1e40af' }) => (
@@ -32,17 +35,6 @@ const GrnOverviewTab = ({ grn, onRefresh }) => {
     const [error,   setError]   = useState('');
 
     // Supplier live-search
-    const [supplierSearch,  setSupplierSearch]  = useState('');
-    const [supplierResults, setSupplierResults] = useState([]);
-
-    useEffect(() => {
-        if (!supplierSearch.trim()) { setSupplierResults([]); return; }
-        const t = setTimeout(() => {
-            fetch(`${variables.API_URL}supplier/search?searchText=${encodeURIComponent(supplierSearch)}&pageSize=10&page=1`, { headers: authHeaders() })
-                .then(r => r.json()).then(d => setSupplierResults(d.data || [])).catch(console.error);
-        }, 280);
-        return () => clearTimeout(t);
-    }, [supplierSearch]);
 
     const startEdit = () => {
         setForm({
@@ -69,8 +61,6 @@ const GrnOverviewTab = ({ grn, onRefresh }) => {
             isRegistered:     grn.isRegistered    ? '1' : '0',
             remarks:          grn.remarks         || '',
         });
-        setSupplierSearch('');
-        setSupplierResults([]);
         setEditing(true);
         setError('');
     };
@@ -140,7 +130,6 @@ const GrnOverviewTab = ({ grn, onRefresh }) => {
     const canEdit  = (getStatusConfig('GRN', grn.status)?.canEdit ?? (grn.status === 'Draft')) && canDo('/grn', 'EDIT');
     const poLinked = !!grn.poId;   // when true, supplier/job/currency/exch rate are non-editable
 
-    const dropStyle = { position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 999, background: '#fff', border: '1px solid #c8d4e4', borderRadius: 6, boxShadow: '0 4px 16px rgba(0,0,0,.12)', maxHeight: 200, overflowY: 'auto' };
 
     // ── Edit form ────────────────────────────────────────────────────────────
     if (editing) {
@@ -213,32 +202,18 @@ const GrnOverviewTab = ({ grn, onRefresh }) => {
                         </label>
                         {poLinked ? (
                             <LockedChip value={form.supplierLabel || grn.supplierName || '—'} bg="#f0fdf4" color="#166534" />
-                        ) : form.supplierId ? (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <span className="pf-input" style={{ background: '#f0fdf4', color: '#166534', fontWeight: 500, flex: 1 }}>✓ {form.supplierLabel}</span>
-                                <button type="button"
-                                    onClick={() => { setForm(p => ({ ...p, supplierId: '', supplierLabel: '' })); setSupplierSearch(''); }}
-                                    style={{ background: '#fee2e2', border: 'none', borderRadius: 5, padding: '6px 10px', cursor: 'pointer', color: '#991b1b', fontWeight: 700, whiteSpace: 'nowrap' }}>✕ Clear</button>
-                            </div>
                         ) : (
-                            <>
-                                <input className="pf-input" value={supplierSearch}
-                                    onChange={e => setSupplierSearch(e.target.value)}
-                                    placeholder="Type to search supplier…" autoComplete="off" />
-                                {supplierResults.length > 0 && (
-                                    <div style={dropStyle}>
-                                        {supplierResults.map(s => (
-                                            <div key={s.supplierId}
-                                                style={{ padding: '7px 12px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid #f1f5f9' }}
-                                                onClick={() => { setForm(p => ({ ...p, supplierId: String(s.supplierId), supplierLabel: `${s.supplierCode} — ${s.supplierName}` })); setSupplierSearch(''); setSupplierResults([]); }}
-                                                onMouseEnter={e => e.currentTarget.style.background = '#f0f9ff'}
-                                                onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
-                                                <strong>{s.supplierCode}</strong> — {s.supplierName}
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </>
+                            <LookupSelect
+                                value={form.supplierId}
+                                label={form.supplierLabel}
+                                tone="green"
+                                placeholder="Select or type to search supplier…"
+                                buildUrl={t => `${variables.API_URL}supplier/search?searchText=${encodeURIComponent(t)}&pageSize=${LOOKUP_PAGE_SIZE}&page=1`}
+                                itemKey={s => s.supplierId}
+                                renderItem={s => <><strong>{s.supplierCode}</strong> — {s.supplierName}</>}
+                                onSelect={s => setForm(p => ({ ...p, supplierId: String(s.supplierId), supplierLabel: `${s.supplierCode} — ${s.supplierName}` }))}
+                                onClear={() => setForm(p => ({ ...p, supplierId: '', supplierLabel: '' }))}
+                            />
                         )}
                     </div>
                     <div style={{ ...field, flex: 2 }}>

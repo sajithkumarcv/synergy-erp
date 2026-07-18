@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { variables, authHeaders } from '../../../Variable';
 import { useCurrentUser } from '../../../AuthContext';
 import { useLookup } from '../../../LookupContext';
@@ -6,6 +6,9 @@ import { usePermission } from '../../../PermissionContext';
 import { fmt, fmtDate, today, PRIORITY_CONFIG } from '../../procurementConstants';
 import { useFieldConfig } from '../../../FieldConfigContext';
 import AmountInput from '../../../common/AmountInput';
+import LookupSelect from '../../../common/LookupSelect';
+
+const LOOKUP_PAGE_SIZE = 25;
 
 const Field = ({ label, children, mono }) => (
     <div className="prd-ov-card">
@@ -27,19 +30,7 @@ const PoOverviewTab = ({ po, onRefresh }) => {
     const [error,    setError]    = useState('');
 
 
-    // Supplier live-search
-    const [supplierSearch,  setSupplierSearch]  = useState('');
-    const [supplierResults, setSupplierResults] = useState([]);
-    const [contacts,        setContacts]        = useState([]);
-
-    useEffect(() => {
-        if (!supplierSearch.trim()) { setSupplierResults([]); return; }
-        const t = setTimeout(() => {
-            fetch(`${variables.API_URL}supplier/search?searchText=${encodeURIComponent(supplierSearch)}&pageSize=10&page=1`, { headers: authHeaders() })
-                .then(r => r.json()).then(d => setSupplierResults(d.data || [])).catch(console.error);
-        }, 280);
-        return () => clearTimeout(t);
-    }, [supplierSearch]);
+    const [contacts, setContacts] = useState([]);
 
     // Contacts — fetch whenever the selected supplierId changes while editing
     useEffect(() => {
@@ -49,20 +40,6 @@ const PoOverviewTab = ({ po, onRefresh }) => {
             .then(d => setContacts(Array.isArray(d) ? d.filter(c => c.isActive !== false) : []))
             .catch(console.error);
     }, [form.supplierId]);
-
-    // Job live-search (Draft only)
-    const [jobSearch,   setJobSearch]   = useState('');
-    const [jobResults,  setJobResults]  = useState([]);
-    const jobDropRef = useRef(null);
-
-    useEffect(() => {
-        if (!jobSearch.trim()) { setJobResults([]); return; }
-        const t = setTimeout(() => {
-            fetch(`${variables.API_URL}job/search?searchText=${encodeURIComponent(jobSearch)}&pageSize=10&page=1&excludeClosedStatus=true`, { headers: authHeaders() })
-                .then(r => r.json()).then(d => setJobResults(d.data || [])).catch(console.error);
-        }, 280);
-        return () => clearTimeout(t);
-    }, [jobSearch]);
 
     const startEdit = () => {
         setForm({
@@ -91,10 +68,6 @@ const PoOverviewTab = ({ po, onRefresh }) => {
             notes:             po.notes             || '',
             expenseCategoryId: po.expenseCategoryId ? String(po.expenseCategoryId) : '',
         });
-        setSupplierSearch('');
-        setSupplierResults([]);
-        setJobSearch('');
-        setJobResults([]);
         setEditing(true);
         setError('');
     };
@@ -169,7 +142,6 @@ const PoOverviewTab = ({ po, onRefresh }) => {
         const lbl   = { fontSize: 10, fontWeight: 600, color: '#3a5070', textTransform: 'uppercase', letterSpacing: '.45px', marginBottom: 4, display: 'block' };
         const field = { display: 'flex', flexDirection: 'column', flex: 1, minWidth: 130 };
         const row   = { display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 10 };
-        const dropStyle = { position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 999, background: '#fff', border: '1px solid #c8d4e4', borderRadius: 6, boxShadow: '0 4px 16px rgba(0,0,0,.12)', maxHeight: 200, overflowY: 'auto' };
 
         return (
             <div>
@@ -181,40 +153,26 @@ const PoOverviewTab = ({ po, onRefresh }) => {
                         <label style={lbl}>PO Date {isReq('poDate') && <span className="req">*</span>}</label>
                         <input className="pf-input" type="date" name="poDate" value={form.poDate} onChange={handle} />
                     </div>
-                    <div style={{ ...field, flex: 2, position: 'relative' }} ref={jobDropRef}>
+                    <div style={{ ...field, flex: 2, position: 'relative' }}>
                         <label style={lbl}>Job ID {isReq('jobId') && <span className="req">*</span>}</label>
                         {po.status === 'Draft' ? (
-                            form.jobId ? (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                    <span className="pf-input" style={{ background: '#f0f9ff', color: '#1e40af', fontWeight: 500, flex: 1 }}>
-                                        ✓ {form.jobLabel}
-                                    </span>
-                                    <button type="button"
-                                        onClick={() => { setForm(p => ({ ...p, jobId: '', jobLabel: '' })); setJobSearch(''); }}
-                                        style={{ background: '#fee2e2', border: 'none', borderRadius: 5, padding: '6px 10px', cursor: 'pointer', color: '#991b1b', fontWeight: 700, whiteSpace: 'nowrap' }}>✕ Clear</button>
-                                </div>
-                            ) : (
-                                <>
-                                    <input className="pf-input" value={jobSearch}
-                                        onChange={e => setJobSearch(e.target.value)}
-                                        placeholder="Type job ID or description…" autoComplete="off" />
-                                    {jobResults.length > 0 && (
-                                        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 999, background: '#fff', border: '1px solid #c8d4e4', borderRadius: 6, boxShadow: '0 4px 16px rgba(0,0,0,.12)', maxHeight: 200, overflowY: 'auto' }}>
-                                            {jobResults.map(j => (
-                                                <div key={j.jobId}
-                                                    style={{ padding: '7px 12px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid #f1f5f9' }}
-                                                    onClick={() => { setForm(p => ({ ...p, jobId: j.jobId, jobLabel: j.jobId + (j.projectName ? ` — ${j.projectName}` : '') })); setJobSearch(''); setJobResults([]); }}
-                                                    onMouseEnter={e => e.currentTarget.style.background = '#f0f9ff'}
-                                                    onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
-                                                    <strong>{j.jobId}</strong>
-                                                    {j.projectName  && <span style={{ marginLeft: 6 }}>{j.projectName}</span>}
-                                                    {j.customerName && <span style={{ color: '#64748b', marginLeft: 6, fontSize: 11 }}>({j.customerName})</span>}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </>
-                            )
+                            <LookupSelect
+                                value={form.jobId}
+                                label={form.jobLabel}
+                                tone="blue"
+                                placeholder="Select or type job ID / description…"
+                                buildUrl={t => `${variables.API_URL}job/search?searchText=${encodeURIComponent(t)}&pageSize=${LOOKUP_PAGE_SIZE}&page=1&excludeClosedStatus=true`}
+                                itemKey={j => j.jobId}
+                                renderItem={j => (
+                                    <>
+                                        <strong>{j.jobId}</strong>
+                                        {j.projectName  && <span style={{ marginLeft: 6 }}>{j.projectName}</span>}
+                                        {j.customerName && <span style={{ color: '#64748b', marginLeft: 6, fontSize: 11 }}>({j.customerName})</span>}
+                                    </>
+                                )}
+                                onSelect={j => setForm(p => ({ ...p, jobId: j.jobId, jobLabel: j.jobId + (j.projectName ? ` — ${j.projectName}` : '') }))}
+                                onClear={() => setForm(p => ({ ...p, jobId: '', jobLabel: '' }))}
+                            />
                         ) : (
                             <input className="pf-input" style={{ background: '#f8fafc', color: '#64748b', cursor: 'default' }}
                                 value={po.jobId || '—'} readOnly />
@@ -249,36 +207,25 @@ const PoOverviewTab = ({ po, onRefresh }) => {
                 <div style={row}>
                     <div style={{ ...field, flex: 3, position: 'relative' }}>
                         <label style={lbl}>Supplier {isReq('supplierId') && <span className="req">*</span>}</label>
-                        {form.supplierId ? (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <span className="pf-input" style={{ background: '#f0fdf4', color: '#166534', fontWeight: 500, flex: 1, display: 'flex', alignItems: 'center' }}>
-                                    ✓ {form.supplierLabel}
-                                </span>
-                                <button type="button"
-                                    onClick={() => { setForm(p => ({ ...p, supplierId: '', supplierLabel: '', vendorName: '', supplierContactId: '' })); setSupplierSearch(''); setContacts([]); }}
-                                    style={{ background: '#fee2e2', border: 'none', borderRadius: 5, padding: '6px 10px', cursor: 'pointer', color: '#991b1b', fontWeight: 700, whiteSpace: 'nowrap' }}>✕ Clear</button>
-                            </div>
-                        ) : (
-                            <>
-                                <input className="pf-input" value={supplierSearch}
-                                    onChange={e => setSupplierSearch(e.target.value)}
-                                    placeholder="Type to search supplier…" autoComplete="off" />
-                                {supplierResults.length > 0 && (
-                                    <div style={dropStyle}>
-                                        {supplierResults.map(s => (
-                                            <div key={s.supplierId}
-                                                style={{ padding: '7px 12px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid #f1f5f9' }}
-                                                onClick={() => { setForm(p => ({ ...p, supplierId: String(s.supplierId), supplierLabel: `${s.supplierCode} — ${s.supplierName}`, vendorName: s.supplierName })); setSupplierSearch(''); setSupplierResults([]); }}
-                                                onMouseEnter={e => e.currentTarget.style.background='#f0f9ff'}
-                                                onMouseLeave={e => e.currentTarget.style.background='#fff'}>
-                                                <strong>{s.supplierCode}</strong> — {s.supplierName}
-                                                {s.supplierCategoryName && <span style={{ color: '#64748b', marginLeft: 6, fontSize: 11 }}>{s.supplierCategoryName}</span>}
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </>
-                        )}
+                        <LookupSelect
+                            value={form.supplierId}
+                            label={form.supplierLabel}
+                            tone="green"
+                            placeholder="Select or type to search supplier…"
+                            buildUrl={t => `${variables.API_URL}supplier/search?searchText=${encodeURIComponent(t)}&pageSize=${LOOKUP_PAGE_SIZE}&page=1`}
+                            itemKey={s => s.supplierId}
+                            renderItem={s => (
+                                <>
+                                    <strong>{s.supplierCode}</strong> — {s.supplierName}
+                                    {s.supplierCategoryName && <span style={{ color: '#64748b', marginLeft: 6, fontSize: 11 }}>{s.supplierCategoryName}</span>}
+                                </>
+                            )}
+                            onSelect={s => setForm(p => ({ ...p, supplierId: String(s.supplierId), supplierLabel: `${s.supplierCode} — ${s.supplierName}`, vendorName: s.supplierName }))}
+                            onClear={() => {
+                                setForm(p => ({ ...p, supplierId: '', supplierLabel: '', vendorName: '', supplierContactId: '' }));
+                                setContacts([]);
+                            }}
+                        />
                     </div>
                     <div style={field}>
                         <label style={lbl}>Contact Person</label>

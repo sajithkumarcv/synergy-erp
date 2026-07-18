@@ -8,8 +8,13 @@ import { useLookup } from '../LookupContext';
 import { fmtDate, today, FormSection, getDeliveryStatusConfig } from './deliveryConstants';
 import '../procurement/Procurement.css';
 import RowLink from '../common/RowLink';
+import LookupSelect from '../common/LookupSelect';
 
 const PAGE_SIZES = [10, 20, 50];
+// Rows pulled per customer lookup. Higher than the old 10 because the field is
+// now browsable on click, not just typed into — but still capped, since the
+// dropdown scrolls rather than showing the whole customer master.
+const LOOKUP_PAGE_SIZE = 25;
 const DEFAULT_FILTERS = { searchText: '', customerId: '', status: '', dateFrom: '', dateTo: '' };
 
 const SortIcon = ({ col, sortCol, sortDir }) => {
@@ -40,7 +45,6 @@ const DeliveryForm = ({ onClose, onSaved }) => {
     };
 
     const [form,            setForm]            = useState(INITIAL);
-    const [customerResults, setCustomerResults] = useState([]);
     const [contacts,        setContacts]        = useState([]);
     const [invoiceResults,  setInvoiceResults]  = useState([]);
     const [jobOptions,      setJobOptions]      = useState([]);
@@ -54,16 +58,6 @@ const DeliveryForm = ({ onClose, onSaved }) => {
             .then(r => r.json()).then(d => { if (d.previewNumber) setPreviewNo(d.previewNumber); })
             .catch(console.error);
     }, []);
-
-    // Customer live search
-    useEffect(() => {
-        if (!form.customerSearch.trim() || form.customerId) { setCustomerResults([]); return; }
-        const t = setTimeout(() => {
-            fetch(`${variables.API_URL}customer/search?searchText=${encodeURIComponent(form.customerSearch)}&pageSize=10&page=1`, { headers: authHeaders() })
-                .then(r => r.json()).then(d => setCustomerResults(d.data || [])).catch(console.error);
-        }, 280);
-        return () => clearTimeout(t);
-    }, [form.customerSearch, form.customerId]);
 
     // Load invoices once customer selected
     useEffect(() => {
@@ -89,7 +83,6 @@ const DeliveryForm = ({ onClose, onSaved }) => {
         setForm(p => ({ ...p, customerId: String(c.customerId), customerName: c.customerName,
             customerSearch: '', contactId: '', invoiceId: '', invoiceLabel: '',
             jobId: '', jobIdFromInvoice: false }));
-        setCustomerResults([]);
         if (errors.customerId) setErrors(p => ({ ...p, customerId: undefined }));
         // Load contacts for this customer
         fetch(`${variables.API_URL}invoice/customer/${c.customerId}`, { headers: authHeaders() })
@@ -173,8 +166,6 @@ const DeliveryForm = ({ onClose, onSaved }) => {
             .finally(() => setSaving(false));
     };
 
-    const dropStyle = { position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 999, background: '#fff', border: '1px solid #c8d4e4', borderRadius: 6, boxShadow: '0 4px 16px rgba(0,0,0,.12)', maxHeight: 200, overflowY: 'auto' };
-    const dropItem  = { padding: '7px 12px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid #f1f5f9' };
 
     return (
         <div className="pf-overlay">
@@ -198,30 +189,18 @@ const DeliveryForm = ({ onClose, onSaved }) => {
                     <div className="pf-row">
                         <div className="pf-field pf-f2" style={{ position: 'relative' }}>
                             <label>Customer <span className="req">*</span></label>
-                            {form.customerId ? (
-                                <div style={{ display: 'flex', gap: 6 }}>
-                                    <span className="pf-input" style={{ flex: 1, background: '#f0fdf4', color: '#166534', fontWeight: 500 }}>✓ {form.customerName}</span>
-                                    <button type="button" onClick={clearCustomer} style={{ background: '#fee2e2', border: 'none', borderRadius: 5, padding: '6px 10px', cursor: 'pointer', color: '#991b1b', fontWeight: 700 }}>✕</button>
-                                </div>
-                            ) : (
-                                <div style={{ position: 'relative' }}>
-                                    <input className={`pf-input${errors.customerId ? ' pf-input-err' : ''}`}
-                                        name="customerSearch" value={form.customerSearch} onChange={handle}
-                                        placeholder="Search customer…" autoComplete="off" />
-                                    {customerResults.length > 0 && (
-                                        <div style={dropStyle}>
-                                            {customerResults.map(c => (
-                                                <div key={c.customerId} style={dropItem}
-                                                    onClick={() => selectCustomer(c)}
-                                                    onMouseEnter={e => e.currentTarget.style.background = '#f0f9ff'}
-                                                    onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
-                                                    {c.customerCode ? `${c.customerCode} — ` : ''}{c.customerName}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
+                            <LookupSelect
+                                value={form.customerId}
+                                label={form.customerName}
+                                error={errors.customerId}
+                                tone="green"
+                                placeholder="Select or search customer…"
+                                buildUrl={t => `${variables.API_URL}customer/search?searchText=${encodeURIComponent(t)}&pageSize=${LOOKUP_PAGE_SIZE}&page=1`}
+                                itemKey={c => c.customerId}
+                                renderItem={c => <>{c.customerCode ? `${c.customerCode} — ` : ''}{c.customerName}</>}
+                                onSelect={c => selectCustomer(c)}
+                                onClear={clearCustomer}
+                            />
                             <FieldErr msg={errors.customerId} />
                         </div>
                         <div className="pf-field">

@@ -6,10 +6,12 @@ import { useLookup } from '../../LookupContext';
 import { useFilters } from '../../FilterContext';
 import { usePermission } from '../../PermissionContext';
 import { fmtDate } from '../procurementConstants';
+import LookupSelect from '../../common/LookupSelect';
 import '../Procurement.css';
 import RowLink from '../../common/RowLink';
 
 const PAGE_SIZES = [20, 50, 100, 200];
+const LOOKUP_PAGE_SIZE = 25;
 
 const DEFAULT_FILTERS = {
     searchText:      '',
@@ -65,8 +67,6 @@ const NewSubcontractForm = ({ onClose, onSaved }) => {
     const [itemSearch,  setItemSearch]  = useState('');
     const [itemResults, setItemResults] = useState([]);
     // Job live-search (shown only when no PO linked)
-    const [jobSearch,   setJobSearch]   = useState('');
-    const [jobResults,  setJobResults]  = useState([]);
 
     const [saving, setSaving] = useState(false);
     const [error,  setError]  = useState('');
@@ -109,15 +109,6 @@ const NewSubcontractForm = ({ onClose, onSaved }) => {
         return () => clearTimeout(t);
     }, [itemSearch]);
 
-    // Job search (manual)
-    useEffect(() => {
-        if (!jobSearch.trim()) { setJobResults([]); return; }
-        const t = setTimeout(() => {
-            fetch(`${variables.API_URL}job/search?searchText=${encodeURIComponent(jobSearch)}&pageSize=10&page=1&excludeClosedStatus=true`, { headers: authHeaders() })
-                .then(r => r.json()).then(d => setJobResults(d.data || [])).catch(console.error);
-        }, 280);
-        return () => clearTimeout(t);
-    }, [jobSearch]);
 
     const selectPo = (po) => {
         setForm(f => ({
@@ -141,7 +132,7 @@ const NewSubcontractForm = ({ onClose, onSaved }) => {
 
     const clearPo = () => {
         setForm(f => ({ ...f, poId: '', poLabel: '', vendorId: '', vendorLabel: '', jobId: '', jobLabel: '', expectedDate: '' }));
-        setVendorSearch(''); setJobSearch('');
+        setVendorSearch('');
     };
 
     const dropStyle = { position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 999, background: '#fff', border: '1px solid #c8d4e4', borderRadius: 6, boxShadow: '0 4px 16px rgba(0,0,0,.12)', maxHeight: 200, overflowY: 'auto' };
@@ -347,34 +338,31 @@ const NewSubcontractForm = ({ onClose, onSaved }) => {
                     <div className="pf-row">
                         <div className="pf-field pf-f2" style={{ position: 'relative' }}>
                             <label>Job Ref</label>
-                            {form.jobId
-                                ? <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            {form.jobId && hasPo ? (
+                                // Came from the PO — not the user's to change here.
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                     <span className="pf-input" style={{ background: '#f0f9ff', color: '#1e40af', fontWeight: 500, flex: 1 }}>
                                         ✓ {form.jobLabel || form.jobId}
                                     </span>
-                                    {!hasPo && (
-                                        <button type="button" onClick={() => { setForm(f => ({ ...f, jobId: '', jobLabel: '' })); setJobSearch(''); }}
-                                            style={{ background: '#fee2e2', border: 'none', borderRadius: 5, padding: '6px 10px', cursor: 'pointer', color: '#991b1b', fontWeight: 700 }}>✕</button>
+                                </div>
+                            ) : (
+                                <LookupSelect
+                                    value={form.jobId}
+                                    label={form.jobLabel || form.jobId}
+                                    tone="blue"
+                                    placeholder="Select or type job ID / description… (optional)"
+                                    buildUrl={t => `${variables.API_URL}job/search?searchText=${encodeURIComponent(t)}&pageSize=${LOOKUP_PAGE_SIZE}&page=1&excludeClosedStatus=true`}
+                                    itemKey={j => j.jobId}
+                                    renderItem={j => (
+                                        <>
+                                            <strong>{j.jobId}</strong>
+                                            {j.projectName && <span style={{ marginLeft: 6 }}>{j.projectName}</span>}
+                                        </>
                                     )}
-                                  </div>
-                                : <>
-                                    <input className="pf-input" placeholder="Type job ID or description… (optional)"
-                                        value={jobSearch} onChange={e => setJobSearch(e.target.value)} autoComplete="off" />
-                                    {jobResults.length > 0 && (
-                                        <div style={dropStyle}>
-                                            {jobResults.map(j => (
-                                                <div key={j.jobId} style={dropItem}
-                                                    onClick={() => { setForm(f => ({ ...f, jobId: j.jobId, jobLabel: `${j.jobId}${j.projectName ? ' — ' + j.projectName : ''}` })); setJobSearch(''); setJobResults([]); }}
-                                                    onMouseEnter={e => e.currentTarget.style.background='#f0f9ff'}
-                                                    onMouseLeave={e => e.currentTarget.style.background='#fff'}>
-                                                    <strong>{j.jobId}</strong>
-                                                    {j.projectName && <span style={{ marginLeft: 6 }}>{j.projectName}</span>}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                  </>
-                            }
+                                    onSelect={j => setForm(f => ({ ...f, jobId: j.jobId, jobLabel: `${j.jobId}${j.projectName ? ' — ' + j.projectName : ''}` }))}
+                                    onClear={() => setForm(f => ({ ...f, jobId: '', jobLabel: '' }))}
+                                />
+                            )}
                         </div>
                     </div>
 

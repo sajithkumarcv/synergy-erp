@@ -6,11 +6,16 @@ import { useLookup } from '../LookupContext';
 import { useFilters } from '../FilterContext';
 import { usePermission } from '../PermissionContext';
 import { fmt, fmtDate, today, addDays, statusBadgeCfg, FormSection } from './invoiceConstants';
+import LookupSelect from '../common/LookupSelect';
 import '../procurement/Procurement.css';
 import { useFieldConfig } from '../FieldConfigContext';
 import RowLink from '../common/RowLink';
 
 const PAGE_SIZES = [10, 20, 50];
+// Rows pulled per customer/job lookup. Higher than the old 8 because the field
+// is now browsable on click, not just typed into — but still capped, since the
+// dropdown scrolls rather than showing the whole master list.
+const LOOKUP_PAGE_SIZE = 25;
 
 const DEFAULT_FILTERS = {
     searchText: '', status: '', customerId: '', jobId: '', dateFrom: '', dateTo: '',
@@ -49,13 +54,7 @@ const InvForm = ({ onClose, onSaved }) => {
     const [error,      setError]     = useState('');
     const [previewNo,  setPreviewNo] = useState('');
 
-    // Customer live-search
-    const [custSearch,  setCustSearch]  = useState('');
-    const [custResults, setCustResults] = useState([]);
     const [custCredit,  setCustCredit]  = useState(null);   // credit flag / hold of the picked customer
-    // Job live-search
-    const [jobSearch,   setJobSearch]   = useState('');
-    const [jobResults,  setJobResults]  = useState([]);
     // Customer sub-data
     const [contacts,   setContacts]   = useState([]);
     const [addresses,  setAddresses]  = useState([]);
@@ -75,28 +74,7 @@ const InvForm = ({ onClose, onSaved }) => {
         if (base) setForm(p => ({ ...p, currencyId: String(base.id), exchangeRate: '1' }));
     }, [currencies]); // eslint-disable-line
 
-    // Customer search debounce
-    useEffect(() => {
-        if (!custSearch.trim()) { setCustResults([]); return; }
-        const t = setTimeout(() => {
-            fetch(`${variables.API_URL}customer/search?searchText=${encodeURIComponent(custSearch)}&pageSize=8`, { headers: authHeaders() })
-                .then(r => r.json()).then(d => setCustResults(d.data || [])).catch(console.error);
-        }, 280);
-        return () => clearTimeout(t);
-    }, [custSearch]);
-
-    // Job search debounce
-    useEffect(() => {
-        if (!jobSearch.trim()) { setJobResults([]); return; }
-        const t = setTimeout(() => {
-            fetch(`${variables.API_URL}job/search?searchText=${encodeURIComponent(jobSearch)}&pageSize=8&approvalStatus=Approved`, { headers: authHeaders() })
-                .then(r => r.json()).then(d => setJobResults(d.data || d || [])).catch(console.error);
-        }, 280);
-        return () => clearTimeout(t);
-    }, [jobSearch]);
-
     const selectCustomer = (c) => {
-        setCustSearch(''); setCustResults([]);
         setForm(p => ({ ...p, customerId: String(c.customerId), customerLabel: c.customerName, contactId: '' }));
         if (errors.customerId) setErrors(p => ({ ...p, customerId: undefined }));
         setCustCredit({
@@ -129,7 +107,6 @@ const InvForm = ({ onClose, onSaved }) => {
     };
 
     const selectJob = (j) => {
-        setJobSearch(''); setJobResults([]);
         // Auto-fill LPO No / LPO Date from the chosen job — only if the user
         // hasn't already typed something in those fields (don't overwrite input).
         const lpoFromJob     = j.lpoRef  || j.LpoRef  || '';
@@ -207,12 +184,6 @@ const InvForm = ({ onClose, onSaved }) => {
 
     const selectedCur = currencies.find(c => String(c.id) === String(form.currencyId));
     const isBase      = selectedCur?.isBaseCurrency === true;
-    const dropStyle   = {
-        position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 999,
-        background: '#fff', border: '1px solid #c8d4e4', borderRadius: 6,
-        boxShadow: '0 4px 16px rgba(0,0,0,.12)', maxHeight: 200, overflowY: 'auto',
-    };
-    const dropItem = { padding: '7px 12px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid #f1f5f9' };
 
     return (
         <div className="pf-overlay">
@@ -237,45 +208,33 @@ const InvForm = ({ onClose, onSaved }) => {
                         {/* Customer live-search */}
                         <div className="pf-field pf-f2" style={{ position: 'relative' }}>
                             <label>Customer {isReq('customerId') && <span className="req">*</span>}</label>
-                            {form.customerId ? (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                    <span className="pf-input" style={{ background: '#f0f9ff', color: '#1e40af', fontWeight: 500, flex: 1 }}>
-                                        ✓ {form.customerLabel}
-                                    </span>
-                                    <button type="button"
-                                        onClick={() => { setForm(p => ({ ...p, customerId: '', customerLabel: '' })); setCustSearch(''); setContacts([]); setAddresses([]); setCustCredit(null); }}
-                                        style={{ background: '#fee2e2', border: 'none', borderRadius: 5, padding: '6px 10px', cursor: 'pointer', color: '#991b1b', fontWeight: 700 }}>
-                                        ✕
-                                    </button>
-                                </div>
-                            ) : (
-                                <>
-                                    <input className={`pf-input${errors.customerId ? ' pf-input-err' : ''}`}
-                                        value={custSearch}
-                                        onChange={e => { setCustSearch(e.target.value); if (errors.customerId) setErrors(p => ({ ...p, customerId: undefined })); }}
-                                        placeholder="Search by name or code…" autoComplete="off" />
-                                    {errors.customerId && <span className="pf-field-err">{errors.customerId}</span>}
-                                    {custResults.length > 0 && (
-                                        <div style={dropStyle}>
-                                            {custResults.map(c => {
-                                                const f = (c.creditFlag || 'GREEN').toUpperCase();
-                                                const dot = c.creditHold ? '#dc2626' : f === 'RED' ? '#dc2626' : f === 'YELLOW' ? '#ca8a04' : '#16a34a';
-                                                return (
-                                                    <div key={c.customerId} style={dropItem}
-                                                        onClick={() => selectCustomer(c)}
-                                                        onMouseEnter={e => e.currentTarget.style.background = '#f0f9ff'}
-                                                        onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
-                                                        <strong>{c.customerName}</strong>
-                                                        {c.customerCode && <span style={{ color: '#64748b', marginLeft: 6, fontSize: 11 }}>{c.customerCode}</span>}
-                                                        <span title={c.creditHold ? 'On credit hold' : (c.creditFlagLabel || '')}
-                                                              style={{ marginLeft: 'auto', width: 9, height: 9, borderRadius: '50%', background: dot, flexShrink: 0 }} />
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
-                                </>
-                            )}
+                            <LookupSelect
+                                value={form.customerId}
+                                label={form.customerLabel}
+                                error={errors.customerId}
+                                tone="blue"
+                                placeholder="Select or search by name / code…"
+                                buildUrl={t => `${variables.API_URL}customer/search?searchText=${encodeURIComponent(t)}&pageSize=${LOOKUP_PAGE_SIZE}`}
+                                itemKey={c => c.customerId}
+                                renderItem={c => {
+                                    const f = (c.creditFlag || 'GREEN').toUpperCase();
+                                    const dot = c.creditHold ? '#dc2626' : f === 'RED' ? '#dc2626' : f === 'YELLOW' ? '#ca8a04' : '#16a34a';
+                                    return (
+                                        <>
+                                            <strong>{c.customerName}</strong>
+                                            {c.customerCode && <span style={{ color: '#64748b', marginLeft: 6, fontSize: 11 }}>{c.customerCode}</span>}
+                                            <span title={c.creditHold ? 'On credit hold' : (c.creditFlagLabel || '')}
+                                                  style={{ marginLeft: 'auto', width: 9, height: 9, borderRadius: '50%', background: dot, flexShrink: 0 }} />
+                                        </>
+                                    );
+                                }}
+                                onSelect={c => selectCustomer(c)}
+                                onClear={() => {
+                                    setForm(p => ({ ...p, customerId: '', customerLabel: '' }));
+                                    setContacts([]); setAddresses([]); setCustCredit(null);
+                                }}
+                            />
+                            {errors.customerId && <span className="pf-field-err">{errors.customerId}</span>}
                             {/* ── Credit warning for the picked customer ── */}
                             {custCredit && (custCredit.hold || custCredit.flag !== 'GREEN') && (() => {
                                 const danger = custCredit.hold || custCredit.flag === 'RED';
@@ -375,39 +334,25 @@ const InvForm = ({ onClose, onSaved }) => {
                     <div className="pf-row">
                         <div className="pf-field pf-f2" style={{ position: 'relative' }}>
                             <label>Job <span className="req">*</span></label>
-                            {form.jobId ? (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                    <span className="pf-input" style={{ background: '#f0fdf4', color: '#166534', fontWeight: 500, flex: 1 }}>
-                                        ✓ {form.jobLabel}
-                                    </span>
-                                    <button type="button"
-                                        onClick={() => { setForm(p => ({ ...p, jobId: '', jobLabel: '', lpoNo: '', lpoDate: '' })); setJobSearch(''); }}
-                                        style={{ background: '#fee2e2', border: 'none', borderRadius: 5, padding: '6px 10px', cursor: 'pointer', color: '#991b1b', fontWeight: 700 }}>
-                                        ✕
-                                    </button>
-                                </div>
-                            ) : (
-                                <>
-                                    <input className={`pf-input${errors.jobId ? ' pf-input-err' : ''}`} value={jobSearch}
-                                        onChange={e => setJobSearch(e.target.value)}
-                                        placeholder="Type job ID or description…" autoComplete="off" />
-                                    {jobResults.length > 0 && (
-                                        <div style={dropStyle}>
-                                            {jobResults.map(j => (
-                                                <div key={j.jobId} style={dropItem}
-                                                    onClick={() => selectJob(j)}
-                                                    onMouseEnter={e => e.currentTarget.style.background = '#f0f9ff'}
-                                                    onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
-                                                    <strong>{j.jobId}</strong>
-                                                    {j.customerName   && <span style={{ color: '#64748b',  marginLeft: 6, fontSize: 11 }}>({j.customerName})</span>}
-                                                    {j.projectName && <span style={{ color: '#94a3b8', marginLeft: 6, fontSize: 11 }}>— {j.projectName}</span>}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                    {errors.jobId && <div style={{ fontSize: 11, color: '#dc2626', marginTop: 3 }}>{errors.jobId}</div>}
-                                </>
-                            )}
+                            <LookupSelect
+                                value={form.jobId}
+                                label={form.jobLabel}
+                                error={errors.jobId}
+                                tone="green"
+                                placeholder="Select or type job ID / description…"
+                                buildUrl={t => `${variables.API_URL}job/search?searchText=${encodeURIComponent(t)}&pageSize=${LOOKUP_PAGE_SIZE}&approvalStatus=Approved`}
+                                itemKey={j => j.jobId}
+                                renderItem={j => (
+                                    <>
+                                        <strong>{j.jobId}</strong>
+                                        {j.customerName && <span style={{ color: '#64748b', marginLeft: 6, fontSize: 11 }}>({j.customerName})</span>}
+                                        {j.projectName  && <span style={{ color: '#94a3b8', marginLeft: 6, fontSize: 11 }}>— {j.projectName}</span>}
+                                    </>
+                                )}
+                                onSelect={j => selectJob(j)}
+                                onClear={() => setForm(p => ({ ...p, jobId: '', jobLabel: '', lpoNo: '', lpoDate: '' }))}
+                            />
+                            {errors.jobId && <div style={{ fontSize: 11, color: '#dc2626', marginTop: 3 }}>{errors.jobId}</div>}
                         </div>
                     </div>
                     {/* LPO No / LPO Date — pre-filled from the Job, fully editable */}

@@ -3,6 +3,9 @@ import { variables, authHeaders } from '../../../Variable';
 import { useCurrentUser } from '../../../AuthContext';
 import { fmt, fmtDate, today } from '../../procurementConstants';
 import { useFieldConfig } from '../../../FieldConfigContext';
+import LookupSelect from '../../../common/LookupSelect';
+
+const LOOKUP_PAGE_SIZE = 25;
 
 const Field = ({ label, children, mono }) => (
     <div className="prd-ov-card">
@@ -27,8 +30,6 @@ const RtvOverviewTab = ({ rtv, onRefresh }) => {
     const [grnResults,  setGrnResults]  = useState([]);
 
     // Supplier live-search (only when no GRN and no supplier selected)
-    const [supplierSearch,  setSupplierSearch]  = useState('');
-    const [supplierResults, setSupplierResults] = useState([]);
 
     useEffect(() => {
         if (!grnSearch.trim()) { setGrnResults([]); return; }
@@ -41,18 +42,6 @@ const RtvOverviewTab = ({ rtv, onRefresh }) => {
         }, 280);
         return () => clearTimeout(t);
     }, [grnSearch]);
-
-    useEffect(() => {
-        if (!supplierSearch.trim()) { setSupplierResults([]); return; }
-        const t = setTimeout(() => {
-            fetch(`${variables.API_URL}supplier/search?searchText=${encodeURIComponent(supplierSearch)}&pageSize=10&page=1`,
-                { headers: authHeaders() })
-                .then(r => r.json())
-                .then(d => setSupplierResults(d.data || []))
-                .catch(console.error);
-        }, 280);
-        return () => clearTimeout(t);
-    }, [supplierSearch]);
 
     // PO live-search (used when no GRN is linked)
     const [poSearch,   setPoSearch]   = useState('');
@@ -83,7 +72,6 @@ const RtvOverviewTab = ({ rtv, onRefresh }) => {
         });
         setGrnSearch(''); setGrnResults([]);
         setPoSearch('');  setPoResults([]);
-        setSupplierSearch(''); setSupplierResults([]);
         setEditing(true);
         setError('');
     };
@@ -257,32 +245,18 @@ const RtvOverviewTab = ({ rtv, onRefresh }) => {
                                 <span style={{ opacity: .55, fontSize: 10 }}>🔒</span>
                                 {form.supplierId ? form.supplierLabel : (rtv.supplierName || '—')}
                             </div>
-                        ) : form.supplierId ? (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <span className="pf-input" style={{ background: '#f0fdf4', color: '#166534', fontWeight: 500, flex: 1 }}>✓ {form.supplierLabel}</span>
-                                <button type="button"
-                                    onClick={() => { setForm(p => ({ ...p, supplierId: '', supplierLabel: '' })); setSupplierSearch(''); }}
-                                    style={{ background: '#fee2e2', border: 'none', borderRadius: 5, padding: '6px 10px', cursor: 'pointer', color: '#991b1b', fontWeight: 700 }}>✕</button>
-                            </div>
                         ) : (
-                            <>
-                                <input className="pf-input" value={supplierSearch}
-                                    onChange={e => setSupplierSearch(e.target.value)}
-                                    placeholder="Type to search supplier…" autoComplete="off" />
-                                {supplierResults.length > 0 && (
-                                    <div style={dropStyle}>
-                                        {supplierResults.map(s => (
-                                            <div key={s.supplierId}
-                                                style={{ padding: '7px 12px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid #f1f5f9' }}
-                                                onClick={() => { setForm(p => ({ ...p, supplierId: String(s.supplierId), supplierLabel: `${s.supplierCode} — ${s.supplierName}` })); setSupplierSearch(''); setSupplierResults([]); }}
-                                                onMouseEnter={e => e.currentTarget.style.background = '#f0f9ff'}
-                                                onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
-                                                <strong>{s.supplierCode}</strong> — {s.supplierName}
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </>
+                            <LookupSelect
+                                value={form.supplierId}
+                                label={form.supplierLabel}
+                                tone="green"
+                                placeholder="Select or type to search supplier…"
+                                buildUrl={t => `${variables.API_URL}supplier/search?searchText=${encodeURIComponent(t)}&pageSize=${LOOKUP_PAGE_SIZE}&page=1`}
+                                itemKey={s => s.supplierId}
+                                renderItem={s => <><strong>{s.supplierCode}</strong> — {s.supplierName}</>}
+                                onSelect={s => setForm(p => ({ ...p, supplierId: String(s.supplierId), supplierLabel: `${s.supplierCode} — ${s.supplierName}` }))}
+                                onClear={() => setForm(p => ({ ...p, supplierId: '', supplierLabel: '' }))}
+                            />
                         )}
                     </div>
                 </div>
