@@ -6,7 +6,8 @@
   "welcome": "Welcome back",
   "headline": "Every project, purchase and payment — in one place.",
   "blurb": "Procurement, job costing and GST-ready finance, unified and secured end to end.",
-  "logo": "logo.svg",
+  "logo": "1Esi.png",
+  "logoWordmark": true,
   "version": "v4.8.2 · build 2026.07",
   "features": [
     "Procurement & Inventory",

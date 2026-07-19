@@ -82,13 +82,21 @@ export default function Aurora({ form }) {
       <aside className="au-panel">
         <canvas ref={canvasRef} className="au-motif" aria-hidden="true" />
         <div className="au-wordmark">
-          <span className="au-monogram">
-            {b.logo ? <img src={brandAsset(b.logo)} alt="" /> : initial}
-          </span>
-          <span className="au-wm-text">
-            <span className="au-wm-name">{b.appName}</span>
-            <span className="au-wm-sub">{b.tagline}</span>
-          </span>
+          {b.logoWordmark && b.logo ? (
+            <span className="au-logo-plate">
+              <img src={brandAsset(b.logo)} alt={b.appName} />
+            </span>
+          ) : (
+            <>
+              <span className="au-monogram">
+                {b.logo ? <img src={brandAsset(b.logo)} alt="" /> : initial}
+              </span>
+              <span className="au-wm-text">
+                <span className="au-wm-name">{b.appName}</span>
+                <span className="au-wm-sub">{b.tagline}</span>
+              </span>
+            </>
+          )}
         </div>
 
         <div className="au-hero">
@@ -118,10 +126,18 @@ export default function Aurora({ form }) {
       <main className="au-stage">
         <div className="login-card au-card">
           <div className="au-card-brand">
-            <span className="au-monogram au-monogram-sm">
-              {b.logo ? <img src={brandAsset(b.logo)} alt="" /> : initial}
-            </span>
-            <strong>{b.appName}</strong>
+            {b.logoWordmark && b.logo ? (
+              <span className="au-logo-plate au-logo-plate-sm">
+                <img src={brandAsset(b.logo)} alt={b.appName} />
+              </span>
+            ) : (
+              <>
+                <span className="au-monogram au-monogram-sm">
+                  {b.logo ? <img src={brandAsset(b.logo)} alt="" /> : initial}
+                </span>
+                <strong>{b.appName}</strong>
+              </>
+            )}
           </div>
 
           {form}

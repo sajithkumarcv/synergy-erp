@@ -623,9 +623,17 @@ const Layout = () => {
     <div className="erp-shell">
       <header className="erp-header">
         <div className="erp-header-left">
-          <img src={brandAsset(brand().logo) || '/logo.svg'} alt={brand().appName}
-               style={{ width: 43, height: 43, borderRadius: 9, flexShrink: 0, objectFit: 'contain' }} />
-          <div className="erp-company">{brand().appName}<span>{brand().tagline}</span></div>
+          <span className="erp-logo-chip" title="PMS">
+            <img src="/branding/default/logo.svg" alt="PMS" />
+          </span>
+          <div className="erp-brand-divider" />
+          <span className={`erp-logo-chip${brand().logoWordmark ? ' erp-logo-chip--wide' : ''}`} title={brand().appName}>
+            <img src={brandAsset(brand().logo) || '/logo.svg'} alt={brand().appName} />
+          </span>
+          {/* Wordmark logos already carry the company name — skip the redundant text. */}
+          {!brand().logoWordmark && (
+            <div className="erp-company">{brand().appName}<span>{brand().tagline}</span></div>
+          )}
         </div>
         <div className="erp-header-center">
           <ClientNameDisplay />

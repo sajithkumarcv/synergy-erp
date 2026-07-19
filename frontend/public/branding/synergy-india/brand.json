@@ -6,7 +6,8 @@
   "welcome": "Welcome back",
   "headline": "Powering India's infrastructure, one project at a time.",
   "blurb": "Procurement, job costing and GST-ready finance — built for the pace of Indian enterprise.",
-  "logo": "logo.svg",
+  "logo": "SynLogo.png",
+  "logoWordmark": true,
   "version": "v4.8.2 · build 2026.07",
   "features": [
     "Procurement & Inventory",

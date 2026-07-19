@@ -558,6 +558,18 @@
 }
 .au-monogram img { width: 78%; height: 78%; object-fit: contain; }
 .au-monogram-sm { width: 40px; height: 40px; font-size: 18px; }
+
+/* Wide wordmark logos (logoWordmark:true) — the logo already carries the
+   company name, so show it on a white plate for contrast and drop the text. */
+.au-logo-plate {
+  display: inline-flex; align-items: center; flex: none;
+  height: 54px; padding: 8px 16px; border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 8px 22px -8px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.9);
+}
+.au-logo-plate img { height: 100%; width: auto; max-width: 300px; object-fit: contain; display: block; }
+.au-logo-plate-sm { height: 42px; padding: 6px 12px; border-radius: 10px; }
+.au-logo-plate-sm img { max-width: 230px; }
 .au-wm-text { display: flex; flex-direction: column; }
 .au-wm-name { font-weight: 750; font-size: 17px; letter-spacing: -.01em; line-height: 1; }
 .au-wm-sub  { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: rgba(255,255,255,.62); margin-top: 4px; }

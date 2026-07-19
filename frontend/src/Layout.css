@@ -21,7 +21,10 @@
 /* ── Header ─────────────────────────────────────────────────── */
 .erp-header {
   height: 52px;
-  background: var(--header-bg, #2e5fa3);
+  /* Company identity: the header takes the active brand's colour (--brand-primary,
+     set from public/branding/<brand>/brand.json). Falls back to the user's theme
+     header colour when no brand palette is active (e.g. the default brand). */
+  background: var(--brand-primary, var(--header-bg, #2e5fa3));
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -30,6 +33,31 @@
   box-shadow: 0 2px 8px rgba(0,0,0,0.20);
   z-index: 200;
   transition: background 0.3s ease;
+}
+
+/* Two logos on the header: fixed PMS product mark + per-company brand logo.
+   White chips so a dark logo stays visible on any brand colour. */
+.erp-logo-chip {
+  width: 38px; height: 38px;
+  background: #fff;
+  border-radius: 8px;
+  padding: 3px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.18);
+}
+.erp-logo-chip img { width: 100%; height: 100%; object-fit: contain; border-radius: 5px; }
+
+/* Wide wordmark company logos: auto-width chip so the logo fills it edge to
+   edge instead of floating in a square with empty white margins. */
+.erp-logo-chip--wide { width: auto; padding: 3px 9px; }
+.erp-logo-chip--wide img { width: auto; max-width: 170px; border-radius: 3px; }
+
+.erp-brand-divider {
+  width: 1px; height: 26px;
+  background: rgba(255,255,255,0.30);
+  margin: 0 2px;
+  flex-shrink: 0;
 }
 
 .erp-header-left   { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }

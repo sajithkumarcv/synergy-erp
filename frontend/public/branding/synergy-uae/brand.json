@@ -6,7 +6,8 @@
   "welcome": "Ahlan wa sahlan",
   "headline": "Enterprise operations, engineered for the Gulf.",
   "blurb": "VAT-compliant finance, multi-currency procurement and inventory — for how business moves in the Emirates.",
-  "logo": "logo.svg",
+  "logo": "SynLogo.png",
+  "logoWordmark": true,
   "version": "v4.8.2 · build 2026.07",
   "features": [
     "Procurement & Inventory",
