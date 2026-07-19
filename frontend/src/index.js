@@ -6,7 +6,7 @@ import reportWebVitals from './reportWebVitals';
 import { BrowserRouter } from "react-router-dom";
 import ErrorBoundary from './ErrorBoundary';
 import { installGlobalErrorLogging } from './errorLog';
-import { loadBrand } from './branding';
+import { loadBrand, hideBootLoader } from './branding';
 
 // Capture uncaught errors & unhandled promise rejections app-wide → backend log.
 installGlobalErrorLogging();
@@ -26,6 +26,9 @@ loadBrand()
         </ErrorBoundary>
       </BrowserRouter>
     );
+    // Keep the branded splash a touch longer so it reads as intentional,
+    // then fade it out now that the app has mounted.
+    setTimeout(hideBootLoader, 650);
   });
 
 // If you want to start measuring performance in your app, pass a function

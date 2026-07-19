@@ -2,7 +2,7 @@
   "layout": "aurora",
   "appName": "Synergy Infratech",
   "tagline": "India Edition",
-  "title": "Synergy India — ERP",
+  "title": "Synergy Infratech — India",
   "welcome": "Welcome back",
   "headline": "Powering India's infrastructure, one project at a time.",
   "blurb": "Procurement, job costing and GST-ready finance — built for the pace of Indian enterprise.",
@@ -16,7 +16,7 @@
   "footer": "© {year} Synergy Infratech Power Systems Pvt. Ltd.",
   "text": {
     "signInTitle": "Welcome back",
-    "signInSubtitle": "Sign in to your Synergy ERP workspace.",
+    "signInSubtitle": "Sign in to your Synergy India workspace.",
     "resetTitle": "Reset Password",
     "resetSubtitle": "Enter your account email and we will send you a reset link"
   },

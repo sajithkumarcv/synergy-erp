@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { variables, authHeaders, getFileUrl } from '../Variable';
 import { useCurrentUser } from '../AuthContext';
+import { useLookup } from '../LookupContext';
 import useOwnerCompany, { clearOwnerCompanyCache } from '../hooks/useOwnerCompany';
+import { PRINT_DOC_TYPES } from '../print/printFormats';
 import ValidationModal from '../common/ValidationModal';
 import './Settings.css';
 
@@ -619,10 +621,111 @@ const BanksTab = ({ company, onRefresh }) => {
 // ════════════════════════════════════════════════════════════════
 //  MAIN — CompanySettings
 // ════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════
+//  TAB 4 — PRINT FORMATS
+//  Choose the active print layout per document type. Saved as
+//  Biz.Print.<MODULE> app settings; the whole app reads these to show
+//  a single configured print modal (no in-page format picker).
+// ════════════════════════════════════════════════════════════════
+const PrintFormatsTab = () => {
+    const { refresh: refreshLookups } = useLookup();
+    const [form,    setForm]    = useState({});
+    const [loading, setLoading] = useState(true);
+    const [saving,  setSaving]  = useState(false);
+    const [msg,     setMsg]     = useState({ type: '', text: '' });
+
+    useEffect(() => {
+        (async () => {
+            try {
+                const r = await fetch(`${variables.API_URL}appsettings/print`, { headers: authHeaders() });
+                const saved = r.ok ? await r.json() : {};
+                // Seed each known doc type with its saved value or its registry fallback
+                const next = {};
+                PRINT_DOC_TYPES.forEach(d => { next[d.module] = saved?.[d.module] ?? d.fallback; });
+                setForm(next);
+            } catch {
+                const next = {};
+                PRINT_DOC_TYPES.forEach(d => { next[d.module] = d.fallback; });
+                setForm(next);
+            } finally { setLoading(false); }
+        })();
+    }, []);
+
+    const save = async () => {
+        setSaving(true);
+        setMsg({ type: '', text: '' });
+        try {
+            const r = await fetch(`${variables.API_URL}appsettings/print`, {
+                method: 'POST', headers: authHeaders(), body: JSON.stringify(form),
+            });
+            const d = await r.json();
+            if (r.ok) {
+                refreshLookups();   // reload Biz.* so print buttons pick up the new format immediately
+                setMsg({ type: 'ok', text: d.message || 'Print formats saved.' });
+            } else {
+                setMsg({ type: 'err', text: d.message || 'Failed to save.' });
+            }
+        } catch {
+            setMsg({ type: 'err', text: 'Unexpected error. Please try again.' });
+        } finally { setSaving(false); }
+    };
+
+    if (loading) return <div className="ds-loading">Loading…</div>;
+
+    return (
+        <div style={{ maxWidth: 560 }}>
+            <div style={{ fontSize: 13, color: '#64748b', marginBottom: 18, lineHeight: 1.6 }}>
+                Choose which print layout each document type uses. This applies to every user —
+                the Print button opens the selected format directly.
+            </div>
+
+            {msg.text && (
+                <div style={{
+                    padding: '10px 14px', borderRadius: 7, marginBottom: 18, fontSize: 13, fontWeight: 500,
+                    background: msg.type === 'ok' ? '#f0fdf4' : '#fef2f2',
+                    color:      msg.type === 'ok' ? '#16a34a' : '#dc2626',
+                    border:     `1px solid ${msg.type === 'ok' ? '#bbf7d0' : '#fecaca'}`,
+                }}>
+                    {msg.text}
+                </div>
+            )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {PRINT_DOC_TYPES.map(d => (
+                    <div key={d.module} style={{
+                        display: 'grid', gridTemplateColumns: '180px 1fr', alignItems: 'center',
+                        gap: 14, padding: '10px 0', borderBottom: '1px solid #f1f5f9',
+                    }}>
+                        <label style={{ fontSize: 13, fontWeight: 600, color: '#334155' }}>
+                            {d.label}
+                        </label>
+                        <select
+                            value={form[d.module] ?? d.fallback}
+                            onChange={e => setForm(p => ({ ...p, [d.module]: e.target.value }))}
+                            style={{ border: '1px solid #cbd5e1', borderRadius: 6, padding: '7px 10px',
+                                     fontSize: 13, color: '#0f172a', background: '#fff' }}>
+                            {d.options.map(o => (
+                                <option key={o.value} value={o.value}>{o.label}</option>
+                            ))}
+                        </select>
+                    </div>
+                ))}
+            </div>
+
+            <div style={{ marginTop: 22 }}>
+                <button className="settings-save-btn" onClick={save} disabled={saving}>
+                    {saving ? 'Saving…' : 'Save Print Formats'}
+                </button>
+            </div>
+        </div>
+    );
+};
+
 const TABS = [
     { key:'info',      label:'Company Info',   icon:'🏢' },
     { key:'addresses', label:'Addresses',       icon:'📍' },
     { key:'banks',     label:'Bank Accounts',   icon:'🏦' },
+    { key:'print',     label:'Print Formats',   icon:'🖨' },
 ];
 
 const CompanySettings = () => {
@@ -665,6 +768,7 @@ const CompanySettings = () => {
                         {activeTab === 'info'      && <InfoTab      company={company} onRefresh={refresh} />}
                         {activeTab === 'addresses' && <AddressesTab company={company} onRefresh={refresh} />}
                         {activeTab === 'banks'     && <BanksTab     company={company} onRefresh={refresh} />}
+                        {activeTab === 'print'     && <PrintFormatsTab />}
                     </>
                 )}
             </div>

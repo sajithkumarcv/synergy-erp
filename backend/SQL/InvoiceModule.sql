@@ -173,7 +173,7 @@ BEGIN
         i.BillingAddress,
         i.CurrencyId, cu.ShortName AS CurrencyShort, cu.Symbol AS CurrencySymbol,
         cu.ExchangeRate,
-        i.DueDate, i.JobId, j.JobDescription AS JobTitle,
+        i.DueDate, i.JobId, j.ProjectName AS JobTitle,
         i.LpoNo, i.LpoDate,
         i.ContactId,
         cc.ContactName, cc.Designation AS ContactDesignation,

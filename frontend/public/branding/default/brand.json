@@ -1,29 +1,40 @@
 {
-  "layout": "split-left",
-  "appName": "PMS",
-  "tagline": "Project Management System",
+  "layout": "aurora",
+  "appName": "PMS Enterprise",
+  "tagline": "International Edition",
   "title": "PMS — Sign In",
+  "welcome": "Welcome back",
+  "headline": "One platform for everything your business runs on.",
+  "blurb": "Procurement, job costing, inventory and finance — unified, real-time, and secured end to end.",
   "logo": "logo.svg",
+  "version": "v4.8.2 · build 2026.07",
   "features": [
     "Procurement & Inventory",
     "Job Costing & Finance",
-    "Customer Management",
     "Real-time Reporting"
   ],
-  "footer": "© {year} PMS — All rights reserved",
+  "footer": "© {year} PMS Enterprise — All rights reserved",
   "text": {
-    "signInTitle": "Sign In",
-    "signInSubtitle": "Enter your credentials to access the system",
+    "signInTitle": "Welcome back",
+    "signInSubtitle": "Sign in to your workspace to continue.",
     "resetTitle": "Reset Password",
     "resetSubtitle": "Enter your account email and we will send you a reset link"
+  },
+  "loader": {
+    "flag": ["#2e6fd0", "#eef3fb", "#8fb2e6", "#12305c"],
+    "text": "Preparing your workspace"
   },
   "colors": {
     "primary": "#2e5fa3",
     "primary-hover": "#245090",
     "primary-ring": "rgba(46,95,163,0.15)",
-    "panel-bg": "linear-gradient(160deg, #1a2e4a 0%, #2e5fa3 100%)",
+    "secondary": "#4f86d6",
+    "panel-a": "#0d1c36",
+    "panel-b": "#24507f",
+    "panel-glow": "#5f95e0",
+    "panel-bg": "linear-gradient(160deg, #0d1c36 0%, #24507f 118%)",
     "page-bg": "#f5f7fb",
     "card-bg": "#ffffff",
-    "title": "#1e3a5f"
+    "title": "#16305a"
   }
 }

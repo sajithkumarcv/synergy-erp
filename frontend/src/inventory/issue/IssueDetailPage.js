@@ -6,6 +6,7 @@ import ConfirmModal from '../../common/ConfirmModal';
 import { ISSUE_TABS, fmtDate, fmt, statusBadgeCfg } from '../inventoryConstants';
 import { useLookup } from '../../LookupContext';
 import { usePermission } from '../../PermissionContext';
+import { usePrintFormat } from '../../print/printFormats';
 import IssueOverviewTab    from './tabs/IssueOverviewTab';
 import IssueLinesTab        from './tabs/IssueLinesTab';
 import IssueNotePrintModal  from './IssueNotePrintModal';
@@ -34,6 +35,7 @@ const IssueDetailPage = () => {
     const [showStatusMenu, setStatusMenu] = useState(false);
     const [deleting,       setDeleting]   = useState(false);
     const [showPrint,      setShowPrint]  = useState(false);
+    const printFmt = usePrintFormat('ISS');   // configured layout (Company Settings → Print Formats)
     const [pendingStatus,  setPendingStatus] = useState(null);  // status awaiting confirmation
     const [confirming,     setConfirming]     = useState(false);
     const [alertMsg,       setAlertMsg]       = useState(null);
@@ -52,7 +54,7 @@ const IssueDetailPage = () => {
     }, [id]);
 
     useEffect(() => { loadIssue(); }, [loadIssue]);
-    useEffect(() => { if (issue && autoPrint) setShowPrint(true); }, [issue, autoPrint]);
+    useEffect(() => { if (issue && autoPrint) setShowPrint(printFmt); }, [issue, autoPrint]);
 
     // Close status menu on outside click
     useEffect(() => {
@@ -197,7 +199,7 @@ const IssueDetailPage = () => {
                     {issue.status === 'Confirmed' && (
                         <button
                             className="jd-stage-btn"
-                            onClick={() => setShowPrint(true)}
+                            onClick={() => setShowPrint(printFmt)}
                             style={{ background: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe' }}
                         >
                             🖨 Print

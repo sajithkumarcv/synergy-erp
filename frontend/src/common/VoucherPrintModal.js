@@ -99,6 +99,11 @@ const VoucherPrintModal = ({ kind, voucher, allocs = [], onClose }) => {
                         <div>
                             <div className="ip2-section-label">{partyLabel}</div>
                             <div className="ip2-customer-name">{party || '—'}</div>
+                            {(voucher.customerAddress || voucher.supplierAddress) && (
+                                <div className="ip2-address-block">
+                                    {voucher.customerAddress || voucher.supplierAddress}
+                                </div>
+                            )}
                             {isPaymentVoucher && voucher.bankName && (
                                 <div className="ip2-detail-row">
                                     <span className="ip2-detail-label">Bank:</span>
@@ -247,8 +252,8 @@ const VoucherPrintModal = ({ kind, voucher, allocs = [], onClose }) => {
 
                     <div style={{ flex: 1 }} />
 
-                    {/* Signatures */}
-                    <div style={{
+                    {/* Signatures — pinned to page bottom in print (margin-top:auto) */}
+                    <div className="print-signatures" style={{
                         display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
                         gap: 20, paddingTop: 26, borderTop: '2px solid #0f4c75', marginTop: 28,
                     }}>

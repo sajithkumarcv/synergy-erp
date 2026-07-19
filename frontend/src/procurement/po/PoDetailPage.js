@@ -4,6 +4,7 @@ import { variables, authHeaders } from '../../Variable';
 import { useCurrentUser } from '../../AuthContext';
 import { PO_TABS, fmtDate, fmt, statusBadgeCfg, PRIORITY_CONFIG } from '../procurementConstants';
 import { useLookup } from '../../LookupContext';
+import { resolvePrintFormat } from '../../print/printFormats';
 import { usePermission } from '../../PermissionContext';
 import PoOverviewTab    from './tabs/PoOverviewTab';
 import PoLinesTab       from './tabs/PoLinesTab';
@@ -30,7 +31,8 @@ const PoDetailPage = () => {
     const navigate          = useNavigate();
     const [searchParams]    = useSearchParams();
     const currentUser       = useCurrentUser();
-    const { getStatusConfig } = useLookup();
+    const { getStatusConfig, getSetting } = useLookup();
+    const printFmt = resolvePrintFormat('PO', getSetting);   // configured layout (Company Settings → Print Formats)
     const { canDo }           = usePermission();
 
     // Read query params set by PoForm after creation
@@ -42,8 +44,7 @@ const PoDetailPage = () => {
     const [loading,    setLoading]   = useState(true);
     const [error,      setError]     = useState(null);
     const [activeTab,  setActiveTab] = useState(initialTab);
-    const [showPrint,  setShowPrint] = useState(false);  // 1 = format1, 2 = format2
-    const [fmtOpen,    setFmtOpen]  = useState(false);
+    const [showPrint,  setShowPrint] = useState(false);  // holds the active format number while the modal is open
     const [approvalTx, setApprovalTx] = useState(null);
     const [revising,      setRevising]      = useState(false);
     const [actionError,   setActionError]   = useState('');
@@ -86,7 +87,7 @@ const PoDetailPage = () => {
     }, [poId]);
 
     useEffect(() => { loadPo(); }, [loadPo]);
-    useEffect(() => { if (po && autoPrint) setShowPrint(1); }, [po, autoPrint]);
+    useEffect(() => { if (po && autoPrint) setShowPrint(printFmt); }, [po, autoPrint, printFmt]);
 
     const renderTab = () => {
         if (!po) return null;
@@ -570,44 +571,11 @@ const PoDetailPage = () => {
                     )}
 
                     {canPrint && (
-                        <div style={{ position: 'relative', display: 'inline-flex' }}>
-                            <button className="jd-stage-btn"
-                                    onClick={() => { setShowPrint(1); setFmtOpen(false); }}
-                                    style={{ borderRight: 'none', borderRadius: '6px 0 0 6px' }}>
-                                🖨 Print PO
-                            </button>
-                            <button className="jd-stage-btn"
-                                    onClick={() => setFmtOpen(o => !o)}
-                                    style={{ borderRadius: '0 6px 6px 0', padding: '0 9px' }}>
-                                ▾
-                            </button>
-                            {fmtOpen && (
-                                <>
-                                    <div style={{ position: 'fixed', inset: 0, zIndex: 199 }}
-                                         onClick={() => setFmtOpen(false)} />
-                                    <div style={{
-                                        position: 'absolute', top: '100%', right: 0, zIndex: 200,
-                                        background: '#fff', border: '1px solid #e2e8f0', borderRadius: 6,
-                                        boxShadow: '0 4px 16px rgba(0,0,0,.12)', minWidth: 190, marginTop: 4,
-                                    }}>
-                                        {[
-                                            { fmt: 1, label: '📄 Format 1 — Classic'     },
-                                            { fmt: 2, label: '📄 Format 2 — Modern'     },
-                                            { fmt: 3, label: '📄 Format 3 — With T&C'   },
-                                        ].map(({ fmt: f, label }) => (
-                                            <div key={f}
-                                                 onClick={() => { setShowPrint(f); setFmtOpen(false); }}
-                                                 style={{ padding: '9px 16px', cursor: 'pointer', fontSize: 13,
-                                                          color: '#1e293b', borderBottom: f !== 3 ? '1px solid #f1f5f9' : 'none' }}
-                                                 onMouseEnter={e => e.currentTarget.style.background = '#f0f9ff'}
-                                                 onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
-                                                {label}
-                                            </div>
-                                        ))}
-                                    </div>
-                                </>
-                            )}
-                        </div>
+                        // Print opens the configured layout (Company Settings → Print Formats)
+                        <button className="jd-stage-btn"
+                                onClick={() => setShowPrint(printFmt)}>
+                            🖨 Print PO
+                        </button>
                     )}
 
                 </div>

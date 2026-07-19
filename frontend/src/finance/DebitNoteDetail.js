@@ -5,6 +5,7 @@ import AmountInput from '../common/AmountInput';
 import { useCurrentUser } from '../AuthContext';
 import { usePermission } from '../PermissionContext';
 import { useLookup } from '../LookupContext';
+import { usePrintFormat } from '../print/printFormats';
 import ApprovalHistoryTab   from '../approval/ApprovalHistoryTab';
 import ApprovalStatusBanner from '../approval/ApprovalStatusBanner';
 import VoucherPrintModal    from '../common/VoucherPrintModal';
@@ -400,6 +401,7 @@ const DebitNoteDetail = () => {
     const [showRevise, setShowRevise] = useState(false);
     const [showCancel, setShowCancel] = useState(false);
     const [showPrint,  setShowPrint]  = useState(false);
+    const printFmt = usePrintFormat('DN');   // configured layout (Company Settings → Print Formats)
     const [confirm,    setConfirm]    = useState(null);
 
     const load = useCallback(() => {
@@ -531,7 +533,7 @@ const DebitNoteDetail = () => {
                     <span className="cd-flag-badge" style={{ background: cfg.bg, color: cfg.color }}>
                         <span className="cd-flag-dot" style={{ background: cfg.dot }} />{cfg.label}
                     </span>
-                    <button className="jd-stage-btn" onClick={() => setShowPrint(true)}
+                    <button className="jd-stage-btn" onClick={() => setShowPrint(printFmt)}
                         style={{ background: '#eef2ff', color: '#3730a3', borderColor: '#c7d2fe' }}>
                         🖨 Print
                     </button>

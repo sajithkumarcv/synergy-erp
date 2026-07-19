@@ -90,6 +90,66 @@ namespace ERPWEB.Controllers.General
             }
         }
 
+        // GET api/appsettings/print
+        // Returns the configured print format per document module, e.g. { "INV": "2", "PO": "1" }.
+        // Stored under the 'Biz.Print.<MODULE>' namespace so it also flows to the
+        // public settings the client loads at startup (getSetting).
+        [HttpGet("print")]
+        public async Task<IActionResult> GetPrintFormats()
+        {
+            try
+            {
+                var rows = await _db.QueryAsync<AppSettingRow>(
+                    "sp_GetAppSettings", new { Prefix = "Biz.Print." });
+
+                var dict = (rows ?? Enumerable.Empty<AppSettingRow>())
+                    .ToDictionary(
+                        r => r.SettingKey.Replace("Biz.Print.", ""),
+                        r => r.SettingValue);
+
+                return Ok(dict);
+            }
+            catch (Exception ex)
+            {
+                await _db.WriteLog(ex, "AppSettings", "GetPrintFormats", HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Error loading print formats." });
+            }
+        }
+
+        // POST api/appsettings/print
+        // Body: { "INV": "2", "PO": "1" } — module code → format number.
+        // The 'Biz.Print.' prefix is fixed server-side so only this namespace can be written.
+        [HttpPost("print")]
+        public async Task<IActionResult> SavePrintFormats([FromBody] Dictionary<string, string> formats)
+        {
+            if (formats == null || formats.Count == 0)
+                return BadRequest(new { message = "No print formats supplied." });
+
+            try
+            {
+                foreach (var kv in formats)
+                {
+                    var module = (kv.Key ?? "").Trim().ToUpperInvariant();
+                    var value  = (kv.Value ?? "").Trim();
+                    if (module.Length == 0 || value.Length == 0) continue;
+
+                    await _db.QueryAsync<dynamic>("sp_SetAppSetting", new
+                    {
+                        SettingKey   = $"Biz.Print.{module}",
+                        SettingValue = value,
+                        ModifiedBy   = ActionBy,
+                    });
+                }
+
+                return Ok(new { message = "Print formats saved successfully." });
+            }
+            catch (Exception ex)
+            {
+                await _db.WriteLog(ex, "AppSettings", "SavePrintFormats", HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Error saving print formats." });
+            }
+        }
+
         // POST api/appsettings/smtp
         [HttpPost("smtp")]
         public async Task<IActionResult> SaveSmtp([FromBody] SmtpSettingsRequest req)

@@ -4,6 +4,7 @@ import { variables, authHeaders } from '../Variable';
 import { useCurrentUser } from '../AuthContext';
 import ConfirmModal from '../common/ConfirmModal';
 import { useLookup } from '../LookupContext';
+import { resolvePrintFormat } from '../print/printFormats';
 import { usePermission } from '../PermissionContext';
 import { INVOICE_TABS, fmt, fmtDate, statusBadgeCfg } from './invoiceConstants';
 import InvoiceOverviewTab  from './tabs/InvoiceOverviewTab';
@@ -12,6 +13,7 @@ import InvoicePaymentsTab  from './tabs/InvoicePaymentsTab';
 import InvoiceDocumentsTab from './tabs/InvoiceDocumentsTab';
 import InvoicePrintModal   from './InvoicePrintModal';
 import InvoicePrintModal2  from './InvoicePrintModal2';
+import InvoicePrintModal3  from './InvoicePrintModal3';
 import ApprovalHistoryTab   from '../approval/ApprovalHistoryTab';
 import ApprovalStatusBanner from '../approval/ApprovalStatusBanner';
 import { InlineError } from '../common/InlineError';
@@ -213,7 +215,8 @@ const InvoiceDetailPage = () => {
     const [searchParams]      = useSearchParams();
     const autoPrint           = searchParams.get('print') === '1';
     const currentUser         = useCurrentUser();
-    const { getStatusConfig } = useLookup();
+    const { getStatusConfig, getSetting } = useLookup();
+    const printFmt = resolvePrintFormat('INV', getSetting);   // configured layout (Company Settings → Print Formats)
     const { canDo }           = usePermission();
 
     const [invoice,    setInvoice]   = useState(null);
@@ -229,8 +232,7 @@ const InvoiceDetailPage = () => {
     const [revising,     setRevising]   = useState(false);
     const [showRevise,   setShowRevise] = useState(false);
     const [showCopy,     setShowCopy]   = useState(false);
-    const [showPrint,  setShowPrint]  = useState(false);   // 1 = format1, 2 = format2
-    const [fmtOpen,    setFmtOpen]   = useState(false);
+    const [showPrint,  setShowPrint]  = useState(false);   // holds the active format number while the modal is open
     const [approvalTx, setApprovalTx] = useState(null);
     const [confirm,    setConfirm]    = useState(null);
 
@@ -253,7 +255,7 @@ const InvoiceDetailPage = () => {
     }, [id]);
 
     useEffect(() => { loadInvoice(); loadPayments(); }, [loadInvoice, loadPayments]);
-    useEffect(() => { if (invoice && autoPrint) setShowPrint(1); }, [invoice, autoPrint]);
+    useEffect(() => { if (invoice && autoPrint) setShowPrint(printFmt); }, [invoice, autoPrint, printFmt]);
 
     const deleteInvoice = () => {
         setConfirm({
@@ -403,48 +405,12 @@ const InvoiceDetailPage = () => {
                     )}
 
                     {canPrint && (
-                        <div style={{ position: 'relative', display: 'inline-flex' }}>
-                            {/* Main print button → always opens Format 1 */}
-                            <button className="jd-stage-btn"
-                                    onClick={() => { setShowPrint(1); setFmtOpen(false); }}
-                                    style={{ background: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe',
-                                             borderRight: 'none', borderRadius: '6px 0 0 6px' }}>
-                                🖨 Print
-                            </button>
-                            {/* Chevron → opens format picker */}
-                            <button className="jd-stage-btn"
-                                    onClick={() => setFmtOpen(o => !o)}
-                                    style={{ background: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe',
-                                             borderRadius: '0 6px 6px 0', padding: '0 9px' }}>
-                                ▾
-                            </button>
-                            {fmtOpen && (
-                                <>
-                                    {/* click-away backdrop */}
-                                    <div style={{ position: 'fixed', inset: 0, zIndex: 199 }}
-                                         onClick={() => setFmtOpen(false)} />
-                                    <div style={{
-                                        position: 'absolute', top: '100%', right: 0, zIndex: 200,
-                                        background: '#fff', border: '1px solid #bfdbfe', borderRadius: 6,
-                                        boxShadow: '0 4px 16px rgba(0,0,0,.12)', minWidth: 185, marginTop: 4,
-                                    }}>
-                                        {[
-                                            { fmt: 1, label: '📄 Format 1 — Classic' },
-                                            { fmt: 2, label: '📄 Format 2 — Modern'  },
-                                        ].map(({ fmt: f, label }) => (
-                                            <div key={f}
-                                                 onClick={() => { setShowPrint(f); setFmtOpen(false); }}
-                                                 style={{ padding: '9px 16px', cursor: 'pointer', fontSize: 13,
-                                                          color: '#1e293b', borderBottom: f === 1 ? '1px solid #f1f5f9' : 'none' }}
-                                                 onMouseEnter={e => e.currentTarget.style.background = '#eff6ff'}
-                                                 onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
-                                                {label}
-                                            </div>
-                                        ))}
-                                    </div>
-                                </>
-                            )}
-                        </div>
+                        // Print opens the configured layout (Company Settings → Print Formats)
+                        <button className="jd-stage-btn"
+                                onClick={() => setShowPrint(printFmt)}
+                                style={{ background: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe' }}>
+                            🖨 Print
+                        </button>
                     )}
 
                     {canDelete && (
@@ -549,6 +515,14 @@ const InvoiceDetailPage = () => {
             )}
             {showPrint === 2 && (
                 <InvoicePrintModal2
+                    invoice={invoice}
+                    lines={lines}
+                    preview={isDraft}
+                    onClose={() => setShowPrint(false)}
+                />
+            )}
+            {showPrint === 3 && (
+                <InvoicePrintModal3
                     invoice={invoice}
                     lines={lines}
                     preview={isDraft}

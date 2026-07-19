@@ -16,7 +16,11 @@ const DEFAULTS = {
   layout:  'split-left',
   appName: 'PMS',
   tagline: 'Project Management System',
+  welcome: 'Welcome back',
   logo:    'logo.svg',
+  loaderLogo: null,          // optional; falls back to `logo`, then the appName initial
+  background: null,          // optional hero image for aurora/fullscreen layouts
+  version: '',               // e.g. "v4.8.2 · build 2026.07"
   features: [
     'Procurement & Inventory',
     'Job Costing & Finance',
@@ -30,15 +34,21 @@ const DEFAULTS = {
     resetTitle:     'Reset Password',
     resetSubtitle:  'Enter your account email and we will send you a reset link',
   },
+  // Branded boot loader. `flag` = 3–4 hues used for the orbital rings.
+  loader: {
+    flag: ['#2e6fd0', '#eef3fb', '#8fb2e6', '#12305c'],
+    text: 'Preparing your workspace',
+  },
   colors: {},
   _base: '/branding/default/',
 };
 
-// Deep-ish merge: loaded brand overrides defaults; `text`/`colors` merge key-by-key.
+// Deep-ish merge: loaded brand overrides defaults; nested objects merge key-by-key.
 function merge(base, over) {
   const out = { ...base, ...over };
   out.text   = { ...base.text,   ...(over.text   || {}) };
   out.colors = { ...base.colors, ...(over.colors || {}) };
+  out.loader = { ...base.loader, ...(over.loader || {}) };
   if (!over.features) out.features = base.features;
   return out;
 }
@@ -78,6 +88,22 @@ export function applyBrand(b) {
   Object.entries(b.colors || {}).forEach(([k, v]) =>
     root.style.setProperty(`--brand-${k}`, v));
 
+  // Loader ring hues → --brand-f1..f4 (read by the boot loader + aurora).
+  (b.loader?.flag || []).slice(0, 4).forEach((hex, i) =>
+    root.style.setProperty(`--brand-f${i + 1}`, hex));
+
+  // Theme the instant boot loader in index.html (still on screen at this point).
+  const core = document.getElementById('al-core');
+  if (core) {
+    const loaderImg = b.loaderLogo || b.logo;
+    if (loaderImg) core.innerHTML = `<img src="${b._base + loaderImg}" alt="" />`;
+    else core.textContent = (b.appName || 'P').trim().charAt(0).toUpperCase();
+  }
+  const nameEl = document.getElementById('al-name');
+  if (nameEl) nameEl.textContent = b.appName || 'Loading…';
+  const statusEl = document.getElementById('al-status');
+  if (statusEl && b.loader?.text) statusEl.textContent = b.loader.text;
+
   if (b.title || b.appName) document.title = b.title || b.appName;
 
   if (b.favicon) {
@@ -110,3 +136,12 @@ export const brandAsset = (name) => (name ? brand()._base + name : null);
 // Replace {year} (and any future tokens) in brand copy.
 export const brandText = (s) =>
   (s || '').replace('{year}', new Date().getFullYear());
+
+// Fade out and remove the branded boot loader once React has mounted.
+// Called from index.js after the first render.
+export function hideBootLoader() {
+  const el = document.getElementById('app-loader');
+  if (!el) return;
+  el.classList.add('al-hide');
+  setTimeout(() => el.remove(), 600);
+}

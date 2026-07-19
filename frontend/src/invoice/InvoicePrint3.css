@@ -1,11 +1,16 @@
-/* ── Invoice Print Format 2 — Modern Flat ──────────────────────
-   Class prefix: ip2-
+/* ── Invoice Print Format 3 — Compact Corporate ────────────────
+   Class prefix: ip3-
+   Based on Format 2 (ip2-) but with a space-optimized header +
+   Bill To / Invoice Details band. Everything below the header
+   (table, totals, words, notes, bank, signatures) keeps the same
+   visual language as Format 2 — only tighter.
+
    Reuses .po-print-overlay / .po-print-toolbar / .po-print-btn-*
-   from PoPrint.css (already loaded by InvoicePrintModal).
+   from PoPrint.css.
    ──────────────────────────────────────────────────────────── */
 
 /* ── Document shell ──────────────────────────────────────────── */
-.ip2-doc {
+.ip3-doc {
     width: 794px;
     min-height: 1123px;
     flex-shrink: 0;            /* don't let the column-flex overlay squash us (clips bottom) */
@@ -15,63 +20,89 @@
     font-size: 12px;
     color: #1e293b;
     box-shadow: 0 8px 40px rgba(0,0,0,.3);
-    overflow: hidden;          /* so the banner bleeds edge-to-edge */
+    overflow: hidden;
+    /* Ensure brand fills (banner, table header, totals) render in PDF/print */
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
 }
 
-/* ── Full-width banner ───────────────────────────────────────── */
-.ip2-banner {
+/* ── Compact full-width banner ───────────────────────────────── */
+.ip3-banner {
     background: #0f4c75;
     color: #fff;
-    padding: 12px 40px;
+    padding: 10px 32px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 20px;
 }
 
-.ip2-banner-left {}
+/* Left: logo + company identity */
+.ip3-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;   /* allow text to shrink/wrap instead of pushing the title */
+}
 
-.ip2-banner-company {
-    font-size: 17px;
+.ip3-logo {
+    height: 38px;
+    width: auto;
+    max-width: 120px;
+    object-fit: contain;
+    flex-shrink: 0;
+    background: #fff;
+    border-radius: 3px;
+    padding: 2px 4px;
+}
+
+.ip3-brand-text { min-width: 0; }
+
+.ip3-banner-company {
+    font-size: 16px;
     font-weight: 800;
     letter-spacing: .02em;
-    margin-bottom: 2px;
+    line-height: 1.2;
+    margin-bottom: 1px;
 }
 
-.ip2-banner-addr {
-    font-size: 10px;
-    color: rgba(255,255,255,.7);
-    line-height: 1.45;
+.ip3-banner-meta {
+    font-size: 9.5px;
+    color: rgba(255,255,255,.72);
+    line-height: 1.4;
 }
 
-.ip2-banner-right {
+/* Right: doc type / number / status */
+.ip3-banner-right {
     text-align: right;
     flex-shrink: 0;
-    padding-left: 20px;
+    padding-left: 16px;
 }
 
-.ip2-banner-doctype {
-    font-size: 20px;
+.ip3-banner-doctype {
+    font-size: 19px;
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: .06em;
     color: #7dd3fc;
+    line-height: 1.1;
     margin-bottom: 2px;
     white-space: nowrap;
 }
 
-.ip2-banner-docno {
-    font-size: 13px;
+.ip3-banner-docno {
+    font-size: 12.5px;
     font-weight: 700;
     font-family: 'Courier New', monospace;
     color: #fff;
-    margin-bottom: 2px;
+    margin-bottom: 3px;
 }
 
-.ip2-banner-status {
+.ip3-banner-status {
     display: inline-block;
-    padding: 2px 12px;
+    padding: 2px 11px;
     border-radius: 20px;
-    font-size: 10px;
+    font-size: 9.5px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: .06em;
@@ -81,76 +112,86 @@
 }
 
 /* ── Body padding wrapper ────────────────────────────────────── */
-.ip2-body {
-    padding: 16px 40px 20px;
+.ip3-body {
+    padding: 12px 32px 18px;
 }
 
-/* ── Customer + Meta row ─────────────────────────────────────── */
-.ip2-top-row {
+/* ── Compact Bill To + Invoice Details band ──────────────────── */
+.ip3-parties {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;   /* customer takes the room; invoice details hug the right corner */
-    gap: 40px;
-    margin-bottom: 16px;
-    padding-bottom: 12px;
+    grid-template-columns: 1fr 1fr;   /* equal visual weight */
+    gap: 28px;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
     border-bottom: 2px solid #0f4c75;
 }
 
-.ip2-section-label {
-    font-size: 9px;
+.ip3-party-label {
+    font-size: 8.5px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: .09em;
+    letter-spacing: .1em;
     color: #0f4c75;
-    margin-bottom: 8px;
+    margin-bottom: 4px;
+    padding-bottom: 3px;
+    border-bottom: 1px solid #e2e8f0;
 }
 
-.ip2-customer-name {
-    font-size: 14px;
+.ip3-customer-name {
+    font-size: 13px;
     font-weight: 700;
     color: #1e293b;
+    line-height: 1.25;
     margin-bottom: 4px;
 }
 
-.ip2-detail-row {
+/* Inline label:value pairs — tight, single row each */
+.ip3-kv {
     display: flex;
-    gap: 6px;
-    font-size: 11px;
-    margin-bottom: 3px;
+    gap: 8px;
+    font-size: 10.5px;
+    line-height: 1.45;
+    margin-bottom: 1px;
 }
 
-.ip2-detail-label {
+.ip3-kv-label {
     color: #64748b;
-    min-width: 96px;
+    min-width: 74px;
     flex-shrink: 0;
-}
-
-.ip2-detail-val {
-    color: #1e293b;
     font-weight: 500;
 }
 
-.ip2-address-block {
-    margin-top: 8px;
-    font-size: 11px;
+.ip3-kv-val {
+    color: #1e293b;
+    font-weight: 600;
+    min-width: 0;
+    word-break: break-word;
+}
+
+.ip3-kv-val.mono { font-family: 'Courier New', monospace; }
+
+/* Single-line address — collapses the multi-line address block */
+.ip3-address {
+    font-size: 10px;
     color: #475569;
-    line-height: 1.6;
-    white-space: pre-line;
+    line-height: 1.4;
+    margin-top: 4px;
 }
 
 /* ── Line items table ────────────────────────────────────────── */
-.ip2-table {
+.ip3-table {
     width: 100%;
     border-collapse: collapse;
     margin-bottom: 14px;
     font-size: 11.5px;
 }
 
-.ip2-table thead tr {
+.ip3-table thead tr {
     background: #0f4c75;
     color: #fff;
 }
 
-.ip2-table thead th {
+.ip3-table thead th {
     padding: 6px 10px;
     text-align: left;
     font-size: 10px;
@@ -160,48 +201,43 @@
     white-space: nowrap;
 }
 
-.ip2-table thead th.r { text-align: right; }
-.ip2-table thead th.c { text-align: center; }
+.ip3-table thead th.r { text-align: right; }
+.ip3-table thead th.c { text-align: center; }
 
-.ip2-table tbody tr {
-    border-bottom: 1px solid #e2e8f0;
-}
+.ip3-table tbody tr { border-bottom: 1px solid #e2e8f0; }
+.ip3-table tbody tr:nth-child(even) { background: #f0f9ff; }
 
-.ip2-table tbody tr:nth-child(even) {
-    background: #f0f9ff;
-}
-
-.ip2-table tbody td {
+.ip3-table tbody td {
     padding: 4px 10px;
     vertical-align: top;
 }
 
-.ip2-table tbody td.r {
+.ip3-table tbody td.r {
     text-align: right;
     font-variant-numeric: tabular-nums;
     font-family: 'Courier New', monospace;
     font-size: 11px;
 }
 
-.ip2-table tbody td.c { text-align: center; }
-.ip2-table tbody td.muted { color: #64748b; }
-.ip2-table tbody td.bold  { font-weight: 700; }
+.ip3-table tbody td.c { text-align: center; }
+.ip3-table tbody td.muted { color: #64748b; }
+.ip3-table tbody td.bold  { font-weight: 700; }
 
 /* ── Totals ──────────────────────────────────────────────────── */
-.ip2-totals-wrap {
+.ip3-totals-wrap {
     display: flex;
     justify-content: flex-end;
     margin-bottom: 14px;
 }
 
-.ip2-totals {
+.ip3-totals {
     width: 300px;
     border: 1px solid #e2e8f0;
     border-radius: 6px;
     overflow: hidden;
 }
 
-.ip2-totals-row {
+.ip3-totals-row {
     display: flex;
     justify-content: space-between;
     padding: 7px 16px;
@@ -209,21 +245,16 @@
     font-size: 12px;
 }
 
-.ip2-totals-row:last-child { border-bottom: none; }
+.ip3-totals-row:last-child { border-bottom: none; }
+.ip3-totals-row .lbl { color: #64748b; }
+.ip3-totals-row .val { font-weight: 600; font-family: 'Courier New', monospace; font-size: 11.5px; }
 
-.ip2-totals-row .lbl { color: #64748b; }
-.ip2-totals-row .val { font-weight: 600; font-family: 'Courier New', monospace; font-size: 11.5px; }
-
-.ip2-totals-row.grand {
-    background: #0f4c75;
-    color: #fff;
-}
-
-.ip2-totals-row.grand .lbl { color: #7dd3fc; font-weight: 700; font-size: 13px; }
-.ip2-totals-row.grand .val { color: #fff; font-weight: 800; font-size: 14px; }
+.ip3-totals-row.grand { background: #0f4c75; color: #fff; }
+.ip3-totals-row.grand .lbl { color: #7dd3fc; font-weight: 700; font-size: 13px; }
+.ip3-totals-row.grand .val { color: #fff; font-weight: 800; font-size: 14px; }
 
 /* ── Amount in words ─────────────────────────────────────────── */
-.ip2-words {
+.ip3-words {
     border-left: 4px solid #0f4c75;
     background: #f0f9ff;
     padding: 8px 16px;
@@ -233,7 +264,7 @@
     border-radius: 0 6px 6px 0;
 }
 
-.ip2-words-label {
+.ip3-words-label {
     font-size: 9px;
     font-weight: 700;
     text-transform: uppercase;
@@ -243,7 +274,7 @@
 }
 
 /* ── Notes ───────────────────────────────────────────────────── */
-.ip2-notes {
+.ip3-notes {
     border: 1px solid #fed7aa;
     background: #fff7ed;
     border-left: 4px solid #f97316;
@@ -255,7 +286,7 @@
     margin-bottom: 14px;
 }
 
-.ip2-notes-label {
+.ip3-notes-label {
     font-size: 9px;
     font-weight: 700;
     text-transform: uppercase;
@@ -264,30 +295,8 @@
     margin-bottom: 4px;
 }
 
-/* ── Bank / payment info ─────────────────────────────────────── */
-.ip2-bank {
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
-    padding: 12px 16px;
-    background: #f8fafc;
-    margin-bottom: 24px;
-    font-size: 11px;
-    color: #475569;
-}
-
-.ip2-bank-label {
-    font-size: 9px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .07em;
-    color: #0f4c75;
-    margin-bottom: 6px;
-    padding-bottom: 5px;
-    border-bottom: 1px solid #e2e8f0;
-}
-
 /* ── Signature footer ────────────────────────────────────────── */
-.ip2-footer {
+.ip3-footer {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 32px;
@@ -296,7 +305,7 @@
     margin-top: 4px;
 }
 
-.ip2-sig-label {
+.ip3-sig-label {
     font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
@@ -305,41 +314,39 @@
     margin-bottom: 14px;
 }
 
-.ip2-sig-line {
+.ip3-sig-line {
     border-bottom: 1px solid #94a3b8;
     margin-bottom: 6px;
 }
 
-.ip2-sig-sub {
+.ip3-sig-sub {
     font-size: 10px;
     color: #94a3b8;
 }
 
 /* ── Footer note ─────────────────────────────────────────────── */
-.ip2-print-note {
+.ip3-print-note {
     text-align: center;
     font-size: 10px;
     color: #94a3b8;
     margin-top: 18px;
-    /* Capture this element's text into a paged-media named string so
-       @page rules below can render it as a per-page footer band. */
     string-set: docfooter content();
 }
 
 /* ── Accent strip at very bottom ─────────────────────────────── */
-.ip2-accent-strip {
+.ip3-accent-strip {
     background: #0f4c75;
     height: 6px;
 }
 
-/* ── @media print ────────────────────────────────────────────── */
+/* ── @media print (fallback path — window.print on this page) ── */
 @media print {
     @page {
         size: A4 portrait;
-        margin: 14mm 14mm 22mm;
+        margin: 12mm 12mm 16mm;
 
         @bottom-center {
-            content: string(docfooter);   /* "This is a computer-generated…" text */
+            content: string(docfooter);
             font-size: 8.5pt;
             color: #94a3b8;
             font-family: 'Segoe UI', Arial, sans-serif;
@@ -347,7 +354,6 @@
             padding-top: 4pt;
             vertical-align: top;
         }
-
         @bottom-right {
             content: "Page " counter(page) " of " counter(pages);
             font-size: 8.5pt;
@@ -356,18 +362,13 @@
         }
     }
 
-    /* Hide the inline note on print — it now lives in the per-page footer band */
-    .ip2-print-note { display: none !important; }
+    .ip3-print-note { display: none !important; }
 
     body * { visibility: hidden !important; }
-
-    .ip2-doc,
-    .ip2-doc * { visibility: visible !important; }
-
+    .ip3-doc, .ip3-doc * { visibility: visible !important; }
     .po-print-toolbar { display: none !important; }
 
-    /* ── Document shell: flow across pages (not fixed) ── */
-    .ip2-doc {
+    .ip3-doc {
         position: absolute !important;
         top: 0 !important;
         left: 0 !important;
@@ -375,56 +376,35 @@
         max-width: none !important;
         box-shadow: none !important;
         border-radius: 0 !important;
-        overflow: visible !important;   /* remove clip so content flows */
+        overflow: visible !important;
     }
 
-    /* ── Full-width banner: normal flow (page 1 only) ── */
-    .ip2-banner {
-        margin-bottom: 0 !important;
-    }
+    .ip3-banner { margin-bottom: 0 !important; }
 
-    /* ── Accent strip: always at the bottom, don't float ── */
-    .ip2-accent-strip {
+    .ip3-accent-strip {
         position: fixed !important;
         bottom: 0 !important;
         left: 0 !important;
         right: 0 !important;
     }
 
-    /* ── Table column headers repeat on every page ── */
-    .ip2-table thead {
-        display: table-header-group !important;
-    }
+    .ip3-table thead { display: table-header-group !important; }
+    .ip3-table tbody tr { break-inside: avoid; page-break-inside: avoid; }
 
-    /* ── Avoid splitting a data row across pages ── */
-    .ip2-table tbody tr {
+    .ip3-totals-wrap,
+    .ip3-footer,
+    .ip3-words,
+    .ip3-notes {
         break-inside: avoid;
         page-break-inside: avoid;
     }
 
-    /* ── Keep these blocks together on a single page ── */
-    .ip2-totals-wrap,
-    .ip2-footer,
-    .ip2-words,
-    .ip2-notes {
-        break-inside: avoid;
-        page-break-inside: avoid;
-    }
-
-    /* ── Bank details: keep each bank intact; header stays with 1st ── */
     .print-bank-group,
     .print-bank-group table {
         break-inside: avoid;
         page-break-inside: avoid;
     }
-    .print-bank-header {
-        break-after: avoid;
-        page-break-after: avoid;
-    }
+    .print-bank-header { break-after: avoid; page-break-after: avoid; }
 
-    /* ── Avoid a page break immediately after the top row ── */
-    .ip2-top-row {
-        break-after: avoid;
-        page-break-after: avoid;
-    }
+    .ip3-parties { break-after: avoid; page-break-after: avoid; }
 }

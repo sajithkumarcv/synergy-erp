@@ -193,6 +193,59 @@ namespace ERPWEB.Controllers.User
                                   ? row["Theme"]?.ToString() ?? "ocean-blue"
                                   : "ocean-blue";
 
+                // ── No-role guard ────────────────────────────────────────────
+                // An account with no role assigned would land in an empty app
+                // (no menus). Block the sign-in and say so plainly, rather than
+                // let the user in to a blank screen.
+                if (string.IsNullOrWhiteSpace(role))
+                {
+                    await _dbcon.WriteRawLog(
+                        message: $"Login blocked for '{username}' — no role assigned to the account.",
+                        controller: "Auth",
+                        action: "Login",
+                        requestPath: HttpContext.Request.Path,
+                        userId: userId,
+                        ipAddress: clientIp,
+                        logLevel: "Warning");
+                    return StatusCode(StatusCodes.Status403Forbidden, new
+                    {
+                        code    = "NO_ROLE",
+                        message = "No role is assigned to your account. Please contact your administrator."
+                    });
+                }
+
+                // ── No-access guard ──────────────────────────────────────────
+                // A role may exist but grant no menus. Such a user would still see
+                // an empty app, so block them too. If this check itself fails, we
+                // do NOT block (fail open) — a menu-lookup glitch shouldn't lock
+                // everyone out.
+                try
+                {
+                    using var menuGrid = await _dbcon.QueryMultipleAsync("sp_GetUserMenus", new { UserId = int.Parse(userId) });
+                    int menuCount = (await menuGrid.ReadAsync<dynamic>()).Count();
+                    if (menuCount == 0)
+                    {
+                        await _dbcon.WriteRawLog(
+                            message: $"Login blocked for '{username}' — role '{role}' has no menu access.",
+                            controller: "Auth",
+                            action: "Login",
+                            requestPath: HttpContext.Request.Path,
+                            userId: userId,
+                            ipAddress: clientIp,
+                            logLevel: "Warning");
+                        return StatusCode(StatusCodes.Status403Forbidden, new
+                        {
+                            code    = "NO_ACCESS",
+                            message = "Your account has no screens assigned. Please contact your administrator."
+                        });
+                    }
+                }
+                catch (Exception menuEx)
+                {
+                    await _dbcon.WriteLog(menuEx, controller: "Auth", action: "Login",
+                        requestPath: HttpContext.Request.Path);
+                }
+
                 // ── Single-PC session enforcement ────────────────────────────
                 int expiryMinutes = _config.GetValue<int>("Jwt:ExpiryMinutes", 480);
                 var sessionId = Guid.NewGuid();

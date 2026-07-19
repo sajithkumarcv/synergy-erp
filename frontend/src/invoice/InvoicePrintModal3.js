@@ -1,18 +1,27 @@
 import React from 'react';
 import { fmt, fmtDate, numberToWords } from './invoiceConstants';
 import useOwnerCompany from '../hooks/useOwnerCompany';
+import { getFileUrl } from '../Variable';
 import { BankDetailsBlock, DraftWatermark, PreviewBanner } from '../components/print/PrintCompanyHeader';
 import { openPrintWindow } from '../utils/printWindow';
 import '../procurement/po/PoPrint.css';   // overlay + toolbar styles
-import './InvoicePrint2.css';             // ip2-* document styles
+import './InvoicePrint3.css';             // ip3-* document styles
 
 const dash = (v) => (v != null && v !== '') ? v : '—';
 
-const InvoicePrintModal2 = ({ invoice, lines = [], onClose, preview }) => {
+/* Collapse a multi-line address into a single flowing line. */
+const oneLineAddress = (addr) =>
+    (addr || '')
+        .split(/\r?\n/)
+        .map(s => s.trim())
+        .filter(Boolean)
+        .join('  ·  ');
+
+const InvoicePrintModal3 = ({ invoice, lines = [], onClose, preview }) => {
     const { company, loading: coLoading } = useOwnerCompany();
 
     const handleBackdrop = (e) => { if (e.target === e.currentTarget) onClose(); };
-    const handlePrint    = () => openPrintWindow('.ip2-doc', `Invoice${preview ? ' (DRAFT)' : ''} - ${invoice.invoiceNo}`);
+    const handlePrint    = () => openPrintWindow('.ip3-doc', `Invoice${preview ? ' (DRAFT)' : ''} - ${invoice.invoiceNo}`);
 
     const subTotal   = lines.reduce((s, l) => s + (l.amount    || 0), 0);
     const taxTotal   = lines.reduce((s, l) => s + (l.taxAmount || 0), 0);
@@ -20,6 +29,17 @@ const InvoicePrintModal2 = ({ invoice, lines = [], onClose, preview }) => {
 
     const curr      = invoice.currencyShort || '';
     const vatGroups = [...new Set(lines.map(l => l.vatPercent))].filter(v => v > 0);
+
+    // Company identity line under the name (address + tax ids), compact
+    const primaryAddr = company?.addresses?.find(a => a.isPrimary) ?? company?.addresses?.[0];
+    const companyMeta = [
+        primaryAddr && [primaryAddr.addressLine1, primaryAddr.addressLine2,
+                        primaryAddr.city, primaryAddr.country].filter(Boolean).join(', '),
+        company?.gstNo && `GSTIN: ${company.gstNo}`,
+        company?.trn   && `TRN: ${company.trn}`,
+    ].filter(Boolean).join('  ·  ');
+
+    const logoSrc = company?.logoPath ? getFileUrl(company.logoPath) : null;
 
     return (
         <div className="po-print-overlay" onClick={handleBackdrop}>
@@ -29,7 +49,7 @@ const InvoicePrintModal2 = ({ invoice, lines = [], onClose, preview }) => {
                 <div className="po-print-toolbar-left">
                     <span className="po-print-title">🖨 Invoice — {invoice.invoiceNo} &nbsp;
                         <span style={{ fontSize: 11, fontWeight: 400, color: 'rgba(255,255,255,.6)' }}>
-                            Format 2 · Modern
+                            Format 3 · Compact
                         </span>
                     </span>
                 </div>
@@ -42,126 +62,101 @@ const InvoicePrintModal2 = ({ invoice, lines = [], onClose, preview }) => {
             </div>
 
             {/* ── A4 Document ── */}
-            <div className="ip2-doc" style={{ position: 'relative' }}>
+            <div className="ip3-doc" style={{ position: 'relative' }}>
 
                 {preview && <DraftWatermark />}
                 {preview && <PreviewBanner />}
 
-                {/* 1. Full-width banner */}
-                <div className="ip2-banner">
-                    <div className="ip2-banner-left">
-                        <div className="ip2-banner-company">
-                            {coLoading ? '…' : (company?.companyName || '—')}
-                        </div>
-                        {!preview && (
-                            <div className="ip2-banner-addr">
-                                {(() => {
-                                    const a = company?.addresses?.find(x => x.isPrimary) ?? company?.addresses?.[0];
-                                    if (!a) return null;
-                                    return [a.addressLine1, a.addressLine2, a.city, a.country].filter(Boolean).join('  ·  ');
-                                })()}
-                                {company?.phone && <><br />{company.phone}{company.fax ? `   Fax: ${company.fax}` : ''}{company.email ? `   ·   ${company.email}` : ''}</>}
-                                {(company?.gstNo || company?.pan || company?.cin || company?.trn || company?.website) && (
-                                    <><br />
-                                    {[
-                                        company.gstNo && `GSTIN: ${company.gstNo}`,
-                                        company.pan   && `PAN: ${company.pan}`,
-                                        company.cin   && `CIN: ${company.cin}`,
-                                        company.trn   && `TRN: ${company.trn}`,
-                                        company.website,
-                                    ].filter(Boolean).join('   ·   ')}
-                                    </>
-                                )}
+                {/* 1. Compact banner — logo + identity | doc type / no / status */}
+                <div className="ip3-banner">
+                    <div className="ip3-brand">
+                        {logoSrc && <img src={logoSrc} alt="Logo" className="ip3-logo" />}
+                        <div className="ip3-brand-text">
+                            <div className="ip3-banner-company">
+                                {coLoading ? '…' : (company?.companyName || '—')}
                             </div>
-                        )}
+                            {!preview && companyMeta && (
+                                <div className="ip3-banner-meta">{companyMeta}</div>
+                            )}
+                        </div>
                     </div>
-                    <div className="ip2-banner-right">
-                        <div className="ip2-banner-doctype">Tax Invoice</div>
-                        <div className="ip2-banner-docno">{invoice.invoiceNo}</div>
+                    <div className="ip3-banner-right">
+                        <div className="ip3-banner-doctype">Tax Invoice</div>
+                        <div className="ip3-banner-docno">{invoice.invoiceNo}</div>
                     </div>
                 </div>
 
-                <div className="ip2-body">
+                <div className="ip3-body">
 
-                    {/* 2. Bill To + Invoice Meta */}
-                    <div className="ip2-top-row">
+                    {/* 2. Bill To + Invoice Details — compact, equal-weight columns */}
+                    <div className="ip3-parties">
 
                         {/* Left: customer */}
                         <div>
-                            <div className="ip2-section-label">Bill To</div>
-                            <div className="ip2-customer-name">{dash(invoice.customerName)}</div>
+                            <div className="ip3-party-label">Bill To</div>
+                            <div className="ip3-customer-name">{dash(invoice.customerName)}</div>
                             {invoice.customerVatNo && (
-                                <div className="ip2-detail-row">
-                                    <span className="ip2-detail-label">GST No:</span>
-                                    <span className="ip2-detail-val" style={{ fontFamily: 'Courier New' }}>
-                                        {invoice.customerVatNo}
-                                    </span>
+                                <div className="ip3-kv">
+                                    <span className="ip3-kv-label">GST No</span>
+                                    <span className="ip3-kv-val mono">{invoice.customerVatNo}</span>
                                 </div>
                             )}
                             {invoice.contactName && (
-                                <div className="ip2-detail-row">
-                                    <span className="ip2-detail-label">Attention:</span>
-                                    <span className="ip2-detail-val">
+                                <div className="ip3-kv">
+                                    <span className="ip3-kv-label">Attention</span>
+                                    <span className="ip3-kv-val">
                                         {invoice.contactName}
                                         {invoice.contactDesignation ? `, ${invoice.contactDesignation}` : ''}
                                     </span>
                                 </div>
                             )}
-                            {invoice.contactPhone && (
-                                <div className="ip2-detail-row">
-                                    <span className="ip2-detail-label">Phone:</span>
-                                    <span className="ip2-detail-val">{invoice.contactPhone}</span>
-                                </div>
-                            )}
-                            {invoice.contactMobile && (
-                                <div className="ip2-detail-row">
-                                    <span className="ip2-detail-label">Mobile:</span>
-                                    <span className="ip2-detail-val">{invoice.contactMobile}</span>
+                            {(invoice.contactPhone || invoice.contactMobile) && (
+                                <div className="ip3-kv">
+                                    <span className="ip3-kv-label">Phone</span>
+                                    <span className="ip3-kv-val">
+                                        {[invoice.contactPhone, invoice.contactMobile].filter(Boolean).join(' · ')}
+                                    </span>
                                 </div>
                             )}
                             {invoice.billingAddress && (
-                                <div className="ip2-address-block">{invoice.billingAddress}</div>
+                                <div className="ip3-address">{oneLineAddress(invoice.billingAddress)}</div>
                             )}
                         </div>
 
                         {/* Right: invoice meta */}
                         <div>
-                            <div className="ip2-section-label">Invoice Details</div>
-                            <div className="ip2-detail-row">
-                                <span className="ip2-detail-label">Invoice Date:</span>
-                                <span className="ip2-detail-val">{fmtDate(invoice.invoiceDate)}</span>
+                            <div className="ip3-party-label">Invoice Details</div>
+                            <div className="ip3-kv">
+                                <span className="ip3-kv-label">Invoice Date</span>
+                                <span className="ip3-kv-val">{fmtDate(invoice.invoiceDate)}</span>
                             </div>
                             {invoice.dueDate && (
-                                <div className="ip2-detail-row">
-                                    <span className="ip2-detail-label">Due Date:</span>
-                                    <span className="ip2-detail-val">{fmtDate(invoice.dueDate)}</span>
+                                <div className="ip3-kv">
+                                    <span className="ip3-kv-label">Due Date</span>
+                                    <span className="ip3-kv-val">{fmtDate(invoice.dueDate)}</span>
                                 </div>
                             )}
                             {invoice.lpoNo && (
-                                <div className="ip2-detail-row">
-                                    <span className="ip2-detail-label">LPO / PO No:</span>
-                                    <span className="ip2-detail-val" style={{ fontFamily: 'Courier New' }}>
-                                        {invoice.lpoNo}
-                                    </span>
+                                <div className="ip3-kv">
+                                    <span className="ip3-kv-label">LPO / PO No</span>
+                                    <span className="ip3-kv-val mono">{invoice.lpoNo}</span>
                                 </div>
                             )}
                             {invoice.lpoDate && (
-                                <div className="ip2-detail-row">
-                                    <span className="ip2-detail-label">LPO Date:</span>
-                                    <span className="ip2-detail-val">{fmtDate(invoice.lpoDate)}</span>
+                                <div className="ip3-kv">
+                                    <span className="ip3-kv-label">LPO Date</span>
+                                    <span className="ip3-kv-val">{fmtDate(invoice.lpoDate)}</span>
                                 </div>
                             )}
                             {invoice.jobId && (
-                                <div className="ip2-detail-row">
-                                    <span className="ip2-detail-label">Job Ref:</span>
-                                    <span className="ip2-detail-val" style={{ fontFamily: 'Courier New' }}>
-                                        {invoice.jobId}
-                                    </span>
+                                <div className="ip3-kv">
+                                    <span className="ip3-kv-label">Job Ref</span>
+                                    <span className="ip3-kv-val mono">{invoice.jobId}</span>
                                 </div>
                             )}
-                            <div className="ip2-detail-row">
-                                <span className="ip2-detail-label">Currency:</span>
-                                <span className="ip2-detail-val">
+                            <div className="ip3-kv">
+                                <span className="ip3-kv-label">Currency</span>
+                                <span className="ip3-kv-val">
                                     {curr}
                                     {invoice.exchangeRate && invoice.exchangeRate !== 1 && (
                                         <span style={{ color: '#64748b', fontSize: 10, marginLeft: 4 }}>
@@ -174,7 +169,7 @@ const InvoicePrintModal2 = ({ invoice, lines = [], onClose, preview }) => {
                     </div>
 
                     {/* 3. Line Items */}
-                    <table className="ip2-table">
+                    <table className="ip3-table">
                         <thead>
                             <tr>
                                 <th style={{ width: 28 }}>#</th>
@@ -226,9 +221,9 @@ const InvoicePrintModal2 = ({ invoice, lines = [], onClose, preview }) => {
                     </table>
 
                     {/* 4. Totals */}
-                    <div className="ip2-totals-wrap">
-                        <div className="ip2-totals">
-                            <div className="ip2-totals-row">
+                    <div className="ip3-totals-wrap">
+                        <div className="ip3-totals">
+                            <div className="ip3-totals-row">
                                 <span className="lbl">Sub Total ({curr})</span>
                                 <span className="val">{fmt(subTotal)}</span>
                             </div>
@@ -237,19 +232,19 @@ const InvoicePrintModal2 = ({ invoice, lines = [], onClose, preview }) => {
                                     .filter(l => l.vatPercent === vat)
                                     .reduce((s, l) => s + (l.taxAmount || 0), 0);
                                 return (
-                                    <div key={vat} className="ip2-totals-row">
+                                    <div key={vat} className="ip3-totals-row">
                                         <span className="lbl">VAT {vat}%</span>
                                         <span className="val">{fmt(vatAmt)}</span>
                                     </div>
                                 );
                             })}
                             {taxTotal === 0 && (
-                                <div className="ip2-totals-row">
+                                <div className="ip3-totals-row">
                                     <span className="lbl">Tax Amount</span>
                                     <span className="val">{fmt(0)}</span>
                                 </div>
                             )}
-                            <div className="ip2-totals-row grand">
+                            <div className="ip3-totals-row grand">
                                 <span className="lbl">TOTAL ({curr})</span>
                                 <span className="val">{fmt(grandTotal)}</span>
                             </div>
@@ -257,8 +252,8 @@ const InvoicePrintModal2 = ({ invoice, lines = [], onClose, preview }) => {
                     </div>
 
                     {/* 5. Amount in Words */}
-                    <div className="ip2-words">
-                        <div className="ip2-words-label">Amount in Words</div>
+                    <div className="ip3-words">
+                        <div className="ip3-words-label">Amount in Words</div>
                         {curr} {numberToWords(grandTotal)}
                         {taxTotal > 0 && (
                             <div style={{ marginTop: 3, fontSize: 11, color: '#475569' }}>
@@ -269,8 +264,8 @@ const InvoicePrintModal2 = ({ invoice, lines = [], onClose, preview }) => {
 
                     {/* 6. Notes */}
                     {invoice.notes && (
-                        <div className="ip2-notes">
-                            <div className="ip2-notes-label">Notes / Remarks</div>
+                        <div className="ip3-notes">
+                            <div className="ip3-notes-label">Notes / Remarks</div>
                             {invoice.notes}
                         </div>
                     )}
@@ -283,22 +278,22 @@ const InvoicePrintModal2 = ({ invoice, lines = [], onClose, preview }) => {
                     )}
 
                     {/* 8. Signatures — 2 columns */}
-                    <div className="ip2-footer">
+                    <div className="ip3-footer">
                         <div>
-                            <div className="ip2-sig-label">Authorised Signature</div>
-                            <div className="ip2-sig-line" />
-                            <div className="ip2-sig-sub">Name / Designation</div>
+                            <div className="ip3-sig-label">Authorised Signature</div>
+                            <div className="ip3-sig-line" />
+                            <div className="ip3-sig-sub">Name / Designation</div>
                         </div>
                         <div>
-                            <div className="ip2-sig-label">Customer Acknowledgement</div>
-                            <div className="ip2-sig-line" />
-                            <div className="ip2-sig-sub">Name / Signature / Company Stamp</div>
+                            <div className="ip3-sig-label">Customer Acknowledgement</div>
+                            <div className="ip3-sig-line" />
+                            <div className="ip3-sig-sub">Name / Signature / Company Stamp</div>
                         </div>
                     </div>
 
                     {preview && <PreviewBanner />}
 
-                    <div className="ip2-print-note">
+                    <div className="ip3-print-note">
                         This is a computer-generated tax invoice.
                         {company?.companyName && <> {company.companyName}</>}
                         {company?.email && <>&nbsp;·&nbsp;{company.email}</>}
@@ -306,10 +301,10 @@ const InvoicePrintModal2 = ({ invoice, lines = [], onClose, preview }) => {
                 </div>
 
                 {/* Teal accent strip at the bottom */}
-                <div className="ip2-accent-strip" />
+                <div className="ip3-accent-strip" />
             </div>
         </div>
     );
 };
 
-export default InvoicePrintModal2;
+export default InvoicePrintModal3;

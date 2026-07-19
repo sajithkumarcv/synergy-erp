@@ -71,6 +71,13 @@ export default function LoginForm() {
         setError(data.message || 'Too many sign-in attempts. Please try again later.');
         return;
       }
+      // 403 = signed-in blocked by policy (e.g. no role assigned). Show the reason.
+      if (res.status === 403) {
+        const data = await res.json().catch(() => ({}));
+        setConflict(null);
+        setError(data.message || 'Your account is not permitted to sign in. Please contact your administrator.');
+        return;
+      }
       if (!res.ok) { setError('Server error. Please try again.'); return; }
       const data = await res.json();
       setConflict(null);

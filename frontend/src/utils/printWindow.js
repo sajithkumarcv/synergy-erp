@@ -46,7 +46,7 @@ export const openPrintWindow = (docSelector, title) => {
 /* ── Page setup ─────────────────────────────────────────────── */
 @page {
   size: A4 portrait;
-  margin: 14mm 12mm 20mm;
+  margin: 10mm 10mm 12mm;
   @bottom-right {
     content: "Page " counter(page) " of " counter(pages);
     font-size: 8pt;
@@ -59,7 +59,7 @@ export const openPrintWindow = (docSelector, title) => {
 * { box-sizing: border-box; }
 body {
   margin: 0;
-  padding: 8mm 14mm;
+  padding: 0;   /* all page margin comes from @page — no double margin */
   font-family: 'Segoe UI', Arial, sans-serif;
   font-size: 11px;
   color: #1e293b;
@@ -73,7 +73,8 @@ ${screenStyles}
    in-app preview.  In the isolated window they must be fluid. */
 .po-print-doc,
 .po3-doc,
-.ip2-doc {
+.ip2-doc,
+.ip3-doc {
   width: 100% !important;
   min-height: auto !important;
   box-shadow: none !important;
@@ -86,9 +87,37 @@ ${screenStyles}
 .po-print-doc > div[style*="flex: 1"],
 .po3-doc      > div[style*="flex: 1"],
 .ip2-doc      > div[style*="flex: 1"],
-.ip2-body     > div[style*="flex: 1"] {
+.ip2-body     > div[style*="flex: 1"],
+.ip3-doc      > div[style*="flex: 1"],
+.ip3-body     > div[style*="flex: 1"] {
   display: none !important;
 }
+
+/* ── Invoice sticky footer ──────────────────────────────────────
+   Make the document fill the page and push the bank + signature
+   cluster to the bottom, so a short invoice (only a few line items)
+   doesn't leave the footer floating with blank space beneath it.
+   For a multi-page invoice the free space is 0, so it flows normally.
+   The small -8px guard keeps 100vh from spilling onto a blank page 2. */
+.ip2-doc, .ip3-doc {
+  min-height: calc(100vh - 8px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+.ip2-body, .ip3-body {
+  flex: 1 0 auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+/* First element of the bottom cluster absorbs the free space above it.
+   If there are no bank details, the signature footer takes over. */
+.ip2-body > .print-bank-block,
+.ip3-body > .print-bank-block,
+.ip2-footer,
+.ip3-footer { margin-top: auto; }
+
+/* Voucher / note signatures block (inline marginTop → needs !important). */
+.ip2-body > .print-signatures { margin-top: auto !important; }
 
 /* ── Clean print rules for the isolated window ──────────────── */
 @media print {
@@ -102,7 +131,17 @@ ${screenStyles}
   .pop-notes,
   .pop-footer,
   .ip2-totals-wrap,
-  .ip2-footer          { break-inside: avoid; page-break-inside: avoid; }
+  .ip2-footer,
+  .ip3-totals-wrap,
+  .ip3-footer          { break-inside: avoid; page-break-inside: avoid; }
+
+  /* Bank details: never slice a single bank across pages, and keep the
+     "Bank Details" header attached to the first bank so it can't be
+     orphaned at the foot of a page. The block itself may break BETWEEN
+     banks when there are several. */
+  .print-bank-group    { break-inside: avoid; page-break-inside: avoid; }
+  .print-bank-group table { break-inside: avoid; page-break-inside: avoid; }
+  .print-bank-header   { break-after: avoid; page-break-after: avoid; }
 }
 </style>
 </head>

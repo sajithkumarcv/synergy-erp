@@ -1,22 +1,22 @@
 {
   "layout": "aurora",
-  "appName": "Auto Pulse Technologies",
+  "appName": "Synergy",
   "tagline": "UAE Edition",
-  "title": "Auto Pulse Technologies — ERP",
+  "title": "Synergy — U.A.E.",
   "welcome": "Ahlan wa sahlan",
   "headline": "Enterprise operations, engineered for the Gulf.",
   "blurb": "VAT-compliant finance, multi-currency procurement and inventory — for how business moves in the Emirates.",
-  "logo": "logo.png",
+  "logo": "logo.svg",
   "version": "v4.8.2 · build 2026.07",
   "features": [
     "Procurement & Inventory",
     "Job Costing & Finance",
     "Real-time Reporting"
   ],
-  "footer": "© {year} Auto Pulse Technologies FZC",
+  "footer": "© {year} Synergy — U.A.E.",
   "text": {
     "signInTitle": "Ahlan wa sahlan",
-    "signInSubtitle": "Sign in to your Auto Pulse ERP account.",
+    "signInSubtitle": "Sign in to your Synergy UAE workspace.",
     "resetTitle": "Reset Password",
     "resetSubtitle": "Enter your account email and we will send you a reset link"
   },
@@ -25,16 +25,16 @@
     "text": "Loading workspace"
   },
   "colors": {
-    "primary": "#c81f17",
-    "primary-hover": "#a4160f",
-    "primary-ring": "rgba(200,31,23,0.16)",
-    "secondary": "#00843d",
-    "panel-a": "#240707",
-    "panel-b": "#b81c15",
-    "panel-glow": "#ff6a5e",
-    "panel-bg": "linear-gradient(160deg, #240707 0%, #b81c15 118%)",
-    "page-bg": "#fdf6f5",
+    "primary": "#0e6b6b",
+    "primary-hover": "#0a5252",
+    "primary-ring": "rgba(14,107,107,0.16)",
+    "secondary": "#d4a017",
+    "panel-a": "#06272b",
+    "panel-b": "#0e6b6b",
+    "panel-glow": "#f0c95a",
+    "panel-bg": "linear-gradient(160deg, #06272b 0%, #0e6b6b 118%)",
+    "page-bg": "#f3faf9",
     "card-bg": "#ffffff",
-    "title": "#a4160f"
+    "title": "#0a4a4a"
   }
 }

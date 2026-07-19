@@ -10,6 +10,7 @@ namespace ERPWEB.Models.Receipt
         public int       CustomerId      { get; set; }
         public string?   CustomerName    { get; set; }
         public string?   CustomerCode    { get; set; }
+        public string?   CustomerAddress { get; set; }
         public int?      CurrencyId      { get; set; }
         public string?   CurrencyShort   { get; set; }
         public decimal   ExchangeRate    { get; set; } = 1;

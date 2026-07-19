@@ -5,6 +5,7 @@ import { useCurrentUser } from '../../AuthContext';
 import { GRN_TABS, fmtDate, fmt, statusBadgeCfg } from '../procurementConstants';
 import { useLookup } from '../../LookupContext';
 import { usePermission } from '../../PermissionContext';
+import { usePrintFormat } from '../../print/printFormats';
 import GrnOverviewTab        from './tabs/GrnOverviewTab';
 import GrnLinesTab           from './tabs/GrnLinesTab';
 import GrnDocumentsTab       from './tabs/GrnDocumentsTab';
@@ -31,6 +32,7 @@ const GrnDetailPage = () => {
     const [activeTab,    setActiveTab]  = useState('overview');
     const [showStatusMenu, setStatusMenu] = useState(false);
     const [showPrint,    setShowPrint]  = useState(false);
+    const printFmt = usePrintFormat('GRN');   // configured layout (Company Settings → Print Formats)
     const statusRef = useRef(null);
 
     const loadGrn = useCallback(() => {
@@ -242,7 +244,7 @@ const GrnDetailPage = () => {
                     {canPrint && (
                         <button
                             className="jd-stage-btn"
-                            onClick={() => setShowPrint(true)}
+                            onClick={() => setShowPrint(printFmt)}
                             title="Print / Save as PDF"
                             style={{ display: 'flex', alignItems: 'center', gap: 5 }}
                         >

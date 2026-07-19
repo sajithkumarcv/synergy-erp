@@ -113,16 +113,18 @@ export const BankDetailsBlock = ({ banks = [], note, headerBg = '#1e3a5f', rowAl
     }, {});
 
     return (
-        <div style={{ margin: '0 0 20px', border: '1px solid #e2e8f0',
+        <div className="print-bank-block"
+             style={{ margin: '0 0 14px', border: '1px solid #e2e8f0',
                       borderRadius: 6, overflow: 'hidden' }}>
             {/* Header bar */}
-            <div style={{ background: headerBg, color: '#fff', padding: '7px 16px',
+            <div className="print-bank-header"
+                 style={{ background: headerBg, color: '#fff', padding: '5px 16px',
                           fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
                           letterSpacing: '.07em' }}>
                 Bank Details
             </div>
 
-            <div style={{ padding: '12px 16px', background: '#f8fafc' }}>
+            <div style={{ padding: '8px 14px', background: '#f8fafc' }}>
                 {/* Note */}
                 {note && (
                     <div style={{ fontSize: 11, color: '#475569', fontStyle: 'italic',
@@ -133,7 +135,8 @@ export const BankDetailsBlock = ({ banks = [], note, headerBg = '#1e3a5f', rowAl
                 )}
 
                 {Object.values(bankGroups).map((grp, gi) => (
-                    <div key={gi} style={{ marginBottom: gi < Object.keys(bankGroups).length - 1 ? 16 : 0 }}>
+                    <div key={gi} className="print-bank-group"
+                         style={{ marginBottom: gi < Object.keys(bankGroups).length - 1 ? 16 : 0 }}>
                         {/* Beneficiary + Bank name */}
                         <div style={{ display: 'flex', gap: 32, marginBottom: 8, flexWrap: 'wrap' }}>
                             <div>

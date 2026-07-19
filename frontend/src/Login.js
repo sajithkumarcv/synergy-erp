@@ -2,6 +2,7 @@ import React from 'react';
 import './Login.css';
 import { brand } from './branding';
 import LoginForm  from './login/LoginForm';
+import Aurora     from './login/layouts/Aurora';
 import SplitLeft  from './login/layouts/SplitLeft';
 import SplitRight from './login/layouts/SplitRight';
 import Centered   from './login/layouts/Centered';
@@ -19,6 +20,7 @@ import FullScreen from './login/layouts/FullScreen';
 // ═══════════════════════════════════════════════════════════════════
 
 const LAYOUTS = {
+  'aurora':      Aurora,
   'split-left':  SplitLeft,
   'split-right': SplitRight,
   'centered':    Centered,

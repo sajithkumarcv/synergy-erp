@@ -132,6 +132,10 @@
 }
 .erp-logout:hover { background: var(--header-btn-border, rgba(255,255,255,0.28)); }
 
+/* ── Help / User Manual icon ─────────────────────────────────── */
+.erp-help { color: var(--header-text, #fff); opacity: .85; transition: background 0.15s, opacity 0.15s; }
+.erp-help:hover { opacity: 1; background: var(--header-btn-bg, rgba(255,255,255,0.16)); }
+
 /* ── Theme Picker ────────────────────────────────────────────── */
 .theme-picker-wrap { position: relative; }
 

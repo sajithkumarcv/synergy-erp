@@ -4,6 +4,7 @@ import { variables, authHeaders } from '../../Variable';
 import { PR_TABS, PRIORITY_CONFIG, fmtDate, statusBadgeCfg } from '../procurementConstants';
 import { useLookup } from '../../LookupContext';
 import { usePermission } from '../../PermissionContext';
+import { usePrintFormat } from '../../print/printFormats';
 import { useCurrentUser } from '../../AuthContext';
 import PrOverviewTab   from './tabs/PrOverviewTab';
 import PrLinesTab      from './tabs/PrLinesTab';
@@ -28,6 +29,7 @@ const PrDetailPage = () => {
     const [error,      setError]     = useState(null);
     const [activeTab,  setActiveTab] = useState('overview');
     const [showPrint,    setShowPrint]    = useState(false);
+    const printFmt = usePrintFormat('PR');   // configured layout (Company Settings → Print Formats)
     const [approvalTx,  setApprovalTx]  = useState(null);
     const [linesCount,  setLinesCount]  = useState(null);
     const [showRevise,  setShowRevise]  = useState(false);
@@ -269,7 +271,7 @@ const PrDetailPage = () => {
                     {canPrint && (
                         <button
                             className="jd-stage-btn"
-                            onClick={() => setShowPrint(true)}
+                            onClick={() => setShowPrint(printFmt)}
                             title="Print / Save as PDF"
                             style={{ display: 'flex', alignItems: 'center', gap: 5 }}
                         >

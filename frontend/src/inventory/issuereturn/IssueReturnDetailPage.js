@@ -6,6 +6,7 @@ import ConfirmModal from '../../common/ConfirmModal';
 import { IRN_TABS, fmtDate, fmt, statusBadgeCfg } from '../inventoryConstants';
 import { useLookup } from '../../LookupContext';
 import { usePermission } from '../../PermissionContext';
+import { usePrintFormat } from '../../print/printFormats';
 import IssueReturnOverviewTab  from './tabs/IssueReturnOverviewTab';
 import IssueReturnLinesTab     from './tabs/IssueReturnLinesTab';
 import IssueReturnPrintModal   from './IssueReturnPrintModal';
@@ -33,6 +34,7 @@ const IssueReturnDetailPage = () => {
     const [approvalTx,     setApprovalTx]  = useState(null);
     const [deleting,       setDeleting]     = useState(false);
     const [showPrint,      setShowPrint]    = useState(false);
+    const printFmt = usePrintFormat('IRN');   // configured layout (Company Settings → Print Formats)
     const [confirm,        setConfirm]      = useState(null);
 
     const loadReturn = useCallback(() => {
@@ -46,7 +48,7 @@ const IssueReturnDetailPage = () => {
     }, [id]);
 
     useEffect(() => { loadReturn(); }, [loadReturn]);
-    useEffect(() => { if (issueReturn && autoPrint) setShowPrint(true); }, [issueReturn, autoPrint]);
+    useEffect(() => { if (issueReturn && autoPrint) setShowPrint(printFmt); }, [issueReturn, autoPrint]);
 
     const [actionError, setActionError] = useState('');
 
@@ -127,7 +129,7 @@ const IssueReturnDetailPage = () => {
                 </div>
                 <div className="jd-header-right">
                     <button className="jd-stage-btn"
-                            onClick={() => setShowPrint(true)}
+                            onClick={() => setShowPrint(printFmt)}
                             style={{ background: '#f0f9ff', color: '#0369a1', borderColor: '#7dd3fc' }}>
                         🖨 Print
                     </button>

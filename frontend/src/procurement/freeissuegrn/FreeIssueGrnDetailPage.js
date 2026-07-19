@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { variables, authHeaders } from '../../Variable';
 import { useCurrentUser } from '../../AuthContext';
 import { usePermission } from '../../PermissionContext';
+import { usePrintFormat } from '../../print/printFormats';
 import { fmtDate, FormSection } from '../procurementConstants';
 import ConfirmModal from '../../common/ConfirmModal';
 import { InlineError } from '../../common/InlineError';
@@ -541,6 +542,7 @@ const FreeIssueGrnDetailPage = () => {
     const [actionError, setActionError] = useState('');
     const [showCancel, setShowCancel] = useState(false);
     const [showPrint,  setShowPrint]  = useState(false);
+    const printFmt = usePrintFormat('FGRN');   // configured layout (Company Settings → Print Formats)
     const [showRevise, setShowRevise] = useState(false);
     const statusRef = useRef(null);
 
@@ -628,7 +630,7 @@ const FreeIssueGrnDetailPage = () => {
                     <span className="cd-flag-badge" style={{ background: sc.bg, color: sc.color }}>
                         <span className="cd-flag-dot" style={{ background: sc.dot }} />{sc.label}
                     </span>
-                    <button className="jd-stage-btn" onClick={() => setShowPrint(true)} title="Print / Save as PDF"
+                    <button className="jd-stage-btn" onClick={() => setShowPrint(printFmt)} title="Print / Save as PDF"
                         style={{ display: 'flex', alignItems: 'center', gap: 5 }}>🖨 Print</button>
                     {grn.status === 'Confirmed' && canEdit && (
                         <button className="jd-stage-btn" onClick={() => setShowRevise(true)}

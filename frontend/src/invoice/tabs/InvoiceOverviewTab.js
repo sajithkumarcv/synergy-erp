@@ -270,20 +270,25 @@ const InvoiceOverviewTab = ({ invoice, onRefresh }) => {
                             ))}
                         </select>
                     </div>
-                    {addresses.length > 1 && (
-                        <div className="pf-field">
-                            <label>Billing Address</label>
-                            <select className="pf-input"
+                    <div className="pf-field">
+                        <label>Billing Address</label>
+                        {addresses.length > 1 && (
+                            <select className="pf-input" style={{ marginBottom: 6 }}
                                 value={addresses.findIndex(a => a.fullAddress === form.billingAddress)}
                                 onChange={e => set('billingAddress', addresses[Number(e.target.value)]?.fullAddress || '')}>
+                                <option value={-1}>— Fill from saved address —</option>
                                 {addresses.map((a, i) => (
                                     <option key={a.customerAddressId} value={i}>
                                         {a.addressType || `Address ${i + 1}`}{a.isDefault ? ' (Default)' : ''}
                                     </option>
                                 ))}
                             </select>
-                        </div>
-                    )}
+                        )}
+                        <textarea className="pf-input pf-textarea" rows={4}
+                            value={form.billingAddress}
+                            onChange={e => set('billingAddress', e.target.value)}
+                            placeholder="Billing address for this invoice…" />
+                    </div>
                 </div>
 
                 <FormSection label="Notes" />

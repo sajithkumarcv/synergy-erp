@@ -632,6 +632,16 @@ const Layout = () => {
         </div>
         <div className="erp-header-right">
           <ThemePicker />
+          <a className="erp-help" href="/user-manual.html" target="_blank" rel="noopener noreferrer"
+             title="User Manual (opens in a new tab)" aria-label="Help — User Manual"
+             style={{ display: 'inline-grid', placeItems: 'center', width: 36, height: 36, borderRadius: 9,
+                      color: 'inherit', textDecoration: 'none', flexShrink: 0 }}>
+            <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <circle cx="12" cy="12" r="9.2" />
+              <path d="M9.2 9.3a2.8 2.8 0 1 1 3.7 2.65c-.6.25-.9.6-.9 1.3v.5" strokeLinecap="round" />
+              <circle cx="12" cy="17" r="0.6" fill="currentColor" stroke="none" />
+            </svg>
+          </a>
           <NotificationBell userId={auth?.userId || 0} userName={auth?.username || ''} />
           <div className="erp-header-divider" />
           <div className="erp-user-info">

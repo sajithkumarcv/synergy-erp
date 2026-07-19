@@ -9,6 +9,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -50,6 +51,10 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddControllers()
     .AddJsonOptions(o => {
         o.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+        // HTML <select> / <input> always yield strings, so numeric FKs (e.g. countryId)
+        // arrive as "2" not 2. Accept quoted numbers so int/decimal binds don't 400.
+        // Purely permissive — plain numbers still bind exactly as before.
+        o.JsonSerializerOptions.NumberHandling = JsonNumberHandling.AllowReadingFromString;
     })
     .ConfigureApiBehaviorOptions(o =>
     {

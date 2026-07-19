@@ -1,0 +1,40 @@
+{
+  "layout": "aurora",
+  "appName": "ESI India",
+  "tagline": "India Edition",
+  "title": "ESI India — ERP",
+  "welcome": "Welcome back",
+  "headline": "Every project, purchase and payment — in one place.",
+  "blurb": "Procurement, job costing and GST-ready finance, unified and secured end to end.",
+  "logo": "logo.svg",
+  "version": "v4.8.2 · build 2026.07",
+  "features": [
+    "Procurement & Inventory",
+    "Job Costing & Finance",
+    "Real-time Reporting"
+  ],
+  "footer": "© {year} ESI India — All rights reserved",
+  "text": {
+    "signInTitle": "Welcome back",
+    "signInSubtitle": "Sign in to your ESI India workspace.",
+    "resetTitle": "Reset Password",
+    "resetSubtitle": "Enter your account email and we will send you a reset link"
+  },
+  "loader": {
+    "flag": ["#ff9933", "#ffffff", "#138808", "#0b3d91"],
+    "text": "Loading workspace"
+  },
+  "colors": {
+    "primary": "#2f4b9b",
+    "primary-hover": "#243c7d",
+    "primary-ring": "rgba(47,75,155,0.16)",
+    "secondary": "#e8873a",
+    "panel-a": "#10173a",
+    "panel-b": "#2f4b9b",
+    "panel-glow": "#7f9be6",
+    "panel-bg": "linear-gradient(160deg, #10173a 0%, #2f4b9b 118%)",
+    "page-bg": "#f5f7fc",
+    "card-bg": "#ffffff",
+    "title": "#1e2f66"
+  }
+}

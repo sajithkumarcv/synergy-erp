@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { variables, authHeaders } from '../Variable';
 import { usePermission } from '../PermissionContext';
+import { usePrintFormat } from '../print/printFormats';
 import { DELIVERY_TABS, fmtDate, getDeliveryStatusConfig, STATUS_TRANSITIONS } from './deliveryConstants';
 import DeliveryOverviewTab   from './tabs/DeliveryOverviewTab';
 import DeliveryLinesTab      from './tabs/DeliveryLinesTab';
@@ -28,6 +29,7 @@ const DeliveryDetailPage = () => {
     const [statusErr,   setStatusErr]   = useState('');
     const [deleting,    setDeleting]    = useState(false);
     const [showPrint,   setShowPrint]   = useState(false);
+    const printFmt = usePrintFormat('DLV');   // configured layout (Company Settings → Print Formats)
     const [alertMsg,    setAlertMsg]    = useState(null);
     const [confirm,     setConfirm]     = useState(null);
 
@@ -41,7 +43,7 @@ const DeliveryDetailPage = () => {
     }, [deliveryId]);
 
     useEffect(() => { loadDelivery(); }, [loadDelivery]);
-    useEffect(() => { if (delivery && autoPrint) setShowPrint(true); }, [delivery, autoPrint]);
+    useEffect(() => { if (delivery && autoPrint) setShowPrint(printFmt); }, [delivery, autoPrint]);
 
     const changeStatus = async (newStatus) => {
         setStatusBusy(true); setStatusErr('');
@@ -177,7 +179,7 @@ const DeliveryDetailPage = () => {
                     })}
 
                     {/* Print */}
-                    <button className="jd-stage-btn" onClick={() => setShowPrint(true)}
+                    <button className="jd-stage-btn" onClick={() => setShowPrint(printFmt)}
                         style={{ background: '#f0fdf4', color: '#166534', borderColor: '#bbf7d0' }}>
                         🖨 Print
                     </button>

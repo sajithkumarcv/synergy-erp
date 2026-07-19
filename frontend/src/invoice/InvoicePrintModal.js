@@ -51,7 +51,6 @@ const InvoicePrintModal = ({ invoice, lines = [], onClose, preview }) => {
                     <div className="pop-doc-type" style={{ margin: 0 }}>Tax Invoice</div>
                     <div style={{ textAlign: 'right' }}>
                         <div className="pop-doc-number">{invoice.invoiceNo}</div>
-                        <div className="pop-doc-status">{invoice.status || 'Confirmed'}</div>
                     </div>
                 </div>
 
@@ -152,12 +151,6 @@ const InvoicePrintModal = ({ invoice, lines = [], onClose, preview }) => {
                                     : null}
                             </span>
                         </div>
-                        {invoice.createdBy && (
-                            <div className="pop-info-row">
-                                <span className="pop-info-row-label">Prepared by:</span>
-                                <span className="pop-info-row-val">{invoice.createdBy}</span>
-                            </div>
-                        )}
                         <div className="pop-info-row">
                             <span className="pop-info-row-label">Line Items:</span>
                             <span className="pop-info-row-val">{lines.length}</span>
@@ -292,7 +285,7 @@ const InvoicePrintModal = ({ invoice, lines = [], onClose, preview }) => {
                     <div className="pop-sig-box">
                         <div className="pop-sig-label">Prepared by</div>
                         <div className="pop-sig-line" />
-                        <div className="pop-sig-sub">{invoice.createdBy || 'Name / Signature'}</div>
+                        <div className="pop-sig-sub">Name / Signature</div>
                     </div>
                     <div className="pop-sig-box">
                         <div className="pop-sig-label">Approved by</div>

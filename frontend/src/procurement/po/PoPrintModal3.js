@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { variables, authHeaders, getFileUrl } from '../../Variable';
+import { variables, authHeaders } from '../../Variable';
 import { fmt, fmtDate } from '../procurementConstants';
 import useOwnerCompany from '../../hooks/useOwnerCompany';
 import consolidatePoLinesForPrint from './consolidatePoLinesForPrint';
@@ -85,7 +85,6 @@ const PoPrintModal3 = ({ po, onClose, preview }) => {
     // ── Company info ──────────────────────────────────────────
     const supplierName = po.supplierNameResolved || po.vendorName || '—';
     const currency     = po.currencyShort || po.currencyName || '';
-    const logoSrc      = getFileUrl(company?.logoPath);
     const primaryAddr  = company?.addresses?.find(a => a.isPrimary) ?? company?.addresses?.[0];
     const addrLine     = primaryAddr
         ? [primaryAddr.addressLine1, primaryAddr.addressLine2, primaryAddr.city, primaryAddr.country].filter(Boolean).join(', ')
@@ -122,66 +121,37 @@ const PoPrintModal3 = ({ po, onClose, preview }) => {
                 {preview && <DraftWatermark />}
                 {preview && <PreviewBanner />}
 
-                {/* ── 1. Company header ── */}
-                <div style={{ display: 'flex', justifyContent: 'space-between',
-                               alignItems: 'flex-start', paddingBottom: 10,
-                               borderBottom: '2px solid #1e3a5f', marginBottom: 14 }}>
-                    <div>
-                        <div style={{ fontSize: 16, fontWeight: 800, color: '#1e3a5f', marginBottom: 3 }}>
+                {/* ── 1. Blue banner (matches the invoice header) ── */}
+                <div style={{
+                    background: '#0f4c75', color: '#fff',
+                    margin: '-28px -36px 16px', padding: '18px 36px',
+                    display: 'flex', justifyContent: 'space-between',
+                    alignItems: 'center', gap: 20,
+                }}>
+                    <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: '.01em', marginBottom: 3 }}>
                             {coLoading ? '…' : (company?.companyName || '—')}
                         </div>
-                        {!preview && addrLine && (
-                            <div style={{ fontSize: 10.5, color: '#475569', marginBottom: 2 }}>{addrLine}</div>
-                        )}
                         {!preview && (
-                            <div style={{ fontSize: 10.5, color: '#475569', lineHeight: 1.6 }}>
+                            <div style={{ fontSize: 10, color: 'rgba(255,255,255,.72)', lineHeight: 1.5 }}>
                                 {[
+                                    addrLine,
                                     company?.phone && `Tel: ${company.phone}`,
-                                    company?.fax   && `Fax: ${company.fax}`,
                                     company?.gstNo && `GSTIN: ${company.gstNo}`,
-                                    company?.pan   && `PAN: ${company.pan}`,
-                                    company?.cin   && `CIN: ${company.cin}`,
                                     company?.trn   && `TRN: ${company.trn}`,
-                                ].filter(Boolean).join('  |  ')}
+                                ].filter(Boolean).join('  ·  ')}
                             </div>
                         )}
                     </div>
-                    {preview ? null : logoSrc ? (
-                        <img src={logoSrc} alt="Logo"
-                             style={{ maxHeight: 56, maxWidth: 110, objectFit: 'contain' }}
-                             onError={e => e.target.style.display = 'none'} />
-                    ) : (
-                        <div style={{
-                            background: '#1e3a5f', color: '#fff', padding: '8px 12px',
-                            borderRadius: 4, fontSize: 10, fontWeight: 700,
-                            textAlign: 'center', lineHeight: 1.3, whiteSpace: 'pre-line',
-                        }}>
-                            {(company?.companyName || '').split(' ').slice(0, 3).join('\n')}
-                        </div>
-                    )}
-                </div>
-
-                {/* ── 2. Document title + status + PO number ── */}
-                <div style={{ display: 'flex', justifyContent: 'space-between',
-                               alignItems: 'center', marginBottom: 12 }}>
-                    <div>
-                        <div style={{ fontSize: 20, fontWeight: 800, color: '#1e293b',
-                                      letterSpacing: '.04em', textTransform: 'uppercase' }}>
+                    <div style={{ textAlign: 'right', flexShrink: 0, paddingLeft: 16 }}>
+                        <div style={{ fontSize: 20, fontWeight: 800, textTransform: 'uppercase',
+                                      letterSpacing: '.06em', color: '#7dd3fc', marginBottom: 2, whiteSpace: 'nowrap' }}>
                             Purchase Order
                         </div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        {po.revision > 0 && (
-                            <span style={{ fontSize: 10, color: '#dc2626', fontWeight: 700 }}>
-                                Rev.{po.revision}
-                            </span>
-                        )}
-                        <span style={{
-                            fontSize: 16, fontWeight: 700, color: '#d97706',
-                            fontFamily: 'Courier New', letterSpacing: '.02em',
-                        }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, fontFamily: 'Courier New', color: '#fff' }}>
+                            {po.revision > 0 && <span style={{ color: '#fca5a5', marginRight: 8 }}>Rev.{po.revision}</span>}
                             {po.poNumber}
-                        </span>
+                        </div>
                     </div>
                 </div>
 
@@ -382,7 +352,7 @@ const PoPrintModal3 = ({ po, onClose, preview }) => {
 
                         {/* Grand Total */}
                         <div style={{ display: 'flex', justifyContent: 'space-between',
-                                      padding: '9px 14px', background: '#d97706', color: '#fff' }}>
+                                      padding: '9px 14px', background: '#0f4c75', color: '#fff' }}>
                             <span style={{ fontWeight: 700, fontSize: 13 }}>
                                 TOTAL {currency && `(${currency})`}
                             </span>

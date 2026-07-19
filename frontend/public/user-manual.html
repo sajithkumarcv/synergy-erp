@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ERP — User Manual</title>
+<style>
+  :root {
+    --brand:#0f4c75; --brand-2:#2e5fa3; --ink:#12203a; --muted:#5b6b86; --faint:#8b98b3;
+    --bg:#f5f7fb; --card:#ffffff; --border:#e2e8f0; --code:#eef2f8;
+    --ok:#16a34a; --ok-bg:#f0fdf4; --warn:#c2410c; --warn-bg:#fff7ed; --info:#1d4ed8; --info-bg:#eff6ff;
+    --font:-apple-system,system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  * { box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body { margin:0; font-family:var(--font); color:var(--ink); background:var(--bg); font-size:15px; line-height:1.65; }
+
+  /* ── Layout ── */
+  .wrap { display:grid; grid-template-columns:270px 1fr; min-height:100vh; }
+  .side {
+    position:sticky; top:0; align-self:start; height:100vh; overflow-y:auto;
+    background:var(--brand); color:#fff; padding:22px 0;
+  }
+  .side .brand { padding:0 24px 18px; border-bottom:1px solid rgba(255,255,255,.14); margin-bottom:14px; }
+  .side .brand .t { font-weight:800; font-size:18px; letter-spacing:-.01em; }
+  .side .brand .s { font-size:11.5px; color:rgba(255,255,255,.6); letter-spacing:.12em; text-transform:uppercase; margin-top:4px; }
+  .side nav a {
+    display:block; padding:7px 24px; color:rgba(255,255,255,.82); text-decoration:none;
+    font-size:13.5px; border-left:3px solid transparent; transition:.12s;
+  }
+  .side nav a:hover { background:rgba(255,255,255,.08); color:#fff; }
+  .side nav a.sub { padding-left:38px; font-size:12.5px; color:rgba(255,255,255,.62); }
+  .side nav a.active { border-left-color:#7dd3fc; background:rgba(255,255,255,.10); color:#fff; }
+  .side nav .grp { padding:14px 24px 5px; font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:rgba(255,255,255,.45); }
+
+  main { padding:0 0 80px; max-width:900px; }
+  .topbar {
+    position:sticky; top:0; z-index:5; background:rgba(245,247,251,.9); backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--border); padding:14px 40px; display:flex; align-items:center; justify-content:space-between;
+  }
+  .topbar .title { font-weight:700; font-size:15px; color:var(--brand); }
+  .topbar .ver { font-family:var(--mono); font-size:12px; color:var(--muted); }
+  .content { padding:8px 40px; }
+
+  /* ── Typography ── */
+  h1 { font-size:30px; letter-spacing:-.02em; margin:26px 0 6px; }
+  h2 { font-size:23px; letter-spacing:-.01em; margin:44px 0 10px; padding-top:14px; border-top:2px solid var(--border); color:var(--brand); }
+  h2:first-of-type { border-top:none; }
+  h3 { font-size:17px; margin:26px 0 8px; color:var(--ink); }
+  p { margin:9px 0; }
+  .lead { font-size:16.5px; color:var(--muted); max-width:62ch; }
+  a { color:var(--brand-2); }
+  code { font-family:var(--mono); font-size:.88em; background:var(--code); padding:1.5px 6px; border-radius:5px; color:#213a63; }
+  strong { font-weight:650; }
+
+  /* ── Step lists ── */
+  ol.steps { counter-reset:step; list-style:none; padding:0; margin:14px 0; }
+  ol.steps > li {
+    counter-increment:step; position:relative; padding:4px 0 14px 44px; margin:0;
+  }
+  ol.steps > li::before {
+    content:counter(step); position:absolute; left:0; top:2px;
+    width:28px; height:28px; border-radius:8px; background:var(--brand); color:#fff;
+    font-size:13px; font-weight:700; display:grid; place-items:center; font-family:var(--mono);
+  }
+  ol.steps > li:not(:last-child)::after {
+    content:""; position:absolute; left:13.5px; top:32px; bottom:2px; width:1.5px; background:var(--border);
+  }
+  ul.plain { margin:8px 0; padding-left:20px; }
+  ul.plain li { margin:4px 0; }
+
+  /* ── Callouts ── */
+  .note { border-radius:8px; padding:11px 15px 11px 15px; margin:14px 0; font-size:14px; border-left:4px solid; }
+  .note .lbl { font-weight:700; font-size:11px; letter-spacing:.06em; text-transform:uppercase; display:block; margin-bottom:3px; }
+  .note.tip  { background:var(--ok-bg);  border-color:var(--ok);  } .note.tip .lbl  { color:var(--ok); }
+  .note.warn { background:var(--warn-bg);border-color:var(--warn);} .note.warn .lbl { color:var(--warn); }
+  .note.info { background:var(--info-bg);border-color:var(--info);} .note.info .lbl { color:var(--info); }
+
+  /* ── Path breadcrumb ── */
+  .path { display:inline-flex; align-items:center; gap:6px; font-size:12.5px; font-weight:600; color:var(--brand);
+          background:#eaf1f8; border:1px solid #cfe0ef; border-radius:6px; padding:4px 10px; font-family:var(--mono); }
+
+  /* ── Tables ── */
+  .tbl-wrap { overflow-x:auto; margin:16px 0; border:1px solid var(--border); border-radius:8px; }
+  table { border-collapse:collapse; width:100%; font-size:13.5px; }
+  th { background:var(--brand); color:#fff; text-align:left; padding:9px 12px; font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
+  td { padding:9px 12px; border-top:1px solid var(--border); vertical-align:top; }
+  tr:nth-child(even) td { background:#f8fafc; }
+
+  /* ── Status chips ── */
+  .chip { display:inline-block; padding:2px 9px; border-radius:20px; font-size:11.5px; font-weight:600; white-space:nowrap; }
+  .c-draft{background:#f1f5f9;color:#475569;} .c-pend{background:#fef3c7;color:#92400e;}
+  .c-prog{background:#dbeafe;color:#1e40af;} .c-appr{background:#dcfce7;color:#166534;}
+  .c-rej{background:#fee2e2;color:#991b1b;} .c-canc{background:#f1f5f9;color:#64748b;}
+  .c-back{background:#fef3c7;color:#92400e;}
+
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; margin:18px 0; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px; }
+  .card h4 { margin:0 0 6px; font-size:14.5px; color:var(--brand); }
+  .card p { margin:0; font-size:13px; color:var(--muted); }
+
+  .shot { border:1px dashed #c7d2e0; background:#f8fafc; border-radius:8px; padding:26px; text-align:center;
+          color:var(--faint); font-size:13px; margin:14px 0; }
+  .shot b { color:var(--muted); }
+
+  footer { border-top:1px solid var(--border); margin-top:50px; padding:24px 40px; color:var(--faint); font-size:12.5px; }
+
+  .menu-btn { display:none; }
+
+  /* ── Responsive ── */
+  @media (max-width:900px) {
+    .wrap { grid-template-columns:1fr; }
+    .side { position:fixed; z-index:20; width:270px; left:-280px; transition:left .2s; height:100vh; box-shadow:0 0 40px rgba(0,0,0,.3); }
+    .side.open { left:0; }
+    .menu-btn { display:inline-grid; place-items:center; width:38px; height:38px; border-radius:8px; border:1px solid var(--border); background:#fff; cursor:pointer; }
+    .content, .topbar { padding-left:20px; padding-right:20px; }
+  }
+
+  /* ── Print ── */
+  @media print {
+    .side, .topbar, .menu-btn, .shot { display:none !important; }
+    .wrap { display:block; } main { max-width:none; }
+    body { background:#fff; font-size:11pt; }
+    h2 { break-after:avoid; } ol.steps > li, .note, table { break-inside:avoid; }
+    a { color:inherit; text-decoration:none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ── Sidebar ── -->
+  <aside class="side" id="side">
+    <div class="brand">
+      <div class="t">ERP User Manual</div>
+      <div class="s">Getting things done</div>
+    </div>
+    <nav id="nav">
+      <a href="#intro">1. Getting Started</a>
+      <a class="sub" href="#signin">1.1 Signing in</a>
+      <a class="sub" href="#navigate">1.2 Navigating</a>
+      <a class="sub" href="#lifecycle">1.3 Document lifecycle</a>
+
+      <div class="grp">Master Data</div>
+      <a href="#customer">2.1 Create a Customer</a>
+      <a href="#supplier">2.2 Create a Supplier</a>
+      <a href="#item">2.3 Create an Item</a>
+
+      <div class="grp">Project &amp; Procurement</div>
+      <a href="#cycle">3. The full cycle</a>
+      <a class="sub" href="#job">3.1 Create a Job</a>
+      <a class="sub" href="#budget">3.2 Job Budget</a>
+      <a class="sub" href="#bom">3.3 Bill of Materials</a>
+      <a class="sub" href="#pr">3.4 Purchase Requisition</a>
+      <a class="sub" href="#po">3.5 Purchase Order</a>
+      <a class="sub" href="#grn">3.6 Goods Receipt (GRN)</a>
+      <a class="sub" href="#srv">3.7 Service / Free-Issue</a>
+      <a class="sub" href="#procextra">3.8 More procurement</a>
+      <a class="sub" href="#jobtrack">3.9 Tracking a job</a>
+
+      <div class="grp">Workflow</div>
+      <a href="#approvals">4. Approvals</a>
+
+      <div class="grp">Finance</div>
+      <a href="#invoice">5.1 Tax Invoice</a>
+      <a href="#receipt">5.2 Receipt Voucher</a>
+      <a href="#payment">5.3 Payment Voucher</a>
+      <a href="#notes">5.4 Credit / Debit Note</a>
+
+      <div class="grp">Time &amp; Cost</div>
+      <a href="#manhour">Manhours &amp; Timesheets</a>
+
+      <div class="grp">Inventory & Output</div>
+      <a href="#inventory">6. Inventory</a>
+      <a href="#reports">Reports</a>
+      <a href="#printing">7. Printing documents</a>
+
+      <div class="grp">Administration</div>
+      <a href="#admin">8. Settings (admins)</a>
+      <a href="#reference">9. Status reference</a>
+    </nav>
+  </aside>
+
+  <!-- ── Main ── -->
+  <main>
+    <div class="topbar">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button class="menu-btn" id="menuBtn" aria-label="Menu">☰</button>
+        <span class="title">ERP User Manual</span>
+      </div>
+      <span class="ver">Version 4.8 · July 2026</span>
+    </div>
+
+    <div class="content">
+
+      <!-- ══ 1. GETTING STARTED ══ -->
+      <h1 id="intro">Getting Started</h1>
+      <p class="lead">This manual walks you through the everyday tasks in the ERP — creating master
+        records, running the procurement cycle, sending documents through approval, and raising
+        invoices and vouchers. Screens follow the same pattern throughout, so once you learn one, the rest feel familiar.</p>
+
+      <div class="note info"><span class="lbl">What you see &amp; what you can do depends on your role</span>
+        The <strong>menus</strong> in the left panel, and the <strong>action buttons</strong> on every screen —
+        <strong>Add, Edit, Approve, Print, Delete, Revise</strong> — appear <em>only</em> if your assigned
+        <strong>role</strong> grants them. Two people can open the same document and see different buttons.
+        If a menu or button you expect is missing, your role simply doesn't include it — ask your administrator.
+      </div>
+      <div class="note warn"><span class="lbl">No role, no access</span>
+        If your account has <strong>no role</strong> assigned (or a role with no screens), sign-in is refused with a
+        clear message. You must be given a role before you can use the system.
+      </div>
+
+      <h3 id="signin">1.1 Signing in</h3>
+      <ol class="steps">
+        <li>Open the application URL. A branded sign-in screen appears for your company.</li>
+        <li>Enter your <strong>Username</strong> and <strong>Password</strong>, then click <strong>Sign In</strong>.</li>
+        <li>Forgot your password? Click <strong>Forgot password?</strong>, enter your username and email, and a reset link is sent to you.</li>
+      </ol>
+      <div class="note warn"><span class="lbl">One session at a time</span>
+        Each account can be signed in on one PC at a time. If you see “Already signed in on another PC”,
+        continuing here will sign the other one out. Your session ends when you close the browser.
+      </div>
+
+      <h3 id="navigate">1.2 Navigating the app</h3>
+      <ul class="plain">
+        <li><strong>Left menu</strong> — groups every module (Masters, Procurement, Finance, Inventory, Settings). Click a module to open its list.</li>
+        <li><strong>List screen</strong> — search, filter and page through records; click a row to open its <strong>detail page</strong>.</li>
+        <li><strong>Detail page</strong> — a header summary (KPI strip) on top, then <strong>tabs</strong> (Overview, Lines, Documents, Approval, …). Action buttons (Edit, Submit, Print, Delete) sit in the top-right.</li>
+      </ul>
+
+      <h3 id="lifecycle">1.3 How a document moves — its lifecycle</h3>
+      <p>Most business documents (PR, PO, GRN, Invoice, Vouchers) follow the same lifecycle. The
+        <strong>status badge</strong> on the document always tells you where it is.</p>
+      <div class="tbl-wrap"><table>
+        <tr><th>Stage</th><th>What it means</th><th>What you can do</th></tr>
+        <tr><td><span class="chip c-draft">Draft</span></td><td>Being created / edited. Not yet in the workflow.</td><td>Edit freely, then <strong>Submit for Approval</strong>.</td></tr>
+        <tr><td><span class="chip c-pend">Pending</span> / <span class="chip c-prog">In&nbsp;Progress</span></td><td>Submitted and waiting for an approver at the current level.</td><td>Approver acts; submitter may Cancel.</td></tr>
+        <tr><td><span class="chip c-appr">Approved</span> / <span class="chip c-appr">Confirmed</span></td><td>Fully approved — ready for the next step (e.g. a PO can now receive a GRN).</td><td>Proceed downstream; Print.</td></tr>
+        <tr><td><span class="chip c-back">Sent Back</span></td><td>An approver returned it to the submitter for correction.</td><td>Fix and re-submit.</td></tr>
+        <tr><td><span class="chip c-rej">Rejected</span></td><td>An approver declined it. Closed.</td><td>Copy to a new document if needed.</td></tr>
+        <tr><td><span class="chip c-canc">Cancelled</span></td><td>Withdrawn by the submitter or voided.</td><td>—</td></tr>
+      </table></div>
+
+      <!-- ══ 2. MASTERS ══ -->
+      <h1>Master Data</h1>
+      <p class="lead">Masters are the reference records — customers, suppliers and items — that every
+        transaction pulls from. Set them up once; reuse them everywhere.</p>
+
+      <h2 id="customer">2.1 Create a Customer</h2>
+      <p><span class="path">Masters ▸ Customers</span></p>
+      <ol class="steps">
+        <li>Open <strong>Customers</strong> and click <strong>+ New Customer</strong>.</li>
+        <li>Enter the core details: <strong>Customer Name</strong>, code, <strong>Currency</strong>, <strong>Payment Terms</strong>, <strong>Credit Limit</strong> / <strong>Credit Days</strong>, and the <strong>VAT / TRN</strong> number.</li>
+        <li>Save. The customer opens on its detail page with tabs.</li>
+        <li>Open the <strong>Contacts</strong> tab → add contact persons (name, designation, phone, email). Mark one as <em>primary</em>.</li>
+        <li>Open the <strong>Addresses</strong> tab → add one or more addresses (Billing, Shipping…). Set the <strong>Default</strong> address — it is what appears on invoices.</li>
+      </ol>
+      <div class="note tip"><span class="lbl">Credit hold</span>
+        A customer can be placed on <strong>Credit Hold</strong>. While on hold, new invoices for that customer
+        cannot be approved until the hold is cleared.
+      </div>
+
+      <h2 id="supplier">2.2 Create a Supplier</h2>
+      <p><span class="path">Masters ▸ Suppliers</span></p>
+      <ol class="steps">
+        <li>Open <strong>Suppliers</strong> → <strong>+ New Supplier</strong>.</li>
+        <li>Enter name, code, currency, payment/delivery terms and tax number.</li>
+        <li>Add <strong>Contacts</strong> and <strong>Addresses</strong> on their tabs, exactly like a customer.</li>
+      </ol>
+      <p>Suppliers you create here become selectable on Purchase Orders and supplier invoices.</p>
+
+      <h2 id="item">2.3 Create an Item</h2>
+      <p><span class="path">Masters ▸ Items</span></p>
+      <ol class="steps">
+        <li>Open <strong>Items</strong> → <strong>+ New Item</strong>.</li>
+        <li>Enter <strong>Item Code</strong> and <strong>Item Name</strong>.</li>
+        <li>Set the item's <strong>units of measure</strong>:
+          <ul class="plain">
+            <li><strong>Base UOM</strong> — the unit stock is held and valued in (e.g. <code>PCS</code>).</li>
+            <li><strong>Purchase UOM</strong> — the unit you buy in on a PO (e.g. <code>BOX</code>).</li>
+            <li><strong>Sales UOM</strong> — the unit you sell / invoice in.</li>
+          </ul>
+        </li>
+        <li>Set whether the item is <strong>Stockable</strong> (tracked in inventory) and, if used, its <strong>budget / cost category</strong>.</li>
+        <li>Save. The item is now available on requisitions, orders and receipts.</li>
+      </ol>
+
+      <h3 id="uomconv">UOM conversion — buy in one unit, stock in another</h3>
+      <p>When an item is purchased in a different unit from how it is stored — bought by the
+        <strong>BOX</strong> but issued by the <strong>PIECE</strong> — define a <strong>UOM conversion</strong> so
+        the system converts quantities automatically. No manual maths, and stock stays correct in the base unit.</p>
+      <ol class="steps">
+        <li>Open the item and go to its <strong>UOM Conversions</strong>.</li>
+        <li>Add a conversion with <strong>From UOM</strong>, <strong>To UOM</strong> and a <strong>Conversion Factor</strong>.
+            Example — <em>From <code>BOX</code> → To <code>PCS</code>, Factor <code>12</code></em> means 1 box = 12 pieces.</li>
+        <li>Save. Now a PO for <strong>5 BOX</strong> receives as <strong>60 PCS</strong> into stock, and costing,
+            balances and issues all stay right in the base unit.</li>
+      </ol>
+      <div class="note tip"><span class="lbl">Why it matters</span>
+        Conversions keep <strong>purchase, stock and sales units</strong> consistent — you order and receive in the
+        supplier's unit while inventory, budget and issues all work in the base unit.
+      </div>
+
+      <h3 id="itemimport">Bulk import items from Excel</h3>
+      <p>To load many items at once instead of adding them one by one:</p>
+      <ol class="steps">
+        <li>On the <strong>Items</strong> list, choose <strong>Import</strong>. The screen shows the required
+            column layout (download the template if one is offered).</li>
+        <li>Fill <strong>one row per item</strong> — <strong>Item Code</strong>, <strong>Item Name</strong>,
+            <strong>Base UOM</strong>, <strong>Purchase UOM</strong>, <strong>Sales UOM</strong>, stockable flag,
+            category, etc. UOMs may be entered by their <strong>code or name</strong>.</li>
+        <li>Upload the file. Each row is <strong>validated</strong> — good rows are imported, and any row with a
+            problem (missing name, unknown UOM…) is listed <strong>with the reason</strong>, so you fix and
+            re-upload just those.</li>
+      </ol>
+      <div class="note warn"><span class="lbl">Before you import</span>
+        The <strong>UOMs you reference must already exist</strong> in the system — an unknown UOM code / name makes
+        that row fail. <strong>Item Code</strong> and <strong>Base UOM</strong> are required on every row.
+      </div>
+
+      <!-- ══ 3. PROJECT & PROCUREMENT CYCLE ══ -->
+      <h1 id="cycle">Project &amp; Procurement Cycle</h1>
+      <p class="lead">For a project (customer) job, buying never starts with a purchase order. It starts
+        with the <strong>Job</strong>, then its <strong>Budget</strong>, then its <strong>BOM</strong> —
+        each approved in turn. Only after the BOM is approved does <strong>PR&nbsp;→&nbsp;PO&nbsp;→&nbsp;GRN</strong> open up.</p>
+
+      <div class="note warn"><span class="lbl">Follow the sequence — it is enforced</span>
+        You cannot raise a Purchase Requisition until the job's <strong>Budget</strong> and <strong>BOM</strong>
+        are approved. Work through the steps below in order.
+      </div>
+
+      <div class="tbl-wrap"><table>
+        <tr><th>Step</th><th>Do this</th><th>You reach</th></tr>
+        <tr><td>1</td><td>Create the <strong>Job</strong> and fill all its details, then submit</td><td><span class="chip c-appr">Job Approved</span></td></tr>
+        <tr><td>2</td><td>Create the <strong>Budget</strong> (cost categories &amp; amounts), then submit</td><td><span class="chip c-appr">Budget Approved</span></td></tr>
+        <tr><td>3</td><td>Create the <strong>BOM</strong> from the approved budget, then submit</td><td><span class="chip c-appr">BOM Approved</span></td></tr>
+        <tr><td>4</td><td>Raise a <strong>PR</strong> → convert to <strong>PO</strong> → receive with a <strong>GRN</strong></td><td>Material received</td></tr>
+      </table></div>
+
+      <div class="note info"><span class="lbl">In-house jobs — still tied to a budget header</span>
+        The full <strong>Job → Budget → BOM → PR → PO → GRN</strong> path applies to <strong>project /
+        customer jobs</strong>. <strong>In-house jobs</strong> follow a shorter path (not gated by BOM approval),
+        but each in-house job is still linked to a <strong>budget header</strong>: you may only purchase items
+        that fall <strong>under that job's budget</strong>. That link is what lets the system <strong>track every
+        item</strong> bought and consumed against the job, and keeps spend inside the approved budget.
+      </div>
+
+      <h2 id="job">3.1 Create a Job</h2>
+      <p><span class="path">Jobs ▸ Jobs</span></p>
+      <ol class="steps">
+        <li>Open <strong>Jobs</strong> → <strong>+ New Job</strong>.</li>
+        <li>Fill the details: job name / number, <strong>Customer</strong>, description, <strong>Job Type</strong>
+            (this scopes the BOM later), currency &amp; exchange rate, dates and any LPO / reference.</li>
+        <li>Save as <span class="chip c-draft">Draft</span>, then <strong>Submit for Approval</strong>. Complete
+            every mandatory field — the system validates them before the job can enter the workflow.</li>
+        <li>Once <span class="chip c-appr">Approved</span>, the job is live and you can create its budget.</li>
+      </ol>
+
+      <h2 id="budget">3.2 Job Budget</h2>
+      <p><span class="path">Jobs ▸ (open job) ▸ Budget</span></p>
+      <ol class="steps">
+        <li>Open the approved job and go to its <strong>Budget</strong>.</li>
+        <li>Add a <strong>budget line per cost / expense category</strong> with its budgeted amount (and currency /
+            rate). This is the ceiling every future purchase order is checked against.</li>
+        <li><strong>Submit the Budget for approval.</strong> Approving the budget is what lets you build the BOM.</li>
+      </ol>
+      <div class="note warn"><span class="lbl">Changing an item later? Start from the budget</span>
+        To add, remove or change a material after the cycle has begun, do <em>not</em> edit the PR or PO directly.
+        Go back and <strong>revise the Budget</strong> first (revise → re-approve), then update the
+        <strong>BOM</strong>, and only then the procurement documents — so budget, BOM and purchases stay in step.
+      </div>
+
+      <h2 id="bom">3.3 Bill of Materials (BOM)</h2>
+      <p><span class="path">BOM ▸ Bill of Materials</span></p>
+      <ol class="steps">
+        <li>Create a <strong>BOM</strong> for the approved job. Its sections and items are scoped to the job's <strong>Job Type</strong>.</li>
+        <li>Add the materials and quantities the job needs — the BOM can be generated from the approved budget.</li>
+        <li><strong>Submit the BOM for approval.</strong> Once <span class="chip c-appr">Approved</span>, procurement opens up.</li>
+      </ol>
+
+      <h3 style="margin-top:34px;">Procurement — PR → PO → GRN</h3>
+      <div class="cards">
+        <div class="card"><h4>Purchase Requisition</h4><p>“We need these items.” Raised for the job against its approved BOM / budget.</p></div>
+        <div class="card"><h4>Purchase Order</h4><p>“Ordered from this supplier.” Sent to the vendor after approval.</p></div>
+        <div class="card"><h4>Goods Receipt (GRN)</h4><p>“Received into stock.” Records what actually arrived against the PO.</p></div>
+      </div>
+
+      <h2 id="pr">3.4 Purchase Requisition (PR)</h2>
+      <p><span class="path">Procurement ▸ Purchase Requests</span></p>
+      <ol class="steps">
+        <li>Open <strong>Purchase Requests</strong> → <strong>+ New PR</strong>.</li>
+        <li>Select the <strong>Job</strong> the requisition is for, and fill the header (required date, priority).</li>
+        <li>On the <strong>Lines</strong> tab, add each item: pick the <strong>Item</strong>, enter <strong>Quantity</strong>, UOM and the <strong>budget/expense category</strong>.</li>
+        <li>Save as <span class="chip c-draft">Draft</span>, then click <strong>Submit for Approval</strong>.</li>
+        <li>Once fully <span class="chip c-appr">Approved</span>, the procurement team is notified and can raise a PO from it.</li>
+      </ol>
+
+      <h2 id="po">3.5 Purchase Order (PO)</h2>
+      <p><span class="path">Procurement ▸ Purchase Orders</span></p>
+      <ol class="steps">
+        <li>Open <strong>Purchase Orders</strong> → <strong>+ New PO</strong> (or create one directly from an approved PR).</li>
+        <li>Header: choose the <strong>Supplier</strong>, <strong>Currency</strong> (exchange rate auto-fills), <strong>Payment&nbsp;Terms</strong>, <strong>Delivery Terms</strong> and the <strong>Job</strong>.</li>
+        <li>On <strong>Lines</strong>, add items with <strong>Ordered Qty</strong> and <strong>Unit Price</strong>. Totals (Subtotal, VAT, Discount, Total) calculate automatically.</li>
+        <li>Add <strong>Terms &amp; Conditions</strong> and any <strong>annexures</strong> if your format uses them.</li>
+        <li><strong>Submit for Approval</strong>. Approval checks the <strong>budget</strong> for the job/category and may block or require an override.</li>
+        <li>When <span class="chip c-appr">Approved</span>, <strong>Print</strong> the PO (see §7) and send it to the supplier.</li>
+      </ol>
+      <div class="note warn"><span class="lbl">POs are linked to the budget header — spend is controlled</span>
+        Every PO line is tied to the job's <strong>budget header</strong> (expense category). On submit, the
+        system totals all committed POs for that category and <strong>blocks the PO if it would exceed the
+        approved budget</strong> — so costing stays under control and the budget cannot overflow. Only an
+        authorised approver can override with the <strong>budget password</strong> (§4), and the reason is logged.
+      </div>
+      <div class="note info"><span class="lbl">Revisions</span>
+        Need to change an approved PO? Use <strong>Revise</strong>. This creates a new revision
+        (Rev.1, Rev.2 …) that goes through approval again, keeping a full history.
+      </div>
+
+      <h2 id="grn">3.6 Goods Receipt Note (GRN)</h2>
+      <p><span class="path">Procurement ▸ GRN</span></p>
+      <ol class="steps">
+        <li>Open <strong>GRN</strong> → <strong>+ New GRN</strong> and select the <strong>Purchase Order</strong> being received.</li>
+        <li>The PO lines load. Enter the <strong>Received Quantity</strong> for each (partial receipts are allowed — the balance stays open on the PO).</li>
+        <li>Record delivery note / invoice references and the receiving store/location.</li>
+        <li>Save and <strong>Submit</strong>. On approval, stock for stockable items is <strong>increased</strong> and the PO's received quantities update.</li>
+      </ol>
+
+      <h2 id="srv">3.7 Service Receipt &amp; Free-Issue GRN</h2>
+      <ul class="plain">
+        <li><strong>Service Receipt (SRV)</strong> — confirms that a <em>service</em> on a PO was delivered (no stock movement). <span class="path">Procurement ▸ Service Receipt</span></li>
+        <li><strong>Free-Issue GRN</strong> — receives material provided free by the customer/principal for a job, tracked separately from purchased stock. <span class="path">Procurement ▸ Free-Issue GRN</span></li>
+      </ul>
+
+      <h2 id="procextra">3.8 More procurement screens</h2>
+      <p>Beyond the core PR → PO → GRN flow, these screens handle the rest of the buying cycle:</p>
+      <div class="tbl-wrap"><table>
+        <tr><th>Screen</th><th>Use it to…</th></tr>
+        <tr><td><strong>Supplier Invoice</strong></td><td>Record the supplier's invoice against received GRNs, ready for a payment voucher.</td></tr>
+        <tr><td><strong>Return to Vendor (RTV)</strong></td><td>Send received material back to the supplier (damaged, wrong or excess) and adjust stock.</td></tr>
+        <tr><td><strong>GRN Unregistration</strong></td><td>Reverse a posted GRN when a receipt was recorded in error.</td></tr>
+        <tr><td><strong>Subcontract</strong></td><td>Track work / material issued to a subcontractor and received back.</td></tr>
+        <tr><td><strong>Price Analysis</strong></td><td>Compare supplier quotes and prices to support the purchase decision.</td></tr>
+      </table></div>
+
+      <h2 id="jobtrack">3.9 Tracking a job — Overview, Analysis &amp; MOM</h2>
+      <p>Once a job is running, these screens show where it stands. <span class="path">Jobs ▸ …</span></p>
+      <div class="tbl-wrap"><table>
+        <tr><th>Screen</th><th>What it shows</th></tr>
+        <tr><td><strong>Job Overview</strong></td><td>A single dashboard for a job — budget vs committed vs actual, plus its POs, GRNs, invoices, manhours and stock at a glance, with quick-print of documents.</td></tr>
+        <tr><td><strong>Job Analysis</strong></td><td>Cost analysis by category — <strong>budget, committed, spent and variance</strong> — to see the job's financial position.</td></tr>
+        <tr><td><strong>Job MOM</strong></td><td>Minutes-of-Meeting log for the job — record decisions, action points and owners against the project.</td></tr>
+      </table></div>
+
+      <!-- ══ 4. APPROVALS ══ -->
+      <h1 id="approvals">Approvals</h1>
+      <p class="lead">Approval is the same across every document. When you submit, the system routes it
+        through the approval <strong>policy</strong> that matches the document and its amount.</p>
+
+      <h3>Submitting</h3>
+      <p>On a <span class="chip c-draft">Draft</span> document, click <strong>Submit for Approval</strong>. The
+        status becomes <span class="chip c-pend">Pending</span> at Level 1 and the assigned approver is notified.</p>
+
+      <h3>Acting on a document (approvers)</h3>
+      <p>Open the document's <strong>Approval</strong> tab, or find it under <span class="path">Approvals ▸ My Approvals</span>. Choose an action and add <strong>remarks</strong>:</p>
+      <div class="tbl-wrap"><table>
+        <tr><th>Action</th><th>Effect</th></tr>
+        <tr><td><strong>Approve</strong></td><td>Moves to the next level, or marks the document <span class="chip c-appr">Approved/Confirmed</span> at the final level. <em>Requires your login password.</em></td></tr>
+        <tr><td><strong>Send Back</strong></td><td>Returns the document to the previous level (or to the submitter as a draft) for correction — <span class="chip c-back">Sent Back</span>.</td></tr>
+        <tr><td><strong>Reject</strong></td><td>Declines the document — <span class="chip c-rej">Rejected</span>. It cannot proceed.</td></tr>
+        <tr><td><strong>Cancel</strong></td><td>Withdraws the document (submitter) — <span class="chip c-canc">Cancelled</span>.</td></tr>
+      </table></div>
+      <div class="note tip"><span class="lbl">Delegates</span>
+        Going on leave? An administrator can set a <strong>delegate</strong> for a date range, so your
+        pending approvals route to a colleague automatically. The trail records who acted and on whose behalf.
+      </div>
+      <div class="note info"><span class="lbl">Budget override</span>
+        If a PO would exceed the job's budget for an expense category, approval is blocked. An authorised
+        approver can enter the <strong>budget password</strong> to override, and the reason is logged.
+      </div>
+
+      <!-- ══ 5. FINANCE ══ -->
+      <h1>Finance</h1>
+      <p class="lead">Bill customers, record money received and paid, and issue credit or debit notes —
+        all sharing the same create → approve → print rhythm.</p>
+
+      <h2 id="invoice">5.1 Tax Invoice</h2>
+      <p><span class="path">Finance ▸ Invoices</span></p>
+      <ol class="steps">
+        <li>Open <strong>Invoices</strong> → <strong>+ New Invoice</strong>.</li>
+        <li>Select the <strong>Customer</strong> (billing address, contact and currency pre-fill), the <strong>Job</strong>, and the <strong>LPO / PO No</strong>.</li>
+        <li>On <strong>Lines</strong>, add each line: description, quantity, unit price and <strong>VAT %</strong>. Sub-total, VAT and Total calculate automatically; the amount is also shown <strong>in words</strong>.</li>
+        <li>Add any <strong>Notes / Remarks</strong> and save as <span class="chip c-draft">Draft</span>.</li>
+        <li><strong>Submit for Approval</strong>. Once <span class="chip c-appr">Confirmed</span>, <strong>Print</strong> the tax invoice (§7).</li>
+      </ol>
+      <div class="note info"><span class="lbl">Editing after approval</span>
+        A confirmed invoice is locked. Use <strong>Revise</strong> to make a corrected revision (requires a reason
+        and, if configured, a password), which re-enters approval.
+      </div>
+
+      <h2 id="receipt">5.2 Receipt Voucher (money in)</h2>
+      <p><span class="path">Finance ▸ Receipt Vouchers</span></p>
+      <ol class="steps">
+        <li>Open <strong>Receipt Vouchers</strong> → <strong>+ New</strong>.</li>
+        <li>Select the <strong>Customer</strong>, the <strong>amount received</strong>, currency, <strong>payment mode</strong> (cash / cheque / transfer) and reference.</li>
+        <li><strong>Allocate</strong> the amount against the customer's open invoices (fully or partially). Any unallocated balance is shown.</li>
+        <li>Submit for approval; on approval the invoices' outstanding balances reduce.</li>
+      </ol>
+
+      <h2 id="payment">5.3 Payment Voucher (money out)</h2>
+      <p><span class="path">Finance ▸ Payment Vouchers</span></p>
+      <p>The mirror of a receipt voucher: record a payment <strong>to a supplier</strong>, choose the bank/payment
+        mode, and allocate it against the supplier's invoices. Submit for approval as usual.</p>
+
+      <h2 id="notes">5.4 Credit &amp; Debit Notes</h2>
+      <ul class="plain">
+        <li><strong>Credit Note</strong> — reduces what a <em>customer</em> owes (returns, corrections). <span class="path">Finance ▸ Credit Notes</span></li>
+        <li><strong>Debit Note</strong> — raises a charge against a <em>supplier</em>. <span class="path">Finance ▸ Debit Notes</span></li>
+      </ul>
+      <p>Both are created, allocated against invoices, and approved the same way as vouchers.</p>
+
+      <!-- ══ MANHOURS ══ -->
+      <h1 id="manhour">Manhours &amp; Timesheets</h1>
+      <p class="lead">Record labour hours against jobs and send them for approval — they feed job costing and analysis.</p>
+      <ol class="steps">
+        <li><strong>Download the template</strong> from <span class="path">Manhours ▸ Manhour Upload</span>.</li>
+        <li><strong>Fill it in</strong> — employee, job, date and hours for the period.</li>
+        <li><strong>Upload</strong> the completed file. The system validates the rows and creates a manhour batch.</li>
+        <li><strong>Submit for approval.</strong> Once <span class="chip c-appr">Approved</span>, the hours are costed to the job using each employee's manhour rate.</li>
+      </ol>
+      <div class="tbl-wrap"><table>
+        <tr><th>Screen</th><th>Use it to…</th></tr>
+        <tr><td><strong>Manhour Upload</strong></td><td>Download the template, upload filled timesheets, and submit the batch for approval.</td></tr>
+        <tr><td><strong>Manhour Rates</strong></td><td>Maintain the hourly cost rate per employee / category used to cost the hours.</td></tr>
+        <tr><td><strong>Employees</strong></td><td>The employee master used on timesheets.</td></tr>
+      </table></div>
+      <div class="note info"><span class="lbl">Budget-controlled, like POs</span>
+        Manhour cost is also checked against the job budget; an authorised approver can override with the
+        budget password when necessary.
+      </div>
+
+      <!-- ══ 6. INVENTORY ══ -->
+      <h1 id="inventory">Inventory</h1>
+      <p class="lead">Move and reconcile stock once items are received.</p>
+      <div class="tbl-wrap"><table>
+        <tr><th>Screen</th><th>Use it to…</th></tr>
+        <tr><td><strong>Stock Receipt</strong></td><td>Bring items into a store (a GRN feeds this automatically; use it for direct receipts).</td></tr>
+        <tr><td><strong>Stock Issue</strong></td><td>Issue material out of a store to a <strong>job</strong> or department (consumes against the job's budget).</td></tr>
+        <tr><td><strong>Issue Return</strong></td><td>Return previously issued material back to the store.</td></tr>
+        <tr><td><strong>Stock Transfer</strong></td><td>Move stock between stores / locations.</td></tr>
+        <tr><td><strong>Stock Adjustment</strong></td><td>Correct quantities after a physical count.</td></tr>
+        <tr><td><strong>Stock Balance</strong></td><td>View on-hand quantity and value by item / store / job.</td></tr>
+      </table></div>
+      <p>Each transaction is created, submitted and approved like the others; approved movements update the
+        on-hand balances and, where linked to a job, its consumed cost.</p>
+
+      <!-- ══ REPORTS ══ -->
+      <h1 id="reports">Reports</h1>
+      <p class="lead">Read-only screens that summarise data across the system. Most let you filter by date,
+        job, customer or supplier, and export or print the result.</p>
+      <div class="tbl-wrap"><table>
+        <tr><th>Report</th><th>Shows</th></tr>
+        <tr><td><strong>Job Analysis</strong></td><td>Budget vs committed vs actual cost per job and category, with variance.</td></tr>
+        <tr><td><strong>Customer Receivables</strong></td><td>Outstanding invoices per customer, with ageing buckets.</td></tr>
+        <tr><td><strong>Payables</strong></td><td>Amounts owed to suppliers.</td></tr>
+        <tr><td><strong>Payment Follow-up</strong></td><td>Invoices due / overdue, to chase for collection.</td></tr>
+        <tr><td><strong>Stock by Job</strong></td><td>Material received, issued and on-hand per job.</td></tr>
+        <tr><td><strong>Vendor Scorecard</strong></td><td>Supplier performance — delivery, price and reliability.</td></tr>
+        <tr><td><strong>Receipt / Voucher reports</strong></td><td>Money received and paid over a chosen period.</td></tr>
+      </table></div>
+
+      <!-- ══ 7. PRINTING ══ -->
+      <h1 id="printing">Printing Documents</h1>
+      <ol class="steps">
+        <li>Open any document (Invoice, PO, GRN, Voucher…) and click <strong>Print</strong> in the top-right.</li>
+        <li>A print preview opens in the selected layout. Click <strong>Print / Save as PDF</strong>.</li>
+        <li>In the browser dialog, choose your printer — or <strong>“Save as PDF”</strong> to keep an electronic copy.</li>
+      </ol>
+      <div class="note tip"><span class="lbl">One layout per document</span>
+        Which print layout each document uses is set centrally by an administrator (see §8), so every user
+        prints the same, approved design. A <span class="chip c-draft">Draft</span> document prints with a
+        “PREVIEW / DRAFT” watermark until it is approved.
+      </div>
+
+      <!-- ══ 8. ADMIN ══ -->
+      <h1 id="admin">Settings <span style="font-size:15px;color:var(--muted);font-weight:400;">(administrators)</span></h1>
+      <p class="lead">Admin-only screens that shape how the system behaves for everyone.</p>
+      <div class="tbl-wrap"><table>
+        <tr><th>Setting</th><th>Controls</th></tr>
+        <tr><td><strong>Company Settings</strong></td><td>Company profile &amp; logo, addresses, <strong>bank accounts</strong> (printed on invoices), and <strong>Print Formats</strong> (the active layout per document type).</td></tr>
+        <tr><td><strong>Document Series</strong></td><td>Numbering (prefix, next number) for each document type.</td></tr>
+        <tr><td><strong>Document Status</strong></td><td>The statuses, colours and allowed transitions per module.</td></tr>
+        <tr><td><strong>Approval Policies</strong></td><td>Levels, approvers (role/user), amount bands and delegates that drive the approval routing.</td></tr>
+        <tr><td><strong>Users, Roles &amp; Permissions</strong></td><td>Who can access which screens and actions.</td></tr>
+        <tr><td><strong>SMTP / Email Alerts</strong></td><td>Outgoing email server and automated notifications.</td></tr>
+      </table></div>
+      <div class="note info"><span class="lbl">Branding &amp; login</span>
+        The sign-in screen (logo, colours, welcome text, loader) is driven by the client's branding
+        configuration and can be changed without reinstalling the application.
+      </div>
+
+      <!-- ══ 9. REFERENCE ══ -->
+      <h1 id="reference">Status Reference</h1>
+      <div class="tbl-wrap"><table>
+        <tr><th>Status</th><th>Meaning</th></tr>
+        <tr><td><span class="chip c-draft">Draft</span></td><td>Editable; not yet submitted.</td></tr>
+        <tr><td><span class="chip c-pend">Pending</span></td><td>Awaiting the current approver.</td></tr>
+        <tr><td><span class="chip c-prog">In Progress</span></td><td>Partly approved; more levels remain.</td></tr>
+        <tr><td><span class="chip c-appr">Approved</span> / <span class="chip c-appr">Confirmed</span></td><td>Fully approved; active.</td></tr>
+        <tr><td><span class="chip c-back">Sent Back</span></td><td>Returned for correction.</td></tr>
+        <tr><td><span class="chip c-rej">Rejected</span></td><td>Declined; closed.</td></tr>
+        <tr><td><span class="chip c-canc">Cancelled</span></td><td>Withdrawn / void.</td></tr>
+      </table></div>
+
+      <div class="note tip"><span class="lbl">Golden rule</span>
+        If you're ever unsure, check the <strong>status badge</strong> and the document's <strong>Approval</strong>
+        tab — together they tell you exactly where a document is and who needs to act next.
+      </div>
+
+    </div>
+
+    <footer>
+      ERP User Manual · Version 4.8 · July 2026 · This document describes standard workflows; screens and
+      fields available to you depend on your assigned role and your company's configuration.
+    </footer>
+  </main>
+</div>
+
+<script>
+  // Mobile nav toggle
+  var side = document.getElementById('side'), btn = document.getElementById('menuBtn');
+  btn && btn.addEventListener('click', function(){ side.classList.toggle('open'); });
+  document.querySelectorAll('#nav a').forEach(function(a){
+    a.addEventListener('click', function(){ side.classList.remove('open'); });
+  });
+  // Active-section highlight
+  var links = Array.prototype.slice.call(document.querySelectorAll('#nav a'));
+  var map = {}; links.forEach(function(a){ var id=a.getAttribute('href').slice(1); map[id]=a; });
+  var targets = Object.keys(map).map(function(id){ return document.getElementById(id); }).filter(Boolean);
+  var obs = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if(e.isIntersecting){
+        links.forEach(function(l){ l.classList.remove('active'); });
+        var a = map[e.target.id]; if(a) a.classList.add('active');
+      }
+    });
+  }, { rootMargin:'-10% 0px -80% 0px', threshold:0 });
+  targets.forEach(function(t){ obs.observe(t); });
+</script>
+</body>
+</html>

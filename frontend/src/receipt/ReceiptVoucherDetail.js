@@ -5,6 +5,7 @@ import AmountInput from '../common/AmountInput';
 import { useCurrentUser } from '../AuthContext';
 import { usePermission } from '../PermissionContext';
 import { useLookup } from '../LookupContext';
+import { resolvePrintFormat } from '../print/printFormats';
 import ApprovalHistoryTab   from '../approval/ApprovalHistoryTab';
 import ApprovalStatusBanner from '../approval/ApprovalStatusBanner';
 import InvoicePrintModal2   from '../invoice/InvoicePrintModal2';
@@ -325,7 +326,7 @@ const ReceiptVoucherDetail = () => {
     const navigate    = useNavigate();
     const currentUser = useCurrentUser();
     const { canDo }   = usePermission();
-    const { baseCurrencyCode } = useLookup();
+    const { baseCurrencyCode, getSetting } = useLookup();
     const canEdit     = canDo('/receipt-vouchers', 'EDIT');
     const canRevise   = canDo('/receipt-vouchers', 'REVISE');
 
@@ -474,7 +475,7 @@ const ReceiptVoucherDetail = () => {
                     <span className="cd-flag-badge" style={{ background: cfg.bg, color: cfg.color }}>
                         <span className="cd-flag-dot" style={{ background: cfg.dot }} />{cfg.label}
                     </span>
-                    <button className="jd-stage-btn" onClick={() => setShowPrint(true)} disabled={busy}
+                    <button className="jd-stage-btn" onClick={() => setShowPrint(resolvePrintFormat('RV', getSetting))} disabled={busy}
                         style={{ background: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe' }}>
                         🖨 Print
                     </button>

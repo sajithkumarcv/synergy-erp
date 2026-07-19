@@ -454,3 +454,228 @@
 @media (max-width: 768px) {
   .login-layout-fullscreen .login-fs-card-col { padding: 0 16px; justify-content: center; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Remember-me row (shared LoginForm) — used by all layouts
+   ═══════════════════════════════════════════════════════════════ */
+.login-remember-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-top: -4px;
+}
+.login-remember {
+  display: inline-flex; align-items: center; gap: 9px; cursor: pointer;
+  font-size: 13px; color: #64748b; user-select: none;
+}
+.login-remember input { position: absolute; opacity: 0; width: 0; height: 0; }
+.login-check {
+  width: 18px; height: 18px; border-radius: 6px; flex: none;
+  border: 1.5px solid #cbd5e1; background: #fff;
+  display: grid; place-items: center; transition: all .15s;
+}
+.login-check svg { width: 12px; height: 12px; color: #fff; opacity: 0; transform: scale(.6); transition: all .15s; }
+.login-remember input:checked + .login-check { background: var(--brand-primary, #2e5fa3); border-color: var(--brand-primary, #2e5fa3); }
+.login-remember input:checked + .login-check svg { opacity: 1; transform: scale(1); }
+.login-remember input:focus-visible + .login-check { box-shadow: 0 0 0 4px var(--brand-primary-ring, rgba(46,95,163,0.22)); }
+
+/* ═══════════════════════════════════════════════════════════════
+   THEME TOKENS for the Aurora layout (neutral ground, theme-aware).
+   Brand HUE stays in --brand-* (set inline per client); these are the
+   light/dark NEUTRALS so the toggle works without fighting inline vars.
+   ═══════════════════════════════════════════════════════════════ */
+:root {
+  --au-bg:        #e9edf4;
+  --au-card:      rgba(255,255,255,0.72);
+  --au-field:     #ffffff;
+  --au-field-line:rgba(19,32,58,0.14);
+  --au-text:      #12203a;
+  --au-muted:     #566688;
+  --au-faint:     #8b98b3;
+  --au-border:    rgba(19,32,58,0.10);
+  --au-shadow:    0 24px 60px -18px rgba(15,26,50,0.30), 0 6px 18px -10px rgba(15,26,50,0.20);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --au-bg:#070b14; --au-card:rgba(19,26,43,0.62); --au-field:rgba(255,255,255,0.04);
+    --au-field-line:rgba(255,255,255,0.12); --au-text:#e7ecf7; --au-muted:#99a7c4;
+    --au-faint:#6b7a99; --au-border:rgba(255,255,255,0.09);
+    --au-shadow:0 30px 70px -20px rgba(0,0,0,0.66), 0 8px 24px -12px rgba(0,0,0,0.5);
+  }
+}
+:root[data-theme="light"] {
+  --au-bg:#e9edf4; --au-card:rgba(255,255,255,0.72); --au-field:#fff;
+  --au-field-line:rgba(19,32,58,0.14); --au-text:#12203a; --au-muted:#566688;
+  --au-faint:#8b98b3; --au-border:rgba(19,32,58,0.10);
+  --au-shadow:0 24px 60px -18px rgba(15,26,50,0.30), 0 6px 18px -10px rgba(15,26,50,0.20);
+}
+:root[data-theme="dark"] {
+  --au-bg:#070b14; --au-card:rgba(19,26,43,0.62); --au-field:rgba(255,255,255,0.04);
+  --au-field-line:rgba(255,255,255,0.12); --au-text:#e7ecf7; --au-muted:#99a7c4;
+  --au-faint:#6b7a99; --au-border:rgba(255,255,255,0.09);
+  --au-shadow:0 30px 70px -20px rgba(0,0,0,0.66), 0 8px 24px -12px rgba(0,0,0,0.5);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LAYOUT: aurora — premium split panel + glassmorphic card
+   ═══════════════════════════════════════════════════════════════ */
+.login-aurora {
+  display: grid;
+  grid-template-columns: 44fr 56fr;
+  min-height: 100vh;
+  background: var(--au-bg);
+}
+
+/* theme toggle */
+.au-theme {
+  position: fixed; top: 18px; right: 18px; z-index: 20;
+  width: 40px; height: 40px; border-radius: 11px; cursor: pointer;
+  border: 1px solid var(--au-border); background: var(--au-card);
+  backdrop-filter: blur(12px); color: var(--au-muted);
+  display: grid; place-items: center; transition: color .15s, border-color .15s;
+}
+.au-theme:hover { color: var(--au-text); border-color: var(--brand-primary, #2e5fa3); }
+.au-theme svg { width: 18px; height: 18px; }
+
+/* ── brand panel ── */
+.au-panel {
+  position: relative; overflow: hidden; color: #fff;
+  padding: clamp(32px, 4vw, 56px);
+  display: flex; flex-direction: column; justify-content: space-between;
+  background:
+    radial-gradient(120% 90% at 18% 8%, color-mix(in srgb, var(--brand-panel-glow, #5f95e0) 42%, transparent) 0%, transparent 46%),
+    radial-gradient(90% 80% at 88% 92%, color-mix(in srgb, var(--brand-secondary, #4f86d6) 34%, transparent) 0%, transparent 50%),
+    linear-gradient(158deg, var(--brand-panel-a, #0d1c36) 0%, var(--brand-panel-b, #24507f) 118%);
+}
+.au-motif { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .5; pointer-events: none; }
+.au-panel > *:not(.au-motif) { position: relative; z-index: 1; }
+
+.au-wordmark { display: flex; align-items: center; gap: 13px; }
+.au-monogram {
+  width: 46px; height: 46px; border-radius: 13px; flex: none; overflow: hidden;
+  display: grid; place-items: center; font-weight: 800; font-size: 21px; letter-spacing: -.03em;
+  color: var(--brand-title, #16305a);
+  background: linear-gradient(145deg, #fff, #eef2f8);
+  box-shadow: 0 8px 22px -8px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.9);
+}
+.au-monogram img { width: 78%; height: 78%; object-fit: contain; }
+.au-monogram-sm { width: 40px; height: 40px; font-size: 18px; }
+.au-wm-text { display: flex; flex-direction: column; }
+.au-wm-name { font-weight: 750; font-size: 17px; letter-spacing: -.01em; line-height: 1; }
+.au-wm-sub  { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: rgba(255,255,255,.62); margin-top: 4px; }
+
+.au-hero { max-width: 32ch; }
+.au-eyebrow {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px; letter-spacing: .18em; text-transform: uppercase;
+  color: color-mix(in srgb, var(--brand-panel-glow, #5f95e0) 82%, white);
+  display: inline-flex; align-items: center; gap: 8px; margin-bottom: 20px;
+}
+.au-eyebrow::before { content: ""; width: 22px; height: 1px; background: currentColor; opacity: .7; }
+.au-hero h1 { font-size: clamp(28px, 3.2vw, 42px); line-height: 1.05; letter-spacing: -.03em; font-weight: 780; margin: 0; text-wrap: balance; }
+.au-hero p { margin: 18px 0 0; font-size: 14.5px; line-height: 1.6; color: rgba(255,255,255,.78); max-width: 44ch; }
+.au-marks { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 28px; }
+.au-mark {
+  font-size: 12.5px; font-weight: 550; padding: 7px 13px; border-radius: 999px;
+  background: rgba(255,255,255,.10); border: 1px solid rgba(255,255,255,.16);
+  backdrop-filter: blur(6px); display: inline-flex; align-items: center; gap: 7px;
+}
+.au-mark svg { width: 13px; height: 13px; opacity: .85; }
+.au-panel-foot { font-size: 12px; color: rgba(255,255,255,.6); }
+
+/* ── form stage ── */
+.au-stage {
+  position: relative; overflow: hidden;
+  display: grid; place-items: center;
+  padding: clamp(24px, 4vw, 52px); background: var(--au-bg);
+}
+.au-stage::before, .au-stage::after {
+  content: ""; position: absolute; border-radius: 50%; filter: blur(70px); opacity: .5; pointer-events: none;
+}
+.au-stage::before { width: 420px; height: 420px; top: -120px; right: -90px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--brand-primary, #2e5fa3) 34%, transparent), transparent 70%); }
+.au-stage::after { width: 360px; height: 360px; bottom: -120px; left: -80px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--brand-secondary, #4f86d6) 26%, transparent), transparent 70%); }
+
+/* glass card — overrides the base .login-card */
+.au-card {
+  position: relative; z-index: 2;
+  width: min(430px, 100%); max-width: none;
+  background: var(--au-card);
+  backdrop-filter: blur(22px) saturate(1.4); -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  border: 1px solid var(--au-border); border-radius: 24px;
+  box-shadow: var(--au-shadow);
+  padding: clamp(28px, 3.2vw, 40px);
+}
+.au-card-brand { display: none; align-items: center; gap: 11px; margin-bottom: 20px; color: var(--au-text); }
+
+/* theme-aware form (shared LoginForm classes) inside the glass card */
+.au-card .login-card-header { margin-bottom: 24px; }
+.au-card .login-title    { color: var(--au-text); font-size: 26px; letter-spacing: -.02em; }
+.au-card .login-subtitle { color: var(--au-muted); font-size: 14px; }
+.au-card .login-field label { color: var(--au-muted); text-transform: none; font-size: 12px; letter-spacing: .01em; }
+.au-card .login-input-wrap input {
+  background: var(--au-field); border: 1px solid var(--au-field-line); color: var(--au-text);
+  border-radius: 12px; padding: 12px 40px 12px 38px; font-size: 14.5px;
+}
+.au-card .login-input-wrap input::placeholder { color: var(--au-faint); }
+.au-card .login-input-wrap input:focus {
+  border-color: var(--brand-primary, #2e5fa3); background: var(--au-field);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand-primary, #2e5fa3) 16%, transparent);
+}
+.au-card .login-field-icon { color: var(--au-faint); }
+.au-card .login-eye-btn { color: var(--au-faint); }
+.au-card .login-eye-btn:hover { color: var(--au-muted); }
+.au-card .login-remember { color: var(--au-muted); }
+.au-card .login-check { background: var(--au-field); border-color: var(--au-field-line); }
+.au-card .login-submit {
+  border-radius: 13px; min-height: 48px; font-size: 15px; letter-spacing: .01em;
+  background: linear-gradient(135deg, var(--brand-primary, #2e5fa3), color-mix(in srgb, var(--brand-primary, #2e5fa3) 62%, var(--brand-secondary, #4f86d6)));
+  box-shadow: 0 12px 26px -10px color-mix(in srgb, var(--brand-primary, #2e5fa3) 70%, transparent);
+}
+.au-card .login-submit:hover:not(:disabled) {
+  filter: brightness(1.06);
+  box-shadow: 0 16px 32px -10px color-mix(in srgb, var(--brand-primary, #2e5fa3) 70%, transparent);
+}
+.au-card .login-link { color: var(--brand-primary, #2e5fa3); }
+
+.au-divider { display: flex; align-items: center; gap: 14px; margin: 22px 0; color: var(--au-faint); font-size: 12px; }
+.au-divider::before, .au-divider::after { content: ""; height: 1px; flex: 1; background: var(--au-border); }
+
+.au-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.au-ssl {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; letter-spacing: .02em;
+  color: var(--au-muted);
+  background: color-mix(in srgb, var(--brand-secondary, #4f86d6) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-secondary, #4f86d6) 22%, transparent);
+  padding: 6px 11px; border-radius: 999px;
+}
+.au-ssl svg { width: 13px; height: 13px; color: color-mix(in srgb, var(--brand-secondary, #4f86d6) 78%, var(--au-text)); }
+.au-lang {
+  appearance: none; -webkit-appearance: none; font: inherit; font-size: 13px; color: var(--au-muted);
+  background: var(--au-field); border: 1px solid var(--au-field-line); border-radius: 10px;
+  padding: 8px 30px 8px 12px; cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%238b98b3' stroke-width='1.6'%3E%3Cpath d='M2 4l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 11px center;
+}
+.au-meta {
+  margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--au-border);
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  font-size: 11.5px; color: var(--au-faint);
+}
+.au-ver { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .04em; font-variant-numeric: tabular-nums; }
+
+/* ── aurora responsive ── */
+@media (max-width: 860px) {
+  .login-aurora { grid-template-columns: 1fr; }
+  .au-panel {
+    padding: 24px 22px; min-height: 168px;
+    flex-direction: row; align-items: center; justify-content: space-between; gap: 16px;
+  }
+  .au-hero, .au-marks, .au-panel-foot { display: none; }
+  .au-card-brand { display: flex; }
+  .au-stage { padding: 26px 18px 40px; }
+}
+@media (max-width: 460px) {
+  .au-card { padding: 24px; }
+  .login-remember-row { flex-wrap: wrap; }
+}

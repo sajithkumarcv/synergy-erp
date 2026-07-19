@@ -4,6 +4,7 @@ import { variables, authHeaders } from '../Variable';
 import { useCurrentUser } from '../AuthContext';
 import { usePermission } from '../PermissionContext';
 import { useLookup } from '../LookupContext';
+import { usePrintFormat } from '../print/printFormats';
 import AmountInput from '../common/AmountInput';
 import ApprovalHistoryTab   from '../approval/ApprovalHistoryTab';
 import ApprovalStatusBanner from '../approval/ApprovalStatusBanner';
@@ -1227,6 +1228,7 @@ const PaymentVoucherDetail = () => {
     const [showRevise,  setShowRevise]  = useState(false);
     const [showCancel,  setShowCancel]  = useState(false);
     const [showPrint,   setShowPrint]   = useState(false);
+    const printFmt = usePrintFormat('PV');   // configured layout (Company Settings → Print Formats)
     const [busy,        setBusy]        = useState(false);
     const [alertMsg,    setAlertMsg]    = useState(null);
     const [confirm,     setConfirm]     = useState(null);
@@ -1351,7 +1353,7 @@ const PaymentVoucherDetail = () => {
                     <span className="cd-flag-badge" style={{ background: cfg.bg, color: cfg.color }}>
                         <span className="cd-flag-dot" style={{ background: cfg.dot }} />{cfg.label}
                     </span>
-                    <button className="jd-stage-btn" onClick={() => setShowPrint(true)} disabled={busy}
+                    <button className="jd-stage-btn" onClick={() => setShowPrint(printFmt)} disabled={busy}
                         style={{ background: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe' }}>
                         🖨 Print
                     </button>
