@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { variables, authHeaders } from '../../Variable';
 import { fmt, fmtDate } from '../procurementConstants';
 import useOwnerCompany from '../../hooks/useOwnerCompany';
+import { useLookup } from '../../LookupContext';
 import consolidatePoLinesForPrint from './consolidatePoLinesForPrint';
 import { openPrintWindow } from '../../utils/printWindow';
 import { DraftWatermark, PreviewBanner } from '../../components/print/PrintCompanyHeader';
@@ -30,6 +31,8 @@ const KV = ({ label, value, mono }) => !value ? null : (
 // ═════════════════════════════════════════════════════════════
 const PoPrintModal3 = ({ po, onClose, preview }) => {
     const { company, loading: coLoading } = useOwnerCompany();
+    const { getSetting } = useLookup();
+    const taxLabel = getSetting('Biz.Print.TAXLABEL', 'VAT');   // Company Settings → Print Formats
     const [lines,     setLines]     = useState([]);
     const [terms,     setTerms]     = useState([]);
     const [annexures, setAnnexures] = useState([]);
@@ -330,13 +333,13 @@ const PoPrintModal3 = ({ po, onClose, preview }) => {
                             <div key={g.pct} style={{ display: 'flex', justifyContent: 'space-between',
                                                        padding: '6px 14px', borderBottom: '1px solid #f1f5f9',
                                                        fontSize: 12 }}>
-                                <span style={{ color: '#64748b' }}>VAT ({g.pct}% on applicable lines)</span>
+                                <span style={{ color: '#64748b' }}>{taxLabel} ({g.pct}% on applicable lines)</span>
                                 <span style={{ fontFamily: 'Courier New', fontWeight: 600 }}>{n(g.amt)}</span>
                             </div>
                         )) : (
                             <div style={{ display: 'flex', justifyContent: 'space-between',
                                           padding: '6px 14px', borderBottom: '1px solid #f1f5f9', fontSize: 12 }}>
-                                <span style={{ color: '#64748b' }}>VAT</span>
+                                <span style={{ color: '#64748b' }}>{taxLabel}</span>
                                 <span style={{ fontFamily: 'Courier New', fontWeight: 600 }}>{n(0)}</span>
                             </div>
                         )}

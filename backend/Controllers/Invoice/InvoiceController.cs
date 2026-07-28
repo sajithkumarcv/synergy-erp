@@ -60,7 +60,7 @@ namespace ERPWEB.Controllers.Invoice
         {
             try
             {
-                var results = await _dbcon.QueryMultipleAsync(
+                using var results = await _dbcon.QueryMultipleAsync(
                     "sp_GetCustomerForInvoice", new { CustomerId = customerId });
 
                 if (results == null)
@@ -139,7 +139,7 @@ namespace ERPWEB.Controllers.Invoice
         {
             try
             {
-                var results = await _dbcon.QueryMultipleAsync(
+                using var results = await _dbcon.QueryMultipleAsync(
                     "sp_GetInvoice", new { InvoiceId = id, InvoiceNo = (string?)null });
 
                 if (results == null)

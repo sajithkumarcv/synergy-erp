@@ -1,6 +1,7 @@
 import React from 'react';
 import { fmt, fmtDate, numberToWords } from './invoiceConstants';
 import useOwnerCompany from '../hooks/useOwnerCompany';
+import { useLookup } from '../LookupContext';
 import { BankDetailsBlock, DraftWatermark, PreviewBanner } from '../components/print/PrintCompanyHeader';
 import { openPrintWindow } from '../utils/printWindow';
 import '../procurement/po/PoPrint.css';   // overlay + toolbar styles
@@ -10,6 +11,8 @@ const dash = (v) => (v != null && v !== '') ? v : '—';
 
 const InvoicePrintModal2 = ({ invoice, lines = [], onClose, preview }) => {
     const { company, loading: coLoading } = useOwnerCompany();
+    const { getSetting } = useLookup();
+    const taxLabel = getSetting('Biz.Print.TAXLABEL', 'VAT');   // Company Settings → Print Formats
 
     const handleBackdrop = (e) => { if (e.target === e.currentTarget) onClose(); };
     const handlePrint    = () => openPrintWindow('.ip2-doc', `Invoice${preview ? ' (DRAFT)' : ''} - ${invoice.invoiceNo}`);
@@ -183,7 +186,7 @@ const InvoicePrintModal2 = ({ invoice, lines = [], onClose, preview }) => {
                                 <th className="r" style={{ width: 75 }}>Qty</th>
                                 <th className="r" style={{ width: 100 }}>Unit Price</th>
                                 <th className="r" style={{ width: 105 }}>Amount</th>
-                                <th className="r" style={{ width: 52 }}>VAT%</th>
+                                <th className="r" style={{ width: 52 }}>{taxLabel}%</th>
                                 <th className="r" style={{ width: 95 }}>Tax</th>
                                 <th className="r" style={{ width: 110 }}>Total</th>
                             </tr>
@@ -238,7 +241,7 @@ const InvoicePrintModal2 = ({ invoice, lines = [], onClose, preview }) => {
                                     .reduce((s, l) => s + (l.taxAmount || 0), 0);
                                 return (
                                     <div key={vat} className="ip2-totals-row">
-                                        <span className="lbl">VAT {vat}%</span>
+                                        <span className="lbl">{taxLabel} {vat}%</span>
                                         <span className="val">{fmt(vatAmt)}</span>
                                     </div>
                                 );

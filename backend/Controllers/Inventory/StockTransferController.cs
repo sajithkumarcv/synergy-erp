@@ -56,7 +56,7 @@ namespace ERPWEB.Controllers.Inventory
         {
             try
             {
-                var results = await _dbcon.QueryMultipleAsync("sp_GetStockTransfer", new { TransferId = id });
+                using var results = await _dbcon.QueryMultipleAsync("sp_GetStockTransfer", new { TransferId = id });
                 if (results == null) return NotFound(new { message = "Transfer not found." });
                 var header = results.Read<StockTransfer>().FirstOrDefault();
                 if (header == null) return NotFound(new { message = "Transfer not found." });

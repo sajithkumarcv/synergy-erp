@@ -642,10 +642,12 @@ const PrintFormatsTab = () => {
                 // Seed each known doc type with its saved value or its registry fallback
                 const next = {};
                 PRINT_DOC_TYPES.forEach(d => { next[d.module] = saved?.[d.module] ?? d.fallback; });
+                next.TAXLABEL = saved?.TAXLABEL || 'VAT';
                 setForm(next);
             } catch {
                 const next = {};
                 PRINT_DOC_TYPES.forEach(d => { next[d.module] = d.fallback; });
+                next.TAXLABEL = 'VAT';
                 setForm(next);
             } finally { setLoading(false); }
         })();
@@ -712,9 +714,26 @@ const PrintFormatsTab = () => {
                 ))}
             </div>
 
+            <div style={{ marginTop: 26, paddingTop: 18, borderTop: '1px solid #e2e8f0' }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 4 }}>
+                    Tax label on printed documents
+                </div>
+                <div style={{ fontSize: 12, color: '#64748b', marginBottom: 10 }}>
+                    Shown on invoice and PO totals — e.g. <strong>GST</strong> for India, <strong>VAT</strong> for UAE.
+                </div>
+                <input
+                    type="text"
+                    value={form.TAXLABEL ?? ''}
+                    onChange={e => setForm(p => ({ ...p, TAXLABEL: e.target.value.toUpperCase() }))}
+                    maxLength={12}
+                    style={{ border: '1px solid #cbd5e1', borderRadius: 6, padding: '7px 10px',
+                             fontSize: 13, color: '#0f172a', width: 140, textTransform: 'uppercase' }}
+                />
+            </div>
+
             <div style={{ marginTop: 22 }}>
                 <button className="settings-save-btn" onClick={save} disabled={saving}>
-                    {saving ? 'Saving…' : 'Save Print Formats'}
+                    {saving ? 'Saving…' : 'Save Print Settings'}
                 </button>
             </div>
         </div>

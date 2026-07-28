@@ -87,7 +87,7 @@ namespace ERPWEB.Controllers.Inventory
         {
             try
             {
-                var results = await _dbcon.QueryMultipleAsync("sp_GetStockIssue", new { IssueId = id, IssueNo = (string?)null });
+                using var results = await _dbcon.QueryMultipleAsync("sp_GetStockIssue", new { IssueId = id, IssueNo = (string?)null });
                 if (results == null) return NotFound(new { message = "Issue Note not found." });
 
                 var header = results.Read<StockIssue>().FirstOrDefault();
