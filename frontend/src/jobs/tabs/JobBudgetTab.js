@@ -75,7 +75,6 @@ const PasswordModal = ({ title, message, onCancel, onConfirm, busy }) => {
     const [pwd,    setPwd]    = useState('');
     const [err,    setErr]    = useState('');
     const reasonRef          = useRef(null);
-    const mouseDownOnBackdrop = useRef(false);
 
     useEffect(() => { setTimeout(() => reasonRef.current?.focus(), 50); }, []);
 
@@ -91,11 +90,12 @@ const PasswordModal = ({ title, message, onCancel, onConfirm, busy }) => {
         <div style={{
             position: 'fixed', inset: 0, background: 'rgba(15,23,42,.55)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
-        }}
-            onMouseDown={e => { mouseDownOnBackdrop.current = (e.target === e.currentTarget); }}
-            onClick={e => { if (mouseDownOnBackdrop.current && e.target === e.currentTarget && !busy) onCancel(); }}>
-            <div style={{ background: '#fff', borderRadius: 10, width: 420, padding: 22, boxShadow: '0 8px 24px rgba(0,0,0,.25)' }}
-                onClick={e => e.stopPropagation()}>
+        }}>
+            {/* This modal gates a financial approval (reason + budget password) —
+                it does not close on an outside click. A stray click (e.g. from a
+                browser password-manager popup) must not silently discard what
+                was typed. Cancel is the only way out besides confirming. */}
+            <div style={{ background: '#fff', borderRadius: 10, width: 420, padding: 22, boxShadow: '0 8px 24px rgba(0,0,0,.25)' }}>
                 <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', marginBottom: 8 }}>{title}</div>
                 <div style={{ fontSize: 12.5, color: '#475569', marginBottom: 14, lineHeight: 1.5 }}>{message}</div>
 
@@ -798,27 +798,13 @@ const JobBudgetEditor = ({ job }) => {
                             📥 Import from Excel
                         </button>
                     )}
-                    {/* Generate BOM from budget items — in-house jobs only (no approval).
-                        Costed jobs get the BOM automatically when the budget is approved. */}
-                    {setBudgetCount > 0 && canEditPerm && jobApproved && job.isCostingRequired === false && !header.isHistorical && (
-                        <button
-                            onClick={generateBom}
-                            disabled={bomBusy}
-                            title="Create the job BOM from the budget item lines"
-                            style={{
-                                padding: '6px 14px', fontSize: 12, fontWeight: 600,
-                                background: '#1e40af', color: '#fff', border: 'none',
-                                borderRadius: 5, cursor: bomBusy ? 'not-allowed' : 'pointer',
-                            }}>
-                            {bomBusy ? 'Generating…' : '⚙ Generate BOM'}
-                        </button>
-                    )}
                 </div>
             </div>
 
             {/* ── Summary KPIs ── */}
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
                 {[
+                    { label: `Job Order Value${baseCurrencyCode ? ` (${baseCurrencyCode})` : ''}`, value: fmt(job.orderValue), color: '#0f4c75', bg: '#f0f9ff' },
                     { label: `Total Budget${baseCurrencyCode ? ` (${baseCurrencyCode})` : ''}`, value: fmt(totalBudget), color: '#1e40af', bg: '#eff6ff' },
                     { label: `Total Actual${baseCurrencyCode ? ` (${baseCurrencyCode})` : ''}`, value: fmt(totalActual), color: totalActual > totalBudget ? '#dc2626' : '#0f766e', bg: totalActual > totalBudget ? '#fef2f2' : '#f0fdfa' },
                     { label: `Variance${baseCurrencyCode ? ` (${baseCurrencyCode})` : ''}`,     value: (totalVar >= 0 ? '' : '− ') + fmt(Math.abs(totalVar)), color: totalVar >= 0 ? '#16a34a' : '#dc2626', bg: totalVar >= 0 ? '#f0fdf4' : '#fef2f2' },
@@ -917,16 +903,33 @@ const JobBudgetEditor = ({ job }) => {
                         <div style={{ fontFamily: 'Courier New', fontWeight: 600, color: '#1e293b' }}>{children}</div>
                     </div>
                 );
+                const hasBudget = row.budgetedAmount > 0;
                 return (
-                    <div key={row.costCategoryId} style={{ border: `1px solid ${expanded ? '#bfdbfe' : '#e2e8f0'}`, borderRadius: 8, marginBottom: 8, overflow: 'hidden', background: '#fff' }}>
+                    <div key={row.costCategoryId} style={{
+                        border: `1px solid ${expanded ? '#bfdbfe' : hasBudget ? '#bbf7d0' : '#e2e8f0'}`,
+                        borderLeft: `4px solid ${hasBudget ? '#16a34a' : '#e2e8f0'}`,
+                        borderRadius: 8, marginBottom: 8, overflow: 'hidden',
+                        background: hasBudget ? '#f8fdf9' : '#fff',
+                    }}>
                         {/* Accordion header */}
-                        <div style={{ display: 'flex', alignItems: 'center', background: expanded ? '#f8fafc' : '#fff' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', background: expanded ? '#f8fafc' : 'transparent' }}>
                             <div onClick={() => toggleItems(row.costCategoryId)}
                                  style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', cursor: 'pointer' }}>
                                 <span style={{ fontSize: 12, color: '#64748b', width: 12 }}>{expanded ? '▾' : '▸'}</span>
-                                <span style={{ fontSize: 18 }}>{src.icon || '•'}</span>
+                                <span style={{ fontSize: 18, position: 'relative' }}>
+                                    {src.icon || '•'}
+                                    {hasBudget && (
+                                        <span title="Budget set" style={{
+                                            position: 'absolute', bottom: -4, right: -6,
+                                            fontSize: 10, background: '#16a34a', color: '#fff',
+                                            borderRadius: '50%', width: 14, height: 14,
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            lineHeight: 1, boxShadow: '0 0 0 2px #f8fdf9',
+                                        }}>✓</span>
+                                    )}
+                                </span>
                                 <div>
-                                    <div style={{ fontWeight: 600, color: '#1e293b' }}>
+                                    <div style={{ fontWeight: hasBudget ? 700 : 600, color: '#1e293b' }}>
                                         {row.categoryName}
                                         {row.categoryCode && <span style={{ color: '#94a3b8', fontWeight: 400 }}> ({row.categoryCode})</span>}
                                     </div>
@@ -951,14 +954,12 @@ const JobBudgetEditor = ({ job }) => {
                             </div>
                         </div>
 
-                        {/* Accordion body: items (BOM list — qty-based, price is indicative only) */}
-                        {expanded && (
+                        {/* Accordion body: items (BOM list — qty-based, price is indicative only).
+                            Read-only display only — items are added/edited from the BOM page now.
+                            Hidden entirely when there's nothing to show, since there's no add
+                            action here anymore to make an empty state actionable. */}
+                        {expanded && items.length > 0 && (
                             <div style={{ padding: '10px 14px 14px 38px', background: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
-                                <div style={{ fontSize: 10.5, color: '#64748b', marginBottom: 6, fontStyle: 'italic' }}>
-                                    Items below form the material list (BOM) for this cost header.
-                                    The <strong>budget amount is set on the header row above</strong> and is independent of these line quantities.
-                                    Unit price here is indicative only (last purchase price pre-filled as a reference).
-                                </div>
                                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                                     <thead><tr style={{ color: '#94a3b8' }}>
                                         <th style={{ textAlign: 'left', padding: '4px 6px' }}>Item</th>
@@ -970,9 +971,6 @@ const JobBudgetEditor = ({ job }) => {
                                         <th style={{ width: 60 }}></th>
                                     </tr></thead>
                                     <tbody>
-                                        {items.length === 0 && (
-                                            <tr><td colSpan={4} style={{ padding: '6px', color: '#94a3b8' }}>No items yet.</td></tr>
-                                        )}
                                         {items.map(it => (
                                             <tr key={it.budgetItemId}>
                                                 <td style={{ padding: '4px 6px' }}>{it.itemCode ? `[${it.itemCode}] ` : ''}{it.itemName}</td>
@@ -999,82 +997,10 @@ const JobBudgetEditor = ({ job }) => {
                                         ))}
                                     </tbody>
                                 </table>
-                                {canEdit && (
-                                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 8, flexWrap: 'wrap' }}>
-                                        <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
-                                            <input type="text"
-                                                ref={itemInputRef}
-                                                value={itemSearch}
-                                                disabled={pickLoading || !pickItems.length}
-                                                placeholder={pickLoading ? 'Loading items…' : pickItems.length ? `Search ${pickItems.length} items by code or name…` : 'No items linked to this header'}
-                                                onChange={e => { setItemSearch(e.target.value); setItemPickerOpen(true); setItemDraft(p => ({ ...p, itemId: '' })); }}
-                                                onFocus={() => pickItems.length && setItemPickerOpen(true)}
-                                                onBlur={() => setTimeout(() => setItemPickerOpen(false), 150)}
-                                                style={{ width: '100%', boxSizing: 'border-box', padding: 6,
-                                                         border: `1px solid ${itemDraft.itemId ? '#0f766e' : '#cbd5e1'}`, borderRadius: 5, fontSize: 12,
-                                                         background: (pickLoading || !pickItems.length) ? '#f1f5f9' : '#fff' }} />
-                                            {itemPickerOpen && pickItems.length > 0 && pickerRect && ReactDOM.createPortal((() => {
-                                                const q = itemSearch.trim().toLowerCase();
-                                                const matches = q
-                                                    ? pickItems.filter(it => (it.name || '').toLowerCase().includes(q) || (it.code || '').toLowerCase().includes(q))
-                                                    : pickItems;
-                                                const shown = matches.slice(0, 50);
-                                                return (
-                                                    <div style={{ position: 'fixed', top: pickerRect.bottom + 2, left: pickerRect.left, width: pickerRect.width,
-                                                                  zIndex: 9999, background: '#fff', border: '1px solid #c8d4e4', borderRadius: 6,
-                                                                  boxShadow: '0 4px 16px rgba(0,0,0,.18)', maxHeight: 240, overflowY: 'auto' }}>
-                                                        {shown.length === 0
-                                                            ? <div style={{ padding: '7px 10px', fontSize: 12, color: '#94a3b8' }}>No matching items.</div>
-                                                            : shown.map(it => (
-                                                                <div key={it.id}
-                                                                    onMouseDown={() => {
-                                                                        setItemDraft(p => ({ ...p, itemId: String(it.id),
-                                                                            unitPrice: it.lastPurchasePrice != null ? String(it.lastPurchasePrice) : p.unitPrice }));
-                                                                        setItemSearch(itemOptLabel(it));
-                                                                        setItemPickerOpen(false);
-                                                                    }}
-                                                                    style={{ padding: '7px 10px', cursor: 'pointer', fontSize: 12, borderBottom: '1px solid #f1f5f9' }}
-                                                                    onMouseEnter={e => e.currentTarget.style.background = '#f0f9ff'}
-                                                                    onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
-                                                                    {itemOptLabel(it)}
-                                                                    {it.lastPurchasePrice ? <span style={{ color: '#94a3b8' }}> · last: {fmt(it.lastPurchasePrice)} {it.lastPurchaseCurrencyShort || ''}</span> : ''}
-                                                                </div>
-                                                            ))}
-                                                        {!q && matches.length > 50 && (
-                                                            <div style={{ padding: '6px 10px', fontSize: 11, color: '#94a3b8', fontStyle: 'italic' }}>
-                                                                Showing 50 of {matches.length} — type to narrow.
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                );
-                                            })(), document.body)}
-                                        </div>
-                                        <input type="number" placeholder="Qty" value={itemDraft.qty} onChange={e => setItemDraft(p => ({ ...p, qty: e.target.value }))}
-                                            style={{ width: 80, padding: 6, border: '1px solid #cbd5e1', borderRadius: 5, fontSize: 12 }} />
-                                        <div style={{ position: 'relative' }}>
-                                            <input type="number" value={itemDraft.unitPrice} onChange={e => setItemDraft(p => ({ ...p, unitPrice: e.target.value }))}
-                                                title="Indicative unit price — pre-filled from last purchase. Optional; does not affect the budget amount set above."
-                                                style={{ width: 110, padding: 6, border: '1px solid #cbd5e1', borderRadius: 5, fontSize: 12,
-                                                         background: itemDraft.unitPrice ? '#fff' : '#fffbeb' }}
-                                                placeholder="Price (opt.)" />
-                                        </div>
-                                        <button type="button" onClick={() => saveBudgetItem(row.costCategoryId)} disabled={itemBusy}
-                                            style={{ background: itemDraft.budgetItemId ? '#2563eb' : '#0f766e', color: '#fff', border: 0, borderRadius: 5, padding: '6px 14px', cursor: 'pointer', fontSize: 12 }}>
-                                            {itemBusy ? '…' : itemDraft.budgetItemId ? 'Update' : 'Add'}
-                                        </button>
-                                        {itemDraft.budgetItemId ? (
-                                            <button type="button" onClick={() => { setItemDraft(blankDraft); setItemSearch(''); setItemPickerOpen(false); setItemErr(''); }}
-                                                style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: 5, padding: '6px 10px', cursor: 'pointer', fontSize: 12 }}>Cancel</button>
-                                        ) : null}
-                                        {/* Own line below the controls — a long message must not push the buttons around. */}
-                                        {itemErr && (
-                                            <div style={{ flexBasis: '100%', fontSize: 11.5, color: '#b91c1c', background: '#fef2f2',
-                                                          border: '1px solid #fecaca', borderRadius: 5, padding: '5px 8px' }}>
-                                                {itemErr}
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
+                                {/* Add/edit-item controls removed — items are no longer added from the
+                                    budget page. They're added directly on the BOM page instead; this
+                                    view is read-only (existing lines can still be edited/deleted above,
+                                    since that wasn't part of what was asked to remove). */}
                             </div>
                         )}
                     </div>
