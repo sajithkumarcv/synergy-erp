@@ -402,22 +402,24 @@ namespace ERPWEB.Controllers.Procurement
         /// <summary>
         /// Returns the budget and committed spend for a job + cost category.
         /// Pass excludePoLineId when editing an existing line so its current
-        /// value is not double-counted in "committed".
+        /// value is not double-counted in "committed". Omit categoryId (or
+        /// pass 0) to check the whole job's budget across all categories
+        /// combined instead of one specific category.
         /// </summary>
         [HttpGet("budget-check")]
         public async Task<IActionResult> GetBudgetCheck(
             [FromQuery] string jobId,
-            [FromQuery] int    categoryId,
+            [FromQuery] int    categoryId = 0,
             [FromQuery] int    excludePoLineId = 0)
         {
-            if (string.IsNullOrWhiteSpace(jobId) || categoryId <= 0)
-                return BadRequest(new { message = "jobId and categoryId are required." });
+            if (string.IsNullOrWhiteSpace(jobId))
+                return BadRequest(new { message = "jobId is required." });
 
             try
             {
                 var rows = await _dbcon.QueryAsync<POBudgetCheckResult>(
                     "sp_GetPOBudgetCheck",
-                    new { JobId = jobId.Trim(), CostCategoryId = categoryId, ExcludePoLineId = excludePoLineId });
+                    new { JobId = jobId.Trim(), CostCategoryId = categoryId > 0 ? (int?)categoryId : null, ExcludePoLineId = excludePoLineId });
 
                 var result = rows?.FirstOrDefault();
                 if (result == null)

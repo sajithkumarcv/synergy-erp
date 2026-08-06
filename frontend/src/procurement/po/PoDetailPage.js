@@ -41,6 +41,7 @@ const PoDetailPage = () => {
     const autoPrint   = searchParams.get('print') === '1';
 
     const [po,         setPo]        = useState(null);
+    const [overBudget, setOverBudget] = useState(false);   // this PO's category is over its approved budget
     const [loading,    setLoading]   = useState(true);
     const [error,      setError]     = useState(null);
     const [activeTab,  setActiveTab] = useState(initialTab);
@@ -88,6 +89,23 @@ const PoDetailPage = () => {
 
     useEffect(() => { loadPo(); }, [loadPo]);
     useEffect(() => { if (po && autoPrint) setShowPrint(printFmt); }, [po, autoPrint, printFmt]);
+
+    // Reuses the same budget-check the PO line editor already calls when adding
+    // lines (sp_GetPOBudgetCheck), but WITHOUT a categoryId — that makes it sum
+    // budget/committed across the whole job instead of just this PO's own
+    // category. A PO can now exceed its own category's budget (e.g. Steel
+    // Materials) without blocking the real print, as long as the JOB's total
+    // budget across all categories combined still covers it. If the print
+    // stays in draft/preview mode regardless of the PO's own approval status,
+    // until the job's total budget covers it.
+    useEffect(() => {
+        if (!po?.jobId) { setOverBudget(false); return; }
+        fetch(`${variables.API_URL}purchaseorder/budget-check?jobId=${encodeURIComponent(po.jobId)}`,
+            { headers: authHeaders() })
+            .then(r => r.ok ? r.json() : null)
+            .then(d => setOverBudget(d ? Number(d.committed ?? d.Committed ?? 0) > Number(d.budgeted ?? d.Budgeted ?? 0) : false))
+            .catch(() => setOverBudget(false));
+    }, [po?.jobId]);
 
     const renderTab = () => {
         if (!po) return null;
@@ -140,6 +158,10 @@ const PoDetailPage = () => {
     // follow the status config / default rule.
     const isDraft    = po.status === 'Draft';
     const canPrint   = ((statusData?.canPrint ?? (po.status !== 'Draft')) || isDraft) && canDo('/purchase-orders', 'PRINT');
+    // Force draft/watermarked print (never the final document) while this PO's
+    // category is over its approved budget — even if the PO itself was approved
+    // via the budget-password override. Real print unlocks once budget covers it.
+    const forcePreview = isDraft || overBudget;
 
     const handleMarkSent = async () => {
         setMarkingSent(true); setActionError('');
@@ -232,9 +254,9 @@ const PoDetailPage = () => {
 
     return (
         <div className="jd-page">
-            {showPrint === 1 && <PoPrintModal  po={po} preview={isDraft} onClose={() => setShowPrint(false)} />}
-            {showPrint === 2 && <PoPrintModal2 po={po} preview={isDraft} onClose={() => setShowPrint(false)} />}
-            {showPrint === 3 && <PoPrintModal3 po={po} preview={isDraft} onClose={() => setShowPrint(false)} />}
+            {showPrint === 1 && <PoPrintModal  po={po} preview={forcePreview} overBudget={overBudget} onClose={() => setShowPrint(false)} />}
+            {showPrint === 2 && <PoPrintModal2 po={po} preview={forcePreview} overBudget={overBudget} onClose={() => setShowPrint(false)} />}
+            {showPrint === 3 && <PoPrintModal3 po={po} preview={forcePreview} overBudget={overBudget} onClose={() => setShowPrint(false)} />}
             {showRevise && (
                 <RevisePoModal
                     po={po}
