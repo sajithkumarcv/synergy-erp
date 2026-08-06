@@ -118,6 +118,11 @@ const useIsMobile = (bp = 768) => {
 const ActionPanel = ({ item, busy, onAction }) => {
     const [remarks,  setRemarks]  = useState('');
     const [password, setPassword] = useState('');
+    // Remembered purely so the busy overlay can say "Approving…" vs
+    // "Rejecting…" — `busy` itself is just a boolean, it doesn't carry which
+    // button was pressed. Set synchronously in the click handler, before the
+    // async action starts.
+    const [pendingAction, setPendingAction] = useState(null);
 
     if (!item.canAct) {
         return (
@@ -127,7 +132,22 @@ const ActionPanel = ({ item, busy, onAction }) => {
         );
     }
     return (
-        <div style={{ marginTop: 12, borderTop: '1px dashed #e2e8f0', paddingTop: 12 }}>
+        <div style={{ marginTop: 12, borderTop: '1px dashed #e2e8f0', paddingTop: 12, position: 'relative' }}>
+            {busy && (
+                <div style={{
+                    position: 'absolute', inset: '-1px 0 0', zIndex: 10,
+                    background: 'rgba(255,255,255,.94)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    paddingTop: 12,
+                }}>
+                    <div className="pr-spinner">
+                        <div className="pr-spinner-ring" />
+                        <div className="pr-spinner-text">
+                            {pendingAction === 'Reject' ? 'Rejecting' : 'Approving'}… please wait
+                        </div>
+                    </div>
+                </div>
+            )}
             <textarea
                 value={remarks}
                 onChange={e => setRemarks(e.target.value)}
@@ -148,14 +168,14 @@ const ActionPanel = ({ item, busy, onAction }) => {
                     onChange={e => setPassword(e.target.value)}
                     placeholder="Enter your login password…"
                     disabled={busy}
-                    onKeyDown={e => { if (e.key === 'Enter' && password.trim()) onAction(item, 'Approve', remarks, null, false, password.trim()); }}
+                    onKeyDown={e => { if (e.key === 'Enter' && password.trim()) { setPendingAction('Approve'); onAction(item, 'Approve', remarks, null, false, password.trim()); } }}
                     style={{ width: '100%', boxSizing: 'border-box', fontSize: 12.5, padding: '7px 10px',
                              border: '1px solid #bfdbfe', borderRadius: 6, fontFamily: 'inherit' }}
                 />
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                 <button
-                    onClick={() => onAction(item, 'Reject', remarks)}
+                    onClick={() => { setPendingAction('Reject'); onAction(item, 'Reject', remarks); }}
                     disabled={busy}
                     style={{ padding: '8px 16px', fontSize: 12.5, fontWeight: 600, borderRadius: 6,
                              border: '1px solid #fca5a5', background: '#fee2e2', color: '#991b1b',
@@ -163,7 +183,7 @@ const ActionPanel = ({ item, busy, onAction }) => {
                     {busy ? '…' : '✗ Reject'}
                 </button>
                 <button
-                    onClick={() => onAction(item, 'Approve', remarks, null, false, password.trim())}
+                    onClick={() => { setPendingAction('Approve'); onAction(item, 'Approve', remarks, null, false, password.trim()); }}
                     disabled={busy}
                     style={{ padding: '8px 16px', fontSize: 12.5, fontWeight: 600, borderRadius: 6,
                              border: 'none', background: '#16a34a', color: '#fff',
