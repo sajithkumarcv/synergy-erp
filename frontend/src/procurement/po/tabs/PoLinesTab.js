@@ -213,15 +213,14 @@ const PrImportModal = ({ po, initialPrId, onClose, onImported, budgetInfo }) => 
                 const sel    = {};
                 const qMap   = {};
                 const pMap   = {};
-                // PR EstUnitPrice is always base currency; convert to PO currency
-                const poRate = Number(po.exchangeRate) || 1;
+                // PR lines have no currency of their own — EstUnitPrice is just
+                // whatever number was entered, so it's carried over as-is rather
+                // than converted (there's nothing to convert it from).
                 rows.forEach(r => {
                     if (!r.alreadyAdded) {
                         sel[r.prLineId]  = true;
                         qMap[r.prLineId] = String(r.remainingQty > 0 ? r.remainingQty : r.requiredQty);
-                        pMap[r.prLineId] = r.estUnitPrice != null
-                            ? String(+(r.estUnitPrice / poRate).toFixed(4))
-                            : '';
+                        pMap[r.prLineId] = r.estUnitPrice != null ? String(r.estUnitPrice) : '';
                     }
                 });
                 setSelected(sel);
@@ -230,7 +229,7 @@ const PrImportModal = ({ po, initialPrId, onClose, onImported, budgetInfo }) => 
             })
             .catch(() => setError('Failed to load PR lines.'))
             .finally(() => setLinesLoading(false));
-    }, [selectedPrId, po.poId, po.exchangeRate]);
+    }, [selectedPrId, po.poId]);
 
     const cycleSort = (key) => {
         if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -611,9 +610,10 @@ const PrImportModal = ({ po, initialPrId, onClose, onImported, budgetInfo }) => 
                             const selectedTotal = prLines
                                 .filter(l => selected[l.prLineId] && !l.alreadyAdded)
                                 .reduce((s, l) => s + (Number(qtys[l.prLineId]) || 0) * (parseFloat(prices[l.prLineId]) || 0), 0);
-                            // Convert the import total (PO currency) to base before comparing to the base-currency budget.
-                            const importRate        = Number(po.exchangeRate) || 1;
-                            const selectedTotalBase = selectedTotal * importRate;
+                            // PR prices have no currency of their own (no exchange rate to
+                            // convert from), so the entered total is used as-is against the
+                            // base-currency budget — same "no conversion" as the price field itself.
+                            const selectedTotalBase = selectedTotal;
                             const importWouldExceed = budgetInfo && budgetInfo.budgeted > 0 && selectedTotalBase > budgetInfo.remaining;
                             const importOverBy      = importWouldExceed ? selectedTotalBase - budgetInfo.remaining : 0;
                             return (
