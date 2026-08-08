@@ -8,7 +8,7 @@ import './Reports.css';
 const today       = () => new Date().toISOString().slice(0, 10);
 const firstOfYear = () => `${new Date().getFullYear()}-01-01`;
 
-const PAGE_SIZES = [10, 20, 50, 100];
+const PAGE_SIZES = [50, 100, 200, 500, 1000];
 
 const DEFAULT_FILTERS = {
     dateFrom:       firstOfYear(),
@@ -101,7 +101,7 @@ const Pagination = ({ page, totalPages, pageSize, totalRows, onPage, onPageSize 
 // ═══════════════════════════════════════════════════════════════════════
 const JobBudgetReport = () => {
     const navigate = useNavigate();
-    const { lookups, getModuleStatuses } = useLookup();
+    const { lookups, getModuleStatuses, baseCurrencyCode } = useLookup();
 
     const [filters,  setFilters]  = useState({ ...DEFAULT_FILTERS });
     const [jobs,     setJobs]     = useState(null);
@@ -111,7 +111,7 @@ const JobBudgetReport = () => {
     const [sortCol,  setSortCol]  = useState('varianceBase');
     const [sortDir,  setSortDir]  = useState('asc');   // most-over first (variance ascending = most negative)
     const [page,     setPage]     = useState(1);
-    const [pageSize, setPageSize] = useState(20);
+    const [pageSize, setPageSize] = useState(200);
     const [expanded, setExpanded] = useState({});      // jobId -> bool
 
     const [customers, setCustomers] = useState([]);
@@ -246,15 +246,15 @@ tbody tr { break-inside: avoid; }
   <div><span>Jobs</span><b>${t.count || 0}</b></div>
   <div><span>Over Budget</span><b style="color:#b91c1c">${t.overCount || 0}</b></div>
   <div><span>No Budget</span><b style="color:#854d0e">${t.noBudget || 0}</b></div>
-  <div><span>Budget (AED)</span><b style="color:#1e40af">${fmt(t.budgetBase)}</b></div>
-  <div><span>Actual (AED)</span><b>${fmt(t.actualBase)}</b></div>
-  <div><span>Net Variance (AED)</span><b style="color:${(t.varianceBase || 0) < 0 ? '#b91c1c' : '#166534'}">${fmt(t.varianceBase)}</b></div>
+  <div><span>Budget (${esc(baseCurrencyCode)})</span><b style="color:#1e40af">${fmt(t.budgetBase)}</b></div>
+  <div><span>Actual (${esc(baseCurrencyCode)})</span><b>${fmt(t.actualBase)}</b></div>
+  <div><span>Net Variance (${esc(baseCurrencyCode)})</span><b style="color:${(t.varianceBase || 0) < 0 ? '#b91c1c' : '#166534'}">${fmt(t.varianceBase)}</b></div>
 </div>
 <table>
 <thead><tr><th>#</th><th>Job ID</th><th>Project</th><th>Customer</th><th>Status</th><th class="r">Curr</th>
 <th class="r">Budget</th><th class="r">Actual</th><th class="r">Variance</th><th class="r">Var %</th><th class="c">Budget Status</th></tr></thead>
 <tbody>${rowsHtml}</tbody>
-<tfoot><tr><td colspan="6" class="r">Totals (AED base) — ${t.count || 0} job(s)</td>
+<tfoot><tr><td colspan="6" class="r">Totals (${esc(baseCurrencyCode)} base) — ${t.count || 0} job(s)</td>
 <td class="r">${fmt(t.budgetBase)}</td><td class="r">${fmt(t.actualBase)}</td>
 <td class="r" style="color:${(t.varianceBase || 0) < 0 ? '#b91c1c' : '#166534'}">${fmt(t.varianceBase)}</td><td colspan="2"></td></tr></tfoot>
 </table></body></html>`;
@@ -372,15 +372,15 @@ tbody tr { break-inside: avoid; }
                         <div className="rpt-summary-val" style={{ color: '#854d0e' }}>{totals.noBudget}</div>
                     </div>
                     <div className="rpt-summary-item">
-                        <div className="rpt-summary-label">Total Budget (AED)</div>
+                        <div className="rpt-summary-label">Total Budget ({baseCurrencyCode})</div>
                         <div className="rpt-summary-val blue">{fmt(totals.budgetBase)}</div>
                     </div>
                     <div className="rpt-summary-item">
-                        <div className="rpt-summary-label">Total Actual (AED)</div>
+                        <div className="rpt-summary-label">Total Actual ({baseCurrencyCode})</div>
                         <div className={`rpt-summary-val ${totals.actualBase > totals.budgetBase ? 'amber' : 'blue'}`}>{fmt(totals.actualBase)}</div>
                     </div>
                     <div className="rpt-summary-item">
-                        <div className="rpt-summary-label">Net Variance (AED)</div>
+                        <div className="rpt-summary-label">Net Variance ({baseCurrencyCode})</div>
                         <div className="rpt-summary-val" style={{ color: totals.varianceBase < 0 ? '#b91c1c' : '#166534' }}>{fmt(totals.varianceBase)}</div>
                     </div>
                 </div>
@@ -509,7 +509,7 @@ tbody tr { break-inside: avoid; }
                                     <tfoot>
                                         <tr style={{ background: '#f1f5f9', borderTop: '2px solid #cbd5e1', fontWeight: 700 }}>
                                             <td colSpan={8} style={{ textAlign: 'right', padding: '8px 10px', color: '#334155', fontSize: 12 }}>
-                                                Totals (AED base) — {totals.count} job{totals.count !== 1 ? 's' : ''}
+                                                Totals ({baseCurrencyCode} base) — {totals.count} job{totals.count !== 1 ? 's' : ''}
                                             </td>
                                             <td style={{ textAlign: 'right', padding: '8px 6px', fontFamily: 'monospace', color: '#1e40af' }}>{fmt(totals.budgetBase)}</td>
                                             <td style={{ textAlign: 'right', padding: '8px 6px', fontFamily: 'monospace', color: totals.actualBase > totals.budgetBase ? '#b91c1c' : '#475569' }}>{fmt(totals.actualBase)}</td>

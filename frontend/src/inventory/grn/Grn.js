@@ -9,7 +9,7 @@ import { DOC_STATUS, RECEIPT_TYPE, fmt, fmtDate } from '../inventoryConstants';
 import { useLookup } from '../../LookupContext';
 import '../../procurement/Procurement.css';
 
-const PAGE_SIZES      = [10, 20, 50, 100];
+const PAGE_SIZES = [50, 100, 200, 500, 1000];
 const DEFAULT_FILTERS = { searchText: '', receiptType: '', status: '', dateFrom: '', dateTo: '' };
 
 const SortIcon = ({ col, sortCol, sortDir }) =>
@@ -233,7 +233,7 @@ export const Grn = () => {
     const [totalRows,  setTotal]     = useState(0);
     const [totalPages, setPages]     = useState(1);
     const [page,       setPage]      = useState(1);
-    const [pageSize,   setPageSize]  = useState(20);
+    const [pageSize,   setPageSize]  = useState(200);
     const [sortCol,    setSortCol]   = useState('ReceiptDate');
     const [sortDir,    setSortDir]   = useState('DESC');
     const [loading,    setLoading]   = useState(false);
@@ -241,7 +241,7 @@ export const Grn = () => {
     const [showNew,    setShowNew]   = useState(false);
     const [listError,  setListError] = useState('');
 
-    const gridRef = useRef({ pageSize: 20, sortCol: 'ReceiptDate', sortDir: 'DESC', applied: DEFAULT_FILTERS });
+    const gridRef = useRef({ pageSize: 200, sortCol: 'ReceiptDate', sortDir: 'DESC', applied: DEFAULT_FILTERS });
     useEffect(() => { gridRef.current = { pageSize, sortCol, sortDir, applied }; }, [pageSize, sortCol, sortDir, applied]);
 
     const load = useCallback((pg, ps, sc, sd, af) => {

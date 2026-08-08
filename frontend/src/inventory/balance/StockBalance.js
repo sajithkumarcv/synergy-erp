@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import ReactDOM from 'react-dom';
 import { variables, authHeaders } from '../../Variable';
 import { useFilters } from '../../FilterContext';
 import { fmt, fmtDate } from '../inventoryConstants';
@@ -11,9 +12,16 @@ const DEFAULT_FILTERS = {
 };
 
 // ── Job Stock Breakdown popover ────────────────────────────────
-const JobBreakdownPopover = ({ itemId, onClose }) => {
+// Rendered via a portal into document.body with fixed positioning computed
+// from the trigger element's own bounding box — a table cell inside a
+// horizontally-scrolling wrapper (.po-table-wrap { overflow-x: auto }) both
+// clips and out-stacks a normal position:absolute popover, which is exactly
+// why this was rendering underneath the sticky table header. Same pattern
+// already used for the item-search dropdown elsewhere in the app.
+const JobBreakdownPopover = ({ itemId, anchorEl, onClose }) => {
     const [rows, setRows]       = useState([]);
     const [loading, setLoading] = useState(true);
+    const [rect, setRect]       = useState(() => anchorEl?.getBoundingClientRect() ?? null);
     const ref = useRef(null);
 
     useEffect(() => {
@@ -25,13 +33,30 @@ const JobBreakdownPopover = ({ itemId, onClose }) => {
     }, [itemId]);
 
     useEffect(() => {
-        const h = e => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
+        const update = () => anchorEl && setRect(anchorEl.getBoundingClientRect());
+        update();
+        window.addEventListener('scroll', update, true);
+        window.addEventListener('resize', update);
+        return () => {
+            window.removeEventListener('scroll', update, true);
+            window.removeEventListener('resize', update);
+        };
+    }, [anchorEl]);
+
+    useEffect(() => {
+        const h = e => {
+            if (ref.current && !ref.current.contains(e.target) && anchorEl && !anchorEl.contains(e.target)) onClose();
+        };
         document.addEventListener('mousedown', h);
         return () => document.removeEventListener('mousedown', h);
-    }, [onClose]);
+    }, [onClose, anchorEl]);
 
-    return (
-        <div className="bal-popover" ref={ref}>
+    if (!rect) return null;
+
+    return ReactDOM.createPortal(
+        <div className="bal-popover" ref={ref} style={{
+            position: 'fixed', top: rect.bottom + 4, left: rect.left, zIndex: 9999,
+        }}>
             <div className="bal-popover-title">📦 Job Stock Breakdown</div>
             {loading ? <div style={{ fontSize: 12, color: '#64748b' }}>Loading…</div> :
              rows.length === 0 ? <div style={{ fontSize: 12, color: '#94a3b8' }}>No job stock found.</div> :
@@ -41,7 +66,8 @@ const JobBreakdownPopover = ({ itemId, onClose }) => {
                     <span style={{ color: '#374151' }}>{fmt(r.qtyBalance, 4)} units</span>
                 </div>
              ))}
-        </div>
+        </div>,
+        document.body
     );
 };
 
@@ -74,7 +100,7 @@ const LedgerDrawer = ({ item, onClose }) => {
                         <div className="bal-ledger-title">📒 Stock Ledger — {item.itemCode}</div>
                         <div style={{ fontSize: 12, color: '#64748b' }}>{item.itemName}</div>
                     </div>
-                    <button className="bal-ledger-close" onClick={onClose}>×</button>
+                    <button className="bal-ledger-close" onClick={onClose} title="Click here to close this window">×</button>
                 </div>
                 <div className="bal-ledger-body">
                     {loading ? (
@@ -150,40 +176,44 @@ const LedgerDrawer = ({ item, onClose }) => {
 const BalanceRow = ({ row, idx }) => {
     const [showJobPop, setShowJobPop] = useState(false);
     const [showLedger, setShowLedger] = useState(false);
+    const jobStockRef = useRef(null);
 
     return (
         <>
             <tr style={{ background: idx % 2 === 0 ? '#fff' : '#f8fafc' }}>
-                <td>
+                <td onClick={() => setShowLedger(true)} title="Click to view ledger"
+                    style={{ cursor: 'pointer', maxWidth: 220, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     <div style={{ fontWeight: 700, color: '#1e40af', fontSize: 13 }}>{row.itemCode}</div>
-                    <div style={{ fontSize: 11, color: '#64748b', marginTop: 1 }}>{row.itemName}</div>
+                    <div title={row.itemName}
+                        style={{ fontSize: 11, color: '#64748b', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {row.itemName}
+                    </div>
                 </td>
-                <td>{row.categoryName || '—'}</td>
-                <td>{row.itemTypeName || '—'}</td>
-                <td>{row.baseUom || '—'}</td>
                 <td className="po-num-cell">
                     <span className="bal-qty-total">{fmt(row.qtyOnHand, 4)}</span>
                 </td>
                 <td className="po-num-cell">
                     {row.qtyJobStock > 0 ? (
                         <div className="bal-popover-wrap">
-                            <span className="bal-qty-job" onClick={() => setShowJobPop(v => !v)}>
+                            <span ref={jobStockRef} className="bal-qty-job" onClick={() => setShowJobPop(v => !v)}>
                                 {fmt(row.qtyJobStock, 4)} ↓
                             </span>
-                            {showJobPop && <JobBreakdownPopover itemId={row.itemId} onClose={() => setShowJobPop(false)} />}
+                            {showJobPop && (
+                                <JobBreakdownPopover itemId={row.itemId} anchorEl={jobStockRef.current} onClose={() => setShowJobPop(false)} />
+                            )}
                         </div>
                     ) : <span style={{ color: '#94a3b8' }}>—</span>}
                 </td>
                 <td className="po-num-cell">
                     <span className="bal-qty-store">{fmt(row.qtyStoreStock, 4)}</span>
                 </td>
-                <td className="po-num-cell">{fmt(row.avgUnitCost)}</td>
                 <td className="po-num-cell" style={{ fontWeight: 700, color: '#1e3a5f' }}>{fmt(row.stockValue)}</td>
+                <td>{row.categoryName || '—'}</td>
+                <td>{row.itemTypeName || '—'}</td>
+                <td>{row.baseUom || '—'}</td>
+                <td className="po-num-cell">{fmt(row.avgUnitCost)}</td>
                 <td style={{ fontSize: 11, color: '#94a3b8', whiteSpace: 'nowrap' }}>
                     {row.lastReceiptDate ? fmtDate(row.lastReceiptDate) : '—'}
-                </td>
-                <td>
-                    <button className="po-act-btn" onClick={() => setShowLedger(true)}>Ledger</button>
                 </td>
             </tr>
             {showLedger && <LedgerDrawer item={row} onClose={() => setShowLedger(false)} />}
@@ -358,21 +388,20 @@ const StockBalance = () => {
                         <thead>
                             <tr>
                                 <SortTH col="itemCode">Item</SortTH>
-                                <SortTH col="categoryName">Category</SortTH>
-                                <SortTH col="itemTypeName">Type</SortTH>
-                                <SortTH col="baseUom">UOM</SortTH>
                                 <SortTH col="qtyOnHand"    right>On Hand</SortTH>
                                 <SortTH col="qtyJobStock"  right>Job Stock ↓</SortTH>
                                 <SortTH col="qtyStoreStock" right>Store Stock</SortTH>
-                                <SortTH col="avgUnitCost"  right>Avg Cost</SortTH>
                                 <SortTH col="stockValue"   right>Stock Value</SortTH>
+                                <SortTH col="categoryName">Category</SortTH>
+                                <SortTH col="itemTypeName">Type</SortTH>
+                                <SortTH col="baseUom">UOM</SortTH>
+                                <SortTH col="avgUnitCost"  right>Avg Cost</SortTH>
                                 <SortTH col="lastReceiptDate">Last Receipt</SortTH>
-                                <th></th>
                             </tr>
                         </thead>
                         <tbody>
                             {rows.length === 0 && !loading ? (
-                                <tr><td colSpan={11} className="po-empty">No items match the current filters.</td></tr>
+                                <tr><td colSpan={10} className="po-empty">No items match the current filters.</td></tr>
                             ) : pagedRows.map((r, i) => (
                                 <BalanceRow key={r.itemId} row={r} idx={i} />
                             ))}

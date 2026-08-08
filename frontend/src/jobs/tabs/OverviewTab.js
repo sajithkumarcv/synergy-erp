@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { variables, authHeaders } from '../../Variable';
-import { STATUS, AUDIT_ACTION_CONFIG, fmtDateTime, fmtRelative, fmt, fmtDate, canEdit, canEditFinance } from '../jobConstants';
+import { STATUS, AUDIT_ACTION_CONFIG, fmtDateTime, fmtRelative, fmt, fmtDate, canEdit } from '../jobConstants';
 import { useLookup } from '../../LookupContext';
+import { usePermission } from '../../PermissionContext';
 
 // ── Finance input helpers ─────────────────────────────────────
 const stripFmt  = (v) => String(v).replace(/,/g, '');
@@ -26,6 +27,7 @@ const ADJ_STATUS = {
 
 const OverviewTab = ({ job, onRefresh, userRole, currentUser }) => {
     const navigate       = useNavigate();
+    const { canDo }      = usePermission();
     const { lookups, baseCurrency, baseCurrencyCode } = useLookup();
     const { currencies } = lookups;
 
@@ -82,8 +84,8 @@ const OverviewTab = ({ job, onRefresh, userRole, currentUser }) => {
         setFinForm({
             currencyId:    String(job.jobCurrencyId || ''),
             exchangeRate:  String(job.jobExcRate    || ''),
-            orderValue:    String(job.orderValue    || ''),
-            advanceAmount: String(job.jobAdvanceAmount || ''),
+            orderValue:    job.orderValue         ? fmtInput(job.orderValue)         : '',
+            advanceAmount: job.jobAdvanceAmount   ? fmtInput(job.jobAdvanceAmount)   : '',
         });
         setFinError('');
         setShowFinEdit(true);
@@ -123,7 +125,7 @@ const OverviewTab = ({ job, onRefresh, userRole, currentUser }) => {
             .finally(() => setSaving(false));
     };
 
-    const allowFinEdit = canEditFinance(userRole) && canEdit(job?.jobStatusId);
+    const allowFinEdit = canDo('/jobs', 'EDIT_FINANCE') && canEdit(job?.jobStatusId);
 
     return (
         <div className="ov-wrap">
@@ -184,8 +186,8 @@ const OverviewTab = ({ job, onRefresh, userRole, currentUser }) => {
                         onClick={openFinEdit}
                         style={{
                             alignSelf: 'flex-start', marginTop: 10, marginLeft: 10, flexShrink: 0,
-                            background: '#f0f4fa', color: '#2e5fa3', border: '1px solid #b6cae8',
-                            borderRadius: 6, padding: '5px 13px', fontSize: 12, fontWeight: 600,
+                            background: '#2e5fa3', color: '#fff', border: '1px solid #2e5fa3',
+                            borderRadius: 6, padding: '5px 13px', fontSize: 12, fontWeight: 700,
                             cursor: 'pointer', whiteSpace: 'nowrap',
                         }}
                         title="Edit order value and advance amount"

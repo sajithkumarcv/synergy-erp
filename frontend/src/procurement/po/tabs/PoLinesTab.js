@@ -964,8 +964,18 @@ const PoLinesTab = ({ po, onRefresh, initialPrId }) => {
     // ── Delivery progress (value-based) ───────────────────────────────────────
     // Quantities can't be summed across mixed UOMs, so the header rollup is by
     // VALUE (qty × unit price); per-line qty bars below stay UOM-safe.
-    const orderedValue     = lines.reduce((s, l) => s + (Number(l.orderedQty)  || 0) * (Number(l.unitPrice) || 0), 0);
-    const receivedValue    = lines.reduce((s, l) => s + (Number(l.receivedQty) || 0) * (Number(l.unitPrice) || 0), 0);
+    // Uses the tax-INCLUSIVE line value (lineTotalWithTax) so "Ordered" here
+    // always equals grandTotalWithTax in the footer below — previously this
+    // summed qty×unitPrice (ex-tax), which agreed with the ex-tax "Line Total"
+    // column but silently disagreed with the "w/ Tax" column/grand total
+    // shown a few rows down, reading as two different "PO value" figures on
+    // the same screen.
+    const orderedValue     = lines.reduce((s, l) => s + (Number(l.lineTotalWithTax) || 0), 0);
+    const receivedValue    = lines.reduce((s, l) => {
+        const ord = Number(l.orderedQty) || 0;
+        const recv = Number(l.receivedQty) || 0;
+        return s + (ord > 0 ? (recv / ord) * (Number(l.lineTotalWithTax) || 0) : 0);
+    }, 0);
     const pendingValue     = Math.max(0, orderedValue - receivedValue);
     const linesComplete    = lines.filter(l => (Number(l.orderedQty) || 0) > 0 && (Number(l.receivedQty) || 0) >= (Number(l.orderedQty) || 0)).length;
     const pctReceivedValue = orderedValue > 0 ? receivedValue / orderedValue * 100 : 0;
@@ -1343,10 +1353,16 @@ const PoLinesTab = ({ po, onRefresh, initialPrId }) => {
                             {lines.length > 0 && (
                                 <tfoot>
                                     <tr style={{ background: '#f4f7fb', fontWeight: 600 }}>
-                                        <td colSpan={canEdit ? 8 : 9} style={{ textAlign: 'right', fontSize: 11, color: '#3a5070', padding: '8px 10px', textTransform: 'uppercase', letterSpacing: '.3px' }}>Total</td>
+                                        {/* Header is always 13 columns (#, Item Code, Description, Ordered,
+                                            Received, UOM, Unit Price, Tax %, Line Total, w/ Tax, Status,
+                                            Source, Actions) regardless of canEdit — the Actions cell's
+                                            CONTENT varies by canEdit, but the cell itself is always rendered.
+                                            colSpan must stay fixed at 8 (through Tax %) so the two total
+                                            values land under Line Total / w/ Tax, not one column over. */}
+                                        <td colSpan={8} style={{ textAlign: 'right', fontSize: 11, color: '#3a5070', padding: '8px 10px', textTransform: 'uppercase', letterSpacing: '.3px' }}>Total</td>
                                         <td className="prd-num-cell" style={{ fontWeight: 700, color: '#1e3a5f' }}>{fmt(grandTotal)}</td>
                                         <td className="prd-num-cell" style={{ fontWeight: 700, color: '#1e40af' }}>{fmt(grandTotalWithTax)}</td>
-                                        <td />{canEdit && <td />}
+                                        <td /><td /><td />
                                     </tr>
                                 </tfoot>
                             )}

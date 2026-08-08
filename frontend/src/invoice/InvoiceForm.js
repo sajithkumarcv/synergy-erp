@@ -50,7 +50,7 @@ const InvoiceForm = ({ onClose, onSaved }) => {
             .then(d => {
                 const list = Array.isArray(d) ? d : [];
                 setCurrencies(list);
-                // Pre-select base currency (AED) and lock its rate to 1
+                // Pre-select base currency and lock its rate to 1
                 const base = list.find(c => c.isBaseCurrency);
                 if (base) {
                     setForm(p => ({ ...p, currencyId: String(base.currencyId), exchangeRate: '1' }));

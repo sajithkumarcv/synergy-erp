@@ -295,7 +295,7 @@ const IssueDetailPage = () => {
             )}
 
             {/* ── STATUS CHANGE VERIFICATION MODAL ── */}
-            {pendingStatus && (() => {
+            {pendingStatus && !showLoginPw && (() => {
                 const isCancel = pendingStatus === 'Cancelled';
                 const accent   = isCancel ? '#fca5a5' : '#6ee7b7';
                 return (

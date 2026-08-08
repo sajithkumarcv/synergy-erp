@@ -6,6 +6,12 @@
       "runtimeExecutable": "npx",
       "runtimeArgs": ["-y", "serve", "-s", "build", "-l", "3000"],
       "port": 3000
+    },
+    {
+      "name": "weberp-synergy-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["start"],
+      "port": 3001
     }
   ]
 }

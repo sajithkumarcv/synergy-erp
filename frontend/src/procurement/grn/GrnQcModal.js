@@ -50,7 +50,7 @@ export const GrnQcModal = ({ grn, currentUser, onConfirm, onReject, onCancel }) 
         setLoading(true);
         fetch(`${variables.API_URL}grn/qc-items`, { headers: authHeaders() })
             .then(r => r.json())
-            .then(d => setItems((Array.isArray(d) ? d : []).map(i => ({ ...i, isChecked: false, notes: '' }))))
+            .then(d => setItems((Array.isArray(d) ? d : []).map(i => ({ ...i, isChecked: true, notes: '' }))))
             .catch(() => setError('Failed to load QC checklist.'))
             .finally(() => setLoading(false));
     }, []);

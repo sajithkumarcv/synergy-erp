@@ -6,7 +6,7 @@ import './Reports.css';
 
 const today        = () => new Date().toISOString().slice(0, 10);
 const firstOfMonth = () => { const d = new Date(); d.setDate(1); return d.toISOString().slice(0, 10); };
-const PAGE_SIZES   = [20, 50, 100, 500];
+const PAGE_SIZES = [50, 100, 200, 500, 1000];
 
 const DEFAULT_FILTERS = {
     jobId: '', dateFrom: firstOfMonth(), dateTo: today(),
@@ -73,7 +73,7 @@ const PurchaseDetailsReport = () => {
     const [sortCol, setSortCol]   = useState('receiptDate');
     const [sortDir, setSortDir]   = useState('desc');
     const [page, setPage]         = useState(1);
-    const [pageSize, setPageSize] = useState(50);
+    const [pageSize, setPageSize] = useState(200);
     const [jobs, setJobs]                   = useState([]);
     const [allCategories, setAllCategories] = useState([]);
     const [itemTypes, setItemTypes]         = useState([]);

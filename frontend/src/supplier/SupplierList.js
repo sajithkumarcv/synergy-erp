@@ -16,7 +16,7 @@ import AmountInput from '../common/AmountInput';
 const PAYMENT_MODES = ['Bank Transfer', 'Cheque', 'Cash', 'Letter of Credit (LC)', 'Online Transfer'];
 
 
-const PAGE_SIZES = [50, 100, 200, 300, 500];
+const PAGE_SIZES = [50, 100, 200, 500, 1000];
 const DEFAULT_FILTERS = {
     searchText: '', categoryId: '', supplierType: '', currencyId: '',
     paymentTermsId: '', isActive: '',
@@ -36,7 +36,7 @@ const SupplierCreateForm = ({ onClose, onCreated }) => {
     const [supplierCategories, setSupplierCategories] = useState([]);
 
     const [form, setForm] = useState({
-        supplierId: 0, supplierCode: '', supplierName: '', supplierShortName: '',
+        supplierId: 0, supplierName: '', supplierShortName: '',
         supplierRef: '', supplierType: '', supplierCategoryId: '', accountManager: '',
         phone: '', mobile: '', email: '', web: '',
         currencyId: '', paymentTermsId: '', creditLimit: 0, creditDays: 0,
@@ -73,7 +73,6 @@ const SupplierCreateForm = ({ onClose, onCreated }) => {
 
     const save = () => {
         const errs = [];
-        if (!form.supplierCode.trim()) errs.push('Supplier Code is required.');
         if (!form.supplierName.trim()) errs.push('Supplier Name is required.');
         if (!form.currencyId)          errs.push('Currency is required.');
         if (!form.paymentTermsId)      errs.push('Payment Terms are required.');
@@ -125,10 +124,6 @@ const SupplierCreateForm = ({ onClose, onCreated }) => {
 
                     <Sec label="Identity" />
                     <div className="jf-row">
-                        <div className="jf-field" style={{ flex: '0 0 150px' }}>
-                            <label>Code {isReq('supplierCode') && <span className="req">*</span>}</label>
-                            <input name="supplierCode" className="jf-input" value={form.supplierCode} onChange={handle} placeholder="SUPP-001" />
-                        </div>
                         <div className="jf-field jf-f2">
                             <label>Supplier Name {isReq('supplierName') && <span className="req">*</span>}</label>
                             <input name="supplierName" className="jf-input" value={form.supplierName} onChange={handle} />
@@ -291,14 +286,14 @@ const SupplierList = () => {
     const [totalRows, setTotalRows]   = useState(0);
     const [totalPages, setTotalPages] = useState(1);
     const [page, setPage]             = useState(1);
-    const [pageSize, setPageSize]     = useState(20);
+    const [pageSize, setPageSize]     = useState(200);
     const [sortCol, setSortCol]       = useState('SupplierName');
     const [sortDir, setSortDir]       = useState('ASC');
     const [loading, setLoading]       = useState(false);
     const [applied, setApplied]       = useState({ ...DEFAULT_FILTERS });
     const [showCreate, setShowCreate] = useState(false);
 
-    const gridRef = useRef({ pageSize: 20, sortCol: 'SupplierName', sortDir: 'ASC', applied: DEFAULT_FILTERS });
+    const gridRef = useRef({ pageSize: 200, sortCol: 'SupplierName', sortDir: 'ASC', applied: DEFAULT_FILTERS });
     useEffect(() => { gridRef.current = { pageSize, sortCol, sortDir, applied }; }, [pageSize, sortCol, sortDir, applied]);
 
     useEffect(() => {

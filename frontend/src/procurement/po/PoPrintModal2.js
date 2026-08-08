@@ -51,7 +51,7 @@ const SectionHeading = ({ label }) => (
 );
 
 // ══════════════════════════════════════════════════════════════
-const PoPrintModal2 = ({ po, onClose, preview }) => {
+const PoPrintModal2 = ({ po, onClose, preview, overBudget }) => {
     const [lines,        setLines]        = useState([]);
     const [loading,      setLoading]      = useState(true);
     const [annexures,    setAnnexures]    = useState([]);  // [{ annexureId, annexureCode, title, notes, details:[], linkedLineIds:[] }]
@@ -147,8 +147,12 @@ const PoPrintModal2 = ({ po, onClose, preview }) => {
             {/* ── A4 Document ── */}
             <div className="ip2-doc" style={{ position: 'relative' }}>
 
-                {preview && <DraftWatermark />}
-                {preview && <PreviewBanner />}
+                {preview && <DraftWatermark label={overBudget ? 'NO BUDGET' : 'DRAFT'} />}
+                {preview && (
+                    <PreviewBanner text={overBudget
+                        ? 'NO BUDGET IN THIS CATEGORY — NOT VALID FOR ISSUE TO SUPPLIER'
+                        : undefined} />
+                )}
 
                 {/* ══ 1. Full-width banner ══════════════════════════════════ */}
                 <div className="ip2-banner">
@@ -241,6 +245,7 @@ const PoPrintModal2 = ({ po, onClose, preview }) => {
                             {/* Delivery sub-section */}
                             <div style={{ marginTop: 10 }}>
                                 <SectionHeading label="Delivery" />
+                                <InfoRow label="Delivery Date" value={fmtDate(po.deliveryDate)} />
                                 <InfoRow label="Delivery Terms" value={po.deliveryTerms} />
                                 <InfoRow label="Delivery Addr"  value={po.deliveryAddr} />
                                 <div className="ip2-detail-row">
@@ -492,7 +497,11 @@ const PoPrintModal2 = ({ po, onClose, preview }) => {
                         </div>
                     </div>
 
-                    {preview && <PreviewBanner />}
+                    {preview && (
+                        <PreviewBanner text={overBudget
+                            ? 'NO BUDGET IN THIS CATEGORY — NOT VALID FOR ISSUE TO SUPPLIER'
+                            : undefined} />
+                    )}
 
                     <div className="ip2-print-note">
                         This is a computer-generated purchase order.

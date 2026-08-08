@@ -1,8 +1,30 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { variables, authHeaders } from './Variable';
-import { useCurrentUserId, useAuth } from './AuthContext';
+import { useCurrentUserId, useCurrentUser, useAuth } from './AuthContext';
+import { useLookup } from './LookupContext';
 import './Dashboard.css';
+
+// ── Filtered navigation helper ──────────────────────────────────────────────
+// Every dashboard tile shows a COUNT that implies a filter (e.g. "Open PRs",
+// "Draft PO", "created today"). Clicking through must land on the list page
+// pre-filtered to match what was counted, not the unfiltered list — see
+// [[weberp-synergy-fork]]. `filters` is read once on the destination page's
+// mount via useInitialFilters (frontend/src/utils/useInitialFilters.js).
+const goFiltered = (navigate, route, filters) =>
+    navigate(route, filters ? { state: { initialFilters: filters } } : undefined);
+
+const todayISO = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+// "Open" PR/PO isn't a single status — it's every status except the
+// terminal/consumed ones, mirroring proj.sp_GetDashboard's OpenPRs/OpenPOs
+// definition exactly (NOT IN (...) there → filter out the same codes here)
+// so the KPI count and the filtered list always agree.
+const OPEN_PR_EXCLUDE = ['Cancelled', 'Rejected', 'Ordered', 'Closed'];
+const OPEN_PO_EXCLUDE = ['Cancelled', 'Received', 'Completed'];
 
 // ── Role-based section config ─────────────────────────────────────────────────
 // kpis: which top KPI cards to show
@@ -253,7 +275,8 @@ const OverBudgetWidget = () => {
 
 // ── Today's activity — docs the user created today (self-fetching) ─────────────
 const TodayActivityWidget = ({ userId }) => {
-    const navigate = useNavigate();
+    const navigate    = useNavigate();
+    const currentUser = useCurrentUser();
     const [d, setD] = useState(null);   // null=loading, 'err', or data object
 
     useEffect(() => {
@@ -264,6 +287,10 @@ const TodayActivityWidget = ({ userId }) => {
             .catch(() => setD('err'));
     }, [userId]);
 
+    // Every tile here is scoped to "created by me, today" — the filter
+    // handed to the destination list must match, or the count won't agree
+    // with what the filtered list shows.
+    const todayFilters = { createdBy: currentUser, dateFrom: todayISO(), dateTo: todayISO() };
     const tiles = [
         { key: 'po',    label: 'POs Created',    icon: '📦', accent: '#059669', soft: '#d1fae5', count: d?.poCount,    sub: d?.poValue > 0 ? fmtM(d.poValue) : null, route: '/purchase-orders' },
         { key: 'grn',   label: 'GRNs',           icon: '📥', accent: '#7c3aed', soft: '#ede9fe', count: d?.grnCount,   sub: null, route: '/grn' },
@@ -285,7 +312,7 @@ const TodayActivityWidget = ({ userId }) => {
                 {d && d !== 'err' && (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
                         {tiles.map(t => (
-                            <div key={t.key} onClick={() => navigate(t.route)}
+                            <div key={t.key} onClick={() => goFiltered(navigate, t.route, todayFilters)}
                                 style={{ cursor: 'pointer', border: '1px solid #eef1f6', borderRadius: 10, padding: '12px 10px',
                                     display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 4,
                                     transition: 'border-color .12s, transform .12s' }}
@@ -326,7 +353,7 @@ const ApprovedPrsWidget = () => {
                     </span>
                 )}
                 <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, color: 'var(--db-accent)', cursor: 'pointer' }}
-                    onClick={() => navigate('/purchase-requests')}>View all →</span>
+                    onClick={() => goFiltered(navigate, '/purchase-requests', { status: 'Approved' })}>View all →</span>
             </div>
             <div className="db-card-body">
                 {rows === null && <div style={{ color: '#94a3b8', fontSize: 12 }}>Loading…</div>}
@@ -364,10 +391,46 @@ const Dashboard = () => {
     const navigate      = useNavigate();
     const userId        = useCurrentUserId();
     const { auth }      = useAuth();
+    const { getModuleStatuses } = useLookup();
     const role          = (auth?.role || '').toUpperCase().trim();
-    const cfg           = ROLE_CONFIG[role] || DEFAULT_CONFIG;
+
+    // Admin-configurable per-role dashboard layout (Settings → Dashboard
+    // Roles). Loaded once on mount; a role with zero rows in the DB (not
+    // configured yet) falls back to the hardcoded ROLE_CONFIG/DEFAULT_CONFIG
+    // below exactly as before this table existed — so nothing breaks for an
+    // unconfigured role, and the dashboard never blocks on this fetch.
+    const [roleConfigData, setRoleConfigData] = useState(null);
+    useEffect(() => {
+        fetch(`${variables.API_URL}dashboard/role-config`, { headers: authHeaders() })
+            .then(r => r.ok ? r.json() : null)
+            .then(d => { if (d) setRoleConfigData(d); })
+            .catch(() => { /* silent — falls back to the hardcoded config */ });
+    }, []);
+
+    const cfg = useMemo(() => {
+        if (roleConfigData) {
+            const roleMatch = (roleConfigData.roles || [])
+                .find(r => (r.roleName || '').toUpperCase().trim() === role);
+            if (roleMatch) {
+                const rows = (roleConfigData.config || []).filter(c => c.roleId === roleMatch.roleId);
+                if (rows.length > 0) {
+                    return {
+                        kpis:     rows.filter(c => c.itemType === 'KPI'     && c.isVisible).map(c => c.itemKey),
+                        sections: rows.filter(c => c.itemType === 'SECTION' && c.isVisible).map(c => c.itemKey),
+                    };
+                }
+            }
+        }
+        return ROLE_CONFIG[role] || DEFAULT_CONFIG;
+    }, [roleConfigData, role]);
     const showKpi       = (key)     => cfg.kpis.includes(key);
     const showSection   = (key)     => cfg.sections.includes(key);
+
+    // "Open" = every status except the excluded (terminal/consumed) ones —
+    // computed at click time so it reflects whatever getModuleStatuses has
+    // loaded by then, and always matches proj.sp_GetDashboard's definition.
+    const openPrStatuses = () => getModuleStatuses('PR').map(s => s.statusCode).filter(c => !OPEN_PR_EXCLUDE.includes(c)).join(',');
+    const openPoStatuses = () => getModuleStatuses('PO').map(s => s.statusCode).filter(c => !OPEN_PO_EXCLUDE.includes(c)).join(',');
 
     const [data, setData]       = useState(null);
     const [loading, setLoading] = useState(true);
@@ -448,13 +511,14 @@ const Dashboard = () => {
             {/* ── TOP KPI STRIP ── */}
             <div className="db-kpi-strip">
                 {[
-                    { key: 'activeJobs',      label: 'Active Jobs',      icon: '🏗',  val: fmtN(kpis?.activeJobs),       accent: '#16a34a', soft: '#dcfce7', route: '/jobs' },
-                    { key: 'openPRs',         label: 'Open PRs',         icon: '📝',  val: fmtN(kpis?.openPRs),          accent: '#2563eb', soft: '#dbeafe', route: '/purchase-requests' },
-                    { key: 'openPOs',         label: 'Open POs',         icon: '📦',  val: fmtN(kpis?.openPOs),          accent: '#059669', soft: '#d1fae5', route: '/purchase-orders' },
+                    { key: 'activeJobs',      label: 'Active Jobs',      icon: '🏗',  val: fmtN(kpis?.activeJobs),       accent: '#16a34a', soft: '#dcfce7', route: '/jobs',              filters: { jobStatusIds: '1' } },
+                    { key: 'openPRs',         label: 'Open PRs',         icon: '📝',  val: fmtN(kpis?.openPRs),          accent: '#2563eb', soft: '#dbeafe', route: '/purchase-requests', filters: () => ({ status: openPrStatuses() }) },
+                    { key: 'openPOs',         label: 'Open POs',         icon: '📦',  val: fmtN(kpis?.openPOs),          accent: '#059669', soft: '#d1fae5', route: '/purchase-orders',   filters: () => ({ status: openPoStatuses() }) },
                     { key: 'pendingApprovals',label: 'Pending Approvals',icon: '⏳',  val: fmtN(kpis?.pendingApprovals), accent: '#d97706', soft: '#fef3c7', route: '/my-approvals' },
-                    { key: 'openInvoices',    label: 'Open Invoices',    icon: '🧾',  val: fmtN(kpis?.openInvoices),     accent: '#7c3aed', soft: '#ede9fe', route: '/invoices' },
+                    { key: 'openInvoices',    label: 'Open Invoices',    icon: '🧾',  val: fmtN(kpis?.openInvoices),     accent: '#7c3aed', soft: '#ede9fe', route: '/invoices',          filters: { status: 'Confirmed' } },
                 ].filter(k => showKpi(k.key)).map(k => (
-                    <div key={k.key} className="db-kpi-card" onClick={() => navigate(k.route)}
+                    <div key={k.key} className="db-kpi-card"
+                         onClick={() => goFiltered(navigate, k.route, typeof k.filters === 'function' ? k.filters() : k.filters)}
                          style={{ '--kpi-accent': k.accent }}>
                         <div className="db-kpi-top">
                             <span className="db-kpi-icon" style={{ background: k.soft }}>{k.icon}</span>
@@ -484,13 +548,14 @@ const Dashboard = () => {
                     <div className="db-card-header"><span className="db-card-icon">🏗</span> JOB SUMMARY</div>
                     <div className="db-card-body">
                         {[
-                            { label: 'Active Jobs',    val: jobSummary?.activeJobs,    color: '#16a34a' },
-                            { label: 'Completed Jobs', val: jobSummary?.completedJobs, color: '#1e40af' },
-                            { label: 'Cancelled Jobs', val: jobSummary?.cancelledJobs, color: '#dc2626' },
-                            { label: 'Waiting Jobs',   val: jobSummary?.waitingJobs,   color: '#d97706' },
-                            { label: 'Freezed Jobs',   val: jobSummary?.freezedJobs,   color: '#475569' },
+                            { label: 'Active Jobs',    val: jobSummary?.activeJobs,    color: '#16a34a', jobStatusId: 1 },
+                            { label: 'Completed Jobs', val: jobSummary?.completedJobs, color: '#1e40af', jobStatusId: 4 },
+                            { label: 'Cancelled Jobs', val: jobSummary?.cancelledJobs, color: '#dc2626', jobStatusId: 5 },
+                            { label: 'Waiting Jobs',   val: jobSummary?.waitingJobs,   color: '#d97706', jobStatusId: 2 },
+                            { label: 'Freezed Jobs',   val: jobSummary?.freezedJobs,   color: '#475569', jobStatusId: 3 },
                         ].filter(r => (r.val || 0) > 0 || r.label === 'Active Jobs').map(r => (
-                            <div key={r.label} className="db-stat-row" onClick={() => navigate('/jobs')}>
+                            <div key={r.label} className="db-stat-row"
+                                 onClick={() => goFiltered(navigate, '/jobs', { jobStatusIds: String(r.jobStatusId) })}>
                                 <span className="db-stat-label">{r.label}</span>
                                 <span className="db-stat-val" style={{ color: r.color }}>{fmtN(r.val || 0)}</span>
                             </div>
@@ -526,14 +591,15 @@ const Dashboard = () => {
                     <div className="db-card-header"><span className="db-card-icon">🛒</span> PROCUREMENT STATUS</div>
                     <div className="db-card-body">
                         {[
-                            { label: 'Draft PR',    val: procurement?.draftPR,    color: '#94a3b8', route: '/purchase-requests' },
-                            { label: 'Pending PR',  val: procurement?.pendingPR,  color: '#d97706', route: '/purchase-requests' },
-                            { label: 'Approved PR', val: procurement?.approvedPR, color: '#16a34a', route: '/purchase-requests' },
-                            { label: 'Draft PO',    val: procurement?.draftPO,    color: '#94a3b8', route: '/purchase-orders' },
-                            { label: 'Sent PO',     val: procurement?.sentPO,     color: '#1e40af', route: '/purchase-orders' },
-                            { label: 'Approved PO', val: procurement?.approvedPO, color: '#16a34a', route: '/purchase-orders' },
+                            { label: 'Draft PR',    val: procurement?.draftPR,    color: '#94a3b8', route: '/purchase-requests', status: 'Draft' },
+                            { label: 'Pending PR',  val: procurement?.pendingPR,  color: '#d97706', route: '/purchase-requests', status: 'PendingApproval' },
+                            { label: 'Approved PR', val: procurement?.approvedPR, color: '#16a34a', route: '/purchase-requests', status: 'Approved' },
+                            { label: 'Draft PO',    val: procurement?.draftPO,    color: '#94a3b8', route: '/purchase-orders',   status: 'Draft' },
+                            { label: 'Sent PO',     val: procurement?.sentPO,     color: '#1e40af', route: '/purchase-orders',   status: 'Sent' },
+                            { label: 'Approved PO', val: procurement?.approvedPO, color: '#16a34a', route: '/purchase-orders',   status: 'Approved' },
                         ].map(r => (
-                            <div key={r.label} className="db-stat-row" onClick={() => navigate(r.route)}>
+                            <div key={r.label} className="db-stat-row"
+                                 onClick={() => goFiltered(navigate, r.route, { status: r.status })}>
                                 <span className="db-stat-label">{r.label}</span>
                                 <span className="db-stat-val" style={{ color: r.color }}>{fmtN(r.val || 0)}</span>
                             </div>

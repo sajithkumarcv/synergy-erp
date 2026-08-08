@@ -70,8 +70,24 @@ const StatusBadge = ({ text, closed }) => {
 const Section = ({ title, count, icon, children, defaultOpen = true }) => {
     const [open, setOpen] = useState(defaultOpen);
     const hasData = count != null && count > 0;
+    const boxRef  = useRef(null);
+
+    // Auto-expand a collapsed section the moment it scrolls into view, so
+    // scrolling down the (long) overview page reveals everything without
+    // having to click every accordion header individually. One-way — a
+    // section that's already open never auto-collapses again on scroll.
+    useEffect(() => {
+        if (open || !boxRef.current) return;
+        const obs = new IntersectionObserver(
+            ([entry]) => { if (entry.isIntersecting) setOpen(true); },
+            { threshold: 0 }
+        );
+        obs.observe(boxRef.current);
+        return () => obs.disconnect();
+    }, [open]);
+
     return (
-        <div style={{
+        <div ref={boxRef} style={{
             background: '#fff',
             border: '1px solid #e2e8f0',
             borderLeft: hasData ? '4px solid #22c55e' : '1px solid #e2e8f0',
@@ -312,7 +328,6 @@ const PasswordModal = ({ title, message, onCancel, onConfirm, busy }) => {
     const [pwd,    setPwd]    = React.useState('');
     const [err,    setErr]    = React.useState('');
     const reasonRef           = React.useRef(null);
-    const mouseDownOnBackdrop = React.useRef(false);
 
     React.useEffect(() => { setTimeout(() => reasonRef.current?.focus(), 50); }, []);
 
@@ -328,11 +343,11 @@ const PasswordModal = ({ title, message, onCancel, onConfirm, busy }) => {
         <div style={{
             position: 'fixed', inset: 0, background: 'rgba(15,23,42,.55)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999,
-        }}
-            onMouseDown={e => { mouseDownOnBackdrop.current = (e.target === e.currentTarget); }}
-            onClick={e => { if (mouseDownOnBackdrop.current && e.target === e.currentTarget && !busy) onCancel(); }}>
-            <div style={{ background: '#fff', borderRadius: 10, width: 420, padding: 22, boxShadow: '0 8px 24px rgba(0,0,0,.25)' }}
-                onClick={e => e.stopPropagation()}>
+        }}>
+            {/* Financial approval modal — does not close on an outside click,
+                so a stray click (e.g. a browser password-manager popup) can't
+                silently discard the typed reason/password. */}
+            <div style={{ background: '#fff', borderRadius: 10, width: 420, padding: 22, boxShadow: '0 8px 24px rgba(0,0,0,.25)' }}>
                 <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', marginBottom: 8 }}>{title}</div>
                 <div style={{ fontSize: 12.5, color: '#475569', marginBottom: 14, lineHeight: 1.5 }}>{message}</div>
 
@@ -616,27 +631,33 @@ const EditableCell = ({ row, canEdit, uoms, currencies, job, baseCurrencyCode, o
     );
 };
 
-// ── Customer live-search widget ───────────────────────────────────────────────
-const CustSearch = ({ value, label, onChange }) => {
-    const [q, setQ] = useState(label || '');
-    const [results, setResults] = useState([]);
+// ── Job searchable combobox ─────────────────────────────────────────────────
+// Type to filter the already-loaded jobList (client-side — jobList is already
+// scoped by the type/status/customer filters, so no extra fetch needed) and
+// pick a job. Shows the selected job's full label the same way the old plain
+// <select> did, but lets you type JobId/project/customer text to narrow a
+// long list instead of scrolling one.
+const JobSearchSelect = ({ jobList, loading, value, onSelect }) => {
+    const [q, setQ] = useState('');
     const [open, setOpen] = useState(false);
-    const timer = useRef(null);
     const wrap = useRef(null);
 
-    useEffect(() => { if (!value) setQ(''); }, [value]);
-
-    const search = val => {
-        clearTimeout(timer.current);
-        setQ(val);
-        if (!val.trim()) { setResults([]); setOpen(false); onChange(null, ''); return; }
-        timer.current = setTimeout(() => {
-            fetch(`${variables.API_URL}customer/search?searchText=${encodeURIComponent(val)}&pageSize=8&page=1&sortCol=CustomerName&sortDir=ASC`,
-                { headers: authHeaders() })
-                .then(r => r.json()).then(d => { setResults(d.data || []); setOpen(true); })
-                .catch(() => {});
-        }, 280);
+    const jobIdOf = j => j.JobId ?? j.jobId;
+    const labelOf = j => {
+        const jid  = jobIdOf(j);
+        const name = j.ProjectName  ?? j.projectName;
+        const cust = j.CustomerName ?? j.customerName;
+        return `${jid}${name ? ' — ' + name : ''}${cust ? ' (' + cust + ')' : ''}`;
     };
+
+    // Keep the displayed text in sync with the externally-selected job
+    // (including when it's cleared, or when jobList reloads after a filter
+    // change and the previous selection no longer exists in it).
+    useEffect(() => {
+        if (!value) { setQ(''); return; }
+        const j = jobList.find(x => jobIdOf(x) === value);
+        setQ(j ? labelOf(j) : value);
+    }, [value, jobList]); // eslint-disable-line
 
     useEffect(() => {
         const handler = e => { if (wrap.current && !wrap.current.contains(e.target)) setOpen(false); };
@@ -644,29 +665,57 @@ const CustSearch = ({ value, label, onChange }) => {
         return () => document.removeEventListener('mousedown', handler);
     }, []);
 
-    const sel = { padding: '5px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, color: '#334155', background: '#fff', outline: 'none', height: 32, width: 180 };
+    const needle   = q.trim().toLowerCase();
+    const filtered = needle ? jobList.filter(j => labelOf(j).toLowerCase().includes(needle)) : jobList;
+
+    const pick = j => { onSelect(jobIdOf(j)); setQ(labelOf(j)); setOpen(false); };
+    const clear = () => { onSelect(''); setQ(''); setOpen(false); };
+
+    const inputStyle = {
+        padding: '5px 30px 5px 10px', border: '1px solid #d1d5db', borderRadius: 6,
+        fontSize: 13, outline: 'none', height: 32, width: 520, boxSizing: 'border-box',
+        fontWeight: value ? 600 : 400,
+        borderColor: value ? '#3b82f6' : '#d1d5db',
+        color: value ? '#1d4ed8' : '#334155',
+    };
 
     return (
         <div ref={wrap} style={{ position: 'relative' }}>
-            <input style={sel} placeholder="Customer…" value={q}
-                onChange={e => search(e.target.value)}
-                onFocus={() => results.length > 0 && setOpen(true)} />
+            <input style={inputStyle}
+                placeholder={loading ? 'Loading…' : `Search job (${jobList.length})…`}
+                value={q} disabled={loading}
+                onFocus={() => setOpen(true)}
+                onChange={e => { setQ(e.target.value); setOpen(true); }} />
             {value && (
-                <button onClick={() => { onChange(null, ''); setQ(''); setResults([]); setOpen(false); }}
+                <button onClick={clear}
                     style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 14 }}>✕</button>
             )}
-            {open && results.length > 0 && (
-                <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 100, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 6, boxShadow: '0 4px 12px rgba(0,0,0,.1)', minWidth: 240, maxHeight: 220, overflowY: 'auto' }}>
-                    {results.map(c => (
-                        <div key={c.customerId}
-                            onMouseDown={() => { onChange(c.customerId, c.customerName); setQ(c.customerName); setOpen(false); }}
+            {open && filtered.length > 0 && (
+                <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 100, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 6, boxShadow: '0 4px 12px rgba(0,0,0,.1)', minWidth: 520, maxHeight: 260, overflowY: 'auto' }}>
+                    {filtered.slice(0, 50).map(j => (
+                        <div key={jobIdOf(j)}
+                            onMouseDown={() => pick(j)}
                             style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', fontSize: 13 }}
                             onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
                             onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
-                            <div style={{ fontWeight: 600 }}>{c.customerName}</div>
-                            <div style={{ fontSize: 11, color: '#94a3b8' }}>{c.customerCode}</div>
+                            {labelOf(j)}
                         </div>
                     ))}
+                    {filtered.length > 50 && (
+                        <div style={{ padding: '6px 12px', fontSize: 11, color: '#94a3b8' }}>
+                            +{filtered.length - 50} more — keep typing to narrow it down
+                        </div>
+                    )}
+                </div>
+            )}
+            {open && !loading && jobList.length === 0 && (
+                <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 100, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 6, boxShadow: '0 4px 12px rgba(0,0,0,.1)', minWidth: 520, padding: '10px 12px', fontSize: 12.5, color: '#94a3b8' }}>
+                    No jobs match the selected Type / Status / Customer filters above.
+                </div>
+            )}
+            {open && needle && jobList.length > 0 && filtered.length === 0 && (
+                <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 100, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 6, boxShadow: '0 4px 12px rgba(0,0,0,.1)', minWidth: 520, padding: '10px 12px', fontSize: 12.5, color: '#94a3b8' }}>
+                    No job matches "{q}" within the {jobList.length} filtered job{jobList.length !== 1 ? 's' : ''}.
                 </div>
             )}
         </div>
@@ -693,10 +742,10 @@ const JobOverview = () => {
     const [jobTypeFilter, setJobTypeFilter] = useState('');
     const [statusFilter,  setStatusFilter]  = useState('');
     const [custId,        setCustId]        = useState(null);
-    const [custLabel,     setCustLabel]     = useState('');
     const [selectedJobId, setSelectedJobId] = useState('');
 
     const [jobTypes,    setJobTypes]    = useState([]);
+    const [customers,   setCustomers]   = useState([]);
     const [jobList,     setJobList]     = useState([]);
     const [jobsLoading, setJobsLoading] = useState(false);
 
@@ -768,6 +817,9 @@ const JobOverview = () => {
     useEffect(() => {
         fetch(`${variables.API_URL}job/types`, { headers: authHeaders() })
             .then(r => r.json()).then(d => setJobTypes(Array.isArray(d) ? d : [])).catch(console.error);
+        fetch(`${variables.API_URL}customer/search?pageSize=1000&page=1&sortCol=CustomerName&sortDir=ASC`, { headers: authHeaders() })
+            .then(r => r.ok ? r.json() : { data: [] })
+            .then(d => setCustomers(d.data || [])).catch(console.error);
     }, []);
 
     const loadJobs = useCallback(() => {
@@ -918,7 +970,7 @@ const JobOverview = () => {
         });
     };
 
-    const handleJobSelect = e => { const v = e.target.value; setSelectedJobId(v); loadOverview(v); };
+    const selectJob = v => { setSelectedJobId(v); loadOverview(v); };
 
     const sel = { padding: '5px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, color: '#334155', background: '#fff', outline: 'none', cursor: 'pointer', height: 32 };
 
@@ -952,8 +1004,9 @@ const JobOverview = () => {
     const isClosedFinal     = [3, 4, 5].includes(h?.jobStatusId);
     const canApprove        = canDo('/jobs', 'APPROVE') && !isClosedFinal;
     const canRevise         = canDo('/jobs', 'REVISE')  && !isClosedFinal;
-    // Budget editability: job not closed, user has EDIT perm on /jobs, and budget not approved
-    const budgetCanEdit     = !h?.isClosed && canDo('/jobs', 'EDIT') && !budgetApproved;
+    // Budget editability: hidden for now on the Overview page per request — inline
+    // budget cell editing is disabled regardless of status/permission until re-enabled.
+    const budgetCanEdit     = false;
 
     return (
         <div className="po-page" style={printLoading ? { cursor: 'wait' } : {}}>
@@ -980,33 +1033,26 @@ const JobOverview = () => {
                             <option value="">All Statuses</option>
                             {jobStatuses.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                         </select>
-                        <CustSearch value={custId} label={custLabel}
-                            onChange={(id, name) => { setCustId(id); setCustLabel(name); }} />
-                        <div style={{ width: 1, height: 24, background: '#e2e8f0', margin: '0 2px' }} />
-                        <select
-                            style={{ ...sel, minWidth: 300,
-                                     fontWeight: selectedJobId ? 600 : 400,
-                                     borderColor: selectedJobId ? '#3b82f6' : '#d1d5db',
-                                     color: selectedJobId ? '#1d4ed8' : '#334155' }}
-                            value={selectedJobId} onChange={handleJobSelect} disabled={jobsLoading}>
-                            <option value="">{jobsLoading ? 'Loading…' : `— Select Job (${jobList.length}) —`}</option>
-                            {jobList.map(j => {
-                                // job-overview/jobs returns Dapper dynamic rows → PascalCase keys.
-                                // Read PascalCase first, fall back to camelCase, so the JobId always shows.
-                                const jid  = j.JobId        ?? j.jobId;
-                                const name = j.ProjectName  ?? j.projectName;
-                                const cust = j.CustomerName ?? j.customerName;
-                                return (
-                                    <option key={jid} value={jid}>
-                                        {jid}{name ? ` — ${name}` : ''}{cust ? ` (${cust})` : ''}
-                                    </option>
-                                );
-                            })}
+                        <select style={sel} value={custId || ''} onChange={e => setCustId(e.target.value || null)}>
+                            <option value="">All Customers</option>
+                            {customers.map(c => (
+                                <option key={c.customerId} value={c.customerId}>{c.customerName}</option>
+                            ))}
                         </select>
+                        <div style={{ width: 1, height: 24, background: '#e2e8f0', margin: '0 2px' }} />
+                        <JobSearchSelect jobList={jobList} loading={jobsLoading} value={selectedJobId} onSelect={selectJob} />
                         {selectedJobId && (
                             <button onClick={() => { setSelectedJobId(''); setData(null); }}
                                 style={{ padding: '4px 10px', border: '1px solid #e2e8f0', borderRadius: 6, background: '#f8fafc', color: '#64748b', fontSize: 12, cursor: 'pointer' }}>
                                 ✕ Clear
+                            </button>
+                        )}
+                        {(jobTypeFilter || statusFilter || custId || selectedJobId) && (
+                            <button
+                                onClick={() => { setJobTypeFilter(''); setStatusFilter(''); setCustId(null); }}
+                                title="Reset Job Type, Status, Customer and the selected job"
+                                style={{ padding: '4px 10px', border: '1px solid #fca5a5', borderRadius: 6, background: '#fef2f2', color: '#b91c1c', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                                ✕ Clear All
                             </button>
                         )}
                     </div>
@@ -1547,12 +1593,6 @@ const JobOverview = () => {
                                     <button onClick={() => setPwdAction('approve')}
                                         style={{ padding: '6px 14px', fontSize: 12, fontWeight: 600, background: '#16a34a', color: '#fff', border: 'none', borderRadius: 5, cursor: 'pointer' }}>
                                         ✓ Approve Budget
-                                    </button>
-                                )}
-                                {budgetApproved && canRevise && (
-                                    <button onClick={() => setPwdAction('revise')}
-                                        style={{ padding: '6px 14px', fontSize: 12, fontWeight: 600, background: '#f59e0b', color: '#fff', border: 'none', borderRadius: 5, cursor: 'pointer' }}>
-                                        ↻ Revise Budget
                                     </button>
                                 )}
                             </div>

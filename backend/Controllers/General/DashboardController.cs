@@ -220,5 +220,51 @@ namespace ERPWEB.Controllers.General
                 return StatusCode(500, new { message = "Error loading dashboard." });
             }
         }
+
+        // ── Which KPI tiles / sections each role sees on the dashboard ─────
+        // Backs both the admin settings matrix (Settings → Dashboard Roles)
+        // and the dashboard's own per-role rendering. Roles with zero rows
+        // here haven't been configured yet — the frontend falls back to its
+        // built-in default in that case, same as before this table existed.
+        [HttpGet("role-config")]
+        public async Task<IActionResult> GetRoleConfig()
+        {
+            try
+            {
+                var (roles, rows) = await _dbcon.QueryMultipleAsync<
+                    ERPWEB.Models.General.DashboardRoleOption,
+                    ERPWEB.Models.General.DashboardRoleConfigRow>("sp_GetDashboardRoleConfig");
+                return Ok(new { roles, config = rows });
+            }
+            catch (Exception ex)
+            {
+                await _dbcon.WriteLog(ex, controller: "Dashboard", action: "GetRoleConfig", requestPath: HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Error loading dashboard role config." });
+            }
+        }
+
+        [HttpPost("role-config/save")]
+        public async Task<IActionResult> SaveRoleConfig([FromBody] ERPWEB.Models.General.SaveDashboardRoleConfigRequest req)
+        {
+            if (req.RoleId <= 0 || string.IsNullOrWhiteSpace(req.ItemType) || string.IsNullOrWhiteSpace(req.ItemKey))
+                return BadRequest(new { message = "RoleId, ItemType and ItemKey are required." });
+            try
+            {
+                await _dbcon.ExecuteScalarAsync("sp_SetDashboardRoleConfig", new
+                {
+                    req.RoleId,
+                    req.ItemType,
+                    req.ItemKey,
+                    req.IsVisible,
+                    req.ModifiedBy,
+                });
+                return Ok(new { message = "Saved." });
+            }
+            catch (Exception ex)
+            {
+                await _dbcon.WriteLog(ex, controller: "Dashboard", action: "SaveRoleConfig", requestPath: HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Error saving dashboard role config." });
+            }
+        }
     }
 }

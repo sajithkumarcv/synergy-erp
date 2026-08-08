@@ -6,7 +6,7 @@ import ApprovalHistoryTab from './ApprovalHistoryTab';
 import '../procurement/Procurement.css';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-const PAGE_SIZES = [20, 50, 100];
+const PAGE_SIZES = [50, 100, 200, 500, 1000];
 
 const STATUSES = ['Pending', 'Approved', 'Rejected', 'Cancelled'];
 
@@ -197,7 +197,7 @@ const ApprovalsAdminPage = () => {
     const [totalRows,   setTotalRows]  = useState(0);
     const [totalPages,  setTotalPages] = useState(1);
     const [page,        setPage]       = useState(1);
-    const [pageSize,    setPageSize]   = useState(50);
+    const [pageSize,    setPageSize]   = useState(200);
     const [sortCol,     setSortCol]    = useState('SubmittedDate');
     const [sortDir,     setSortDir]    = useState('DESC');
     const [applied,     setApplied]    = useState({ ...DEFAULT_FILTERS });
@@ -211,7 +211,7 @@ const ApprovalsAdminPage = () => {
     }, []);
 
     // Keep latest grid state accessible inside callbacks without re-creating them
-    const gridRef = useRef({ page: 1, pageSize: 50, sortCol: 'SubmittedDate', sortDir: 'DESC', applied: DEFAULT_FILTERS });
+    const gridRef = useRef({ page: 1, pageSize: 200, sortCol: 'SubmittedDate', sortDir: 'DESC', applied: DEFAULT_FILTERS });
     useEffect(() => { gridRef.current = { page, pageSize, sortCol, sortDir, applied }; }, [page, pageSize, sortCol, sortDir, applied]);
 
     // ── Fetch ─────────────────────────────────────────────────────────────

@@ -10,7 +10,7 @@ import AlertModal from '../common/AlertModal';
 import './Item.css';
 import RowLink from '../common/RowLink';
 
-const PAGE_SIZES      = [10, 20, 50, 100];
+const PAGE_SIZES = [50, 100, 200, 500, 1000];
 const DEFAULT_FILTERS = { searchText: '', categoryId: '', subCategoryId: '', itemTypeId: '', budgetCategoryId: '', isActive: '' };
 
 const SortIcon = ({ col, sortCol, sortDir }) => {
@@ -226,7 +226,7 @@ export const Item = () => {
   const [totalRows, setTotal]     = useState(0);
   const [totalPages,setPages]     = useState(1);
   const [page,      setPage]      = useState(1);
-  const [pageSize,  setPageSize]  = useState(20);
+  const [pageSize,  setPageSize]  = useState(200);
   const [sortCol,   setSortCol]   = useState('ItemName');
   const [sortDir,   setSortDir]   = useState('ASC');
   const [loading,   setLoading]   = useState(false);
@@ -238,7 +238,7 @@ export const Item = () => {
   const [showForm,   setShowForm]   = useState(false);
   const [showImport, setShowImport] = useState(false);
 
-  const gridRef = useRef({ pageSize: 20, sortCol: 'ItemName', sortDir: 'ASC', applied: DEFAULT_FILTERS });
+  const gridRef = useRef({ pageSize: 200, sortCol: 'ItemName', sortDir: 'ASC', applied: DEFAULT_FILTERS });
   useEffect(() => { gridRef.current = { pageSize, sortCol, sortDir, applied }; }, [pageSize, sortCol, sortDir, applied]);
 
   useEffect(() => {

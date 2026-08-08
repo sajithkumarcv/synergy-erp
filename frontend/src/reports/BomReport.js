@@ -8,7 +8,7 @@ import './Reports.css';
 const today        = () => new Date().toISOString().slice(0, 10);
 const firstOfMonth = () => { const d = new Date(); d.setDate(1); return d.toISOString().slice(0, 10); };
 
-const PAGE_SIZES = [10, 20, 50, 100];
+const PAGE_SIZES = [50, 100, 200, 500, 1000];
 
 const DEFAULT_FILTERS = {
     dateFrom:  firstOfMonth(),
@@ -113,7 +113,7 @@ const BomReport = () => {
     const [sortCol,  setSortCol]  = useState('bomDate');
     const [sortDir,  setSortDir]  = useState('desc');
     const [page,     setPage]     = useState(1);
-    const [pageSize, setPageSize] = useState(20);
+    const [pageSize, setPageSize] = useState(200);
     const [jobTypes, setJobTypes] = useState([]);
 
     const setF = (k, v) => setFilters(f => ({ ...f, [k]: v }));

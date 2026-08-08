@@ -5,7 +5,7 @@ import { useFilters } from '../FilterContext';
 import { usePermission } from '../PermissionContext';
 import '../procurement/Procurement.css';
 
-const PAGE_SIZES = [10, 20, 50];
+const PAGE_SIZES = [50, 100, 200, 500, 1000];
 const DEFAULT_FILTERS = { searchText: '', status: '', roleId: '' };
 
 const SortIcon = ({ col, sortCol, sortDir }) => {
@@ -327,7 +327,7 @@ const UserManagement = () => {
     const [totalRows,  setTotal]     = useState(0);
     const [totalPages, setPages]     = useState(1);
     const [page,       setPage]      = useState(1);
-    const [pageSize,   setPageSize]  = useState(20);
+    const [pageSize,   setPageSize]  = useState(200);
     const [sortCol,    setSortCol]   = useState('CreatedDate');
     const [sortDir,    setSortDir]   = useState('DESC');
     const [applied,    setApplied]   = useState({ ...DEFAULT_FILTERS });
@@ -339,7 +339,7 @@ const UserManagement = () => {
     const [assignUser, setAssignUser]= useState(null);
     const [success,    setSuccess]   = useState('');
 
-    const gridRef = useRef({ pageSize: 20, sortCol: 'CreatedDate', sortDir: 'DESC', applied: DEFAULT_FILTERS });
+    const gridRef = useRef({ pageSize: 200, sortCol: 'CreatedDate', sortDir: 'DESC', applied: DEFAULT_FILTERS });
     useEffect(() => { gridRef.current = { pageSize, sortCol, sortDir, applied }; }, [pageSize, sortCol, sortDir, applied]);
 
     // Load roles for filter/forms

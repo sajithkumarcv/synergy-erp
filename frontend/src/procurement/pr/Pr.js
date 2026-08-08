@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useInitialFilters } from '../../utils/useInitialFilters';
 import { variables, authHeaders } from '../../Variable';
 import { useCurrentUser } from '../../AuthContext';
 import { useLookup } from '../../LookupContext';
@@ -11,7 +12,7 @@ import '../Procurement.css';
 import RowLink from '../../common/RowLink';
 import PrPrintModal from './PrPrintModal';
 
-const PAGE_SIZES = [100, 200, 500];
+const PAGE_SIZES = [50, 100, 200, 500, 1000];
 
 const DEFAULT_FILTERS = { searchText: '', status: '', priority: '', jobId: '', createdBy: '', dateFrom: '', dateTo: '' };
 
@@ -407,21 +408,25 @@ export const Pr = () => {
     const { getModuleStatuses, getVList } = useLookup();
     const { canDo } = usePermission();
     const canAdd    = canDo('/purchase-requests', 'ADD');
+    // Seeded from dashboard tiles (e.g. "Open PRs" → status = the open set) —
+    // see [[weberp-synergy-fork]]. Falls back to DEFAULT_FILTERS untouched
+    // when this route was reached any other way.
+    const initialFilters = useInitialFilters(DEFAULT_FILTERS);
 
     const [rows,      setRows]      = useState([]);
     const [loading,   setLoading]   = useState(false);
     const [totalRows, setTotal]     = useState(0);
     const [totalPages, setPages]    = useState(1);
     const [page,      setPage]      = useState(1);
-    const [pageSize,  setPageSize]  = useState(20);
+    const [pageSize,  setPageSize]  = useState(200);
     const [sortCol,   setSortCol]   = useState('PrDate');
     const [sortDir,   setSortDir]   = useState('DESC');
-    const [applied,   setApplied]   = useState({ ...DEFAULT_FILTERS });
+    const [applied,   setApplied]   = useState(initialFilters);
     const [showForm,  setShowForm]  = useState(false);
     const [infoPrId,  setInfoPrId]  = useState(null);
 
     // Stable ref so filter callbacks always see current values
-    const gridRef = useRef({ pageSize: 20, sortCol: 'PrDate', sortDir: 'DESC', applied: DEFAULT_FILTERS });
+    const gridRef = useRef({ pageSize: 200, sortCol: 'PrDate', sortDir: 'DESC', applied: DEFAULT_FILTERS });
     useEffect(() => { gridRef.current = { pageSize, sortCol, sortDir, applied }; }, [pageSize, sortCol, sortDir, applied]);
 
     // Fetch active jobs for the Job ID filter dropdown
@@ -454,7 +459,7 @@ export const Pr = () => {
     }, []);
 
     // Initial load
-    useEffect(() => { load(1, pageSize, sortCol, sortDir, DEFAULT_FILTERS); }, [load]); // eslint-disable-line
+    useEffect(() => { load(1, pageSize, sortCol, sortDir, initialFilters); }, [load]); // eslint-disable-line
 
     // Build filter defs (jobOptions may be empty initially, patched once jobs load)
     const buildDefs = (opts) => ({
@@ -476,7 +481,7 @@ export const Pr = () => {
             setApplied({ ...vals }); setPage(1);
             load(1, ps, sc, sd, vals);
         };
-        registerFilters('purchaserequest', buildDefs([]), DEFAULT_FILTERS, onApply);
+        registerFilters('purchaserequest', buildDefs([]), initialFilters, onApply);
         return () => unregisterFilters('purchaserequest');
     }, []); // eslint-disable-line
 

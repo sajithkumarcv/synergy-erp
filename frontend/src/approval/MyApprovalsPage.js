@@ -74,7 +74,7 @@ const fmtDateTime = d => d
 
 const MODULES = [
     { code: 'PR',  label: 'Purchase Requests', icon: '🛒', color: '#1e40af', bg: '#eff6ff', route: id => `/purchase-requests/${id}` },
-    { code: 'PO',  label: 'Purchase Orders',   icon: '📦', color: '#065f46', bg: '#f0fdfa', route: id => `/purchase-orders/${id}` },
+    { code: 'PO',  label: 'Purchase Orders',   icon: '📦', color: '#065f46', bg: '#f0fdfa', route: id => `/purchase-orders/${id}/review`, newTab: true },
     { code: 'INV', label: 'Invoices',          icon: '🧾', color: '#4c1d95', bg: '#faf5ff', route: id => `/invoices/${id}` },
     { code: 'JOB', label: 'Jobs',              icon: '🔧', color: '#7c2d12', bg: '#fff7ed', route: id => `/jobs/${id}` },
     { code: 'BOM', label: 'BOMs',              icon: '📋', color: '#0f766e', bg: '#f0fdfa', route: id => `/bom/${id}` },
@@ -929,7 +929,13 @@ const MyApprovalsPage = () => {
 
     function openDocument(item) {
         const meta = moduleMeta(item.moduleCode);
-        if (meta.route) navigate(meta.route(item.documentId));
+        if (!meta.route) return;
+        const url = meta.route(item.documentId);
+        // PO (and any other module flagged newTab) opens its read-only full
+        // page in a separate browser tab, so approvers can review the whole
+        // document without losing their place in the approvals list.
+        if (meta.newTab) window.open(url, '_blank', 'noopener');
+        else navigate(url);
     }
 
     function toggleRow(item) {

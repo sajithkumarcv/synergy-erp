@@ -10,7 +10,7 @@ import '../procurement/Procurement.css';
 import RowLink from '../common/RowLink';
 import LookupSelect from '../common/LookupSelect';
 
-const PAGE_SIZES = [10, 20, 50];
+const PAGE_SIZES = [50, 100, 200, 500, 1000];
 // Rows pulled per customer lookup. Higher than the old 10 because the field is
 // now browsable on click, not just typed into — but still capped, since the
 // dropdown scrolls rather than showing the whole customer master.
@@ -381,13 +381,13 @@ const Delivery = () => {
     const [totalRows,  setTotal]    = useState(0);
     const [totalPages, setPages]    = useState(1);
     const [page,       setPage]     = useState(1);
-    const [pageSize,   setPageSize] = useState(20);
+    const [pageSize,   setPageSize] = useState(200);
     const [sortCol,    setSortCol]  = useState('DeliveryDate');
     const [sortDir,    setSortDir]  = useState('DESC');
     const [applied,    setApplied]  = useState({ ...DEFAULT_FILTERS });
     const [showForm,   setShowForm] = useState(false);
 
-    const gridRef = useRef({ pageSize: 20, sortCol: 'DeliveryDate', sortDir: 'DESC', applied: DEFAULT_FILTERS });
+    const gridRef = useRef({ pageSize: 200, sortCol: 'DeliveryDate', sortDir: 'DESC', applied: DEFAULT_FILTERS });
     useEffect(() => { gridRef.current = { pageSize, sortCol, sortDir, applied }; }, [pageSize, sortCol, sortDir, applied]);
 
     const [customerOptions, setCustomerOptions] = useState([]);

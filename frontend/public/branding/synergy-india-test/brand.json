@@ -1,0 +1,41 @@
+{
+  "layout": "aurora",
+  "appName": "Synergy Infratech",
+  "tagline": "TEST ENVIRONMENT",
+  "title": "Synergy Infratech — TEST",
+  "welcome": "Welcome back",
+  "headline": "Synergy India — Test Deployment",
+  "blurb": "This is a TEST instance on a separate database. Not for live company data.",
+  "logo": "SynLogo.png",
+  "logoWordmark": true,
+  "version": "v4.8.2 · build 2026.07 (TEST)",
+  "features": [
+    "Test / staging build",
+    "Separate database (SYNERP)",
+    "Not the production site"
+  ],
+  "footer": "© {year} Synergy Infratech Power Systems Pvt. Ltd. — TEST",
+  "text": {
+    "signInTitle": "Welcome back",
+    "signInSubtitle": "TEST environment — sign in to the syntest workspace.",
+    "resetTitle": "Reset Password",
+    "resetSubtitle": "Enter your account email and we will send you a reset link"
+  },
+  "loader": {
+    "flag": ["#e53935", "#ffb300", "#3a3a3a", "#0d0d0d"],
+    "text": "Loading TEST workspace"
+  },
+  "colors": {
+    "primary": "#c62828",
+    "primary-hover": "#a01f1f",
+    "primary-ring": "rgba(198,40,40,0.18)",
+    "secondary": "#ffb300",
+    "panel-a": "#0a0a0a",
+    "panel-b": "#2b0a0a",
+    "panel-glow": "#ff5252",
+    "panel-bg": "linear-gradient(160deg, #0a0a0a 0%, #2b0a0a 118%)",
+    "page-bg": "#faf5f5",
+    "card-bg": "#ffffff",
+    "title": "#2b0a0a"
+  }
+}

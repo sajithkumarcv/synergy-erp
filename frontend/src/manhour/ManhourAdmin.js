@@ -7,7 +7,7 @@ import './Manhour.css';
 const fmt     = n => n != null ? Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
 const fmtDate = d => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
-const PAGE_SIZES = [20, 50, 100];
+const PAGE_SIZES = [50, 100, 200, 500, 1000];
 
 const DEFAULT_FILTERS = {
     searchText: '', jobId: '', documentNo: '',
@@ -197,7 +197,7 @@ const ManhourAdmin = () => {
     const [rows,       setRows]         = useState([]);
     const [loading,    setLoading]      = useState(false);
     const [page,       setPage]         = useState(1);
-    const [pageSize,   setPageSize]     = useState(50);
+    const [pageSize,   setPageSize]     = useState(200);
     const [totalRows,  setTotalRows]    = useState(0);
     const [totalPages, setTotalPages]   = useState(1);
     const [sortCol,    setSortCol]      = useState('DocumentDate');

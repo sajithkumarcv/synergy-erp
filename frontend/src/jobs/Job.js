@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useInitialFilters } from '../utils/useInitialFilters';
 import { variables, authHeaders } from '../Variable';
 import { useCurrentUser } from '../AuthContext';
 import { useLookup } from '../LookupContext';
@@ -17,7 +19,7 @@ const stripAmt = (v) => String(v).replace(/,/g, '');
 const fmtAmt   = (v) => { const n = parseFloat(stripAmt(v)); return isNaN(n) ? v : n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
 const parseAmt = (v) => parseFloat(stripAmt(String(v))) || 0;
 
-const PAGE_SIZES      = [20, 50, 100, 200, 500];
+const PAGE_SIZES = [50, 100, 200, 500, 1000];
 const DEFAULT_FILTERS = { searchText: '', customerId: '', jobTypeId: '', jobStatusIds: '', jobStageId: '', dateFrom: '', dateTo: '' };
 
 const STATUS_MAP = {
@@ -31,6 +33,21 @@ const STATUS_MAP = {
 const StatusBadge = ({ id }) => {
   const s = STATUS_MAP[id] || { label: 'Unknown', bg: '#f1f5f9', color: '#64748b' };
   return <span className="job-badge" style={{ background: s.bg, color: s.color }}>{s.label}</span>;
+};
+
+// Approval status can be 'Draft', 'Approved', 'Rejected', or one of several
+// in-flight strings ('PendingApproval', 'PendingL1'..'PendingL4', 'Submitted',
+// 'L1Approved', 'SentBack', etc. — the exact wording depends on how many
+// levels the job's approval policy has). Colour by category, show raw text.
+const ApprovalBadge = ({ status }) => {
+  const s = (status || 'Draft').trim();
+  const up = s.toUpperCase();
+  let bg = '#f1f5f9', color = '#64748b'; // Draft / unknown — grey
+  if (up === 'APPROVED')                          { bg = '#dcfce7'; color = '#166534'; } // green
+  else if (up === 'REJECTED')                      { bg = '#fee2e2'; color = '#991b1b'; } // red
+  else if (up === 'SENTBACK' || up === 'SENT BACK'){ bg = '#fce7f3'; color = '#9d174d'; } // pink
+  else if (up !== 'DRAFT')                          { bg = '#fef9c3'; color = '#854d0e'; } // amber — any in-flight state
+  return <span className="job-badge" style={{ background: bg, color }}>{s}</span>;
 };
 
 const SortIcon = ({ col, sortCol, sortDir }) => {
@@ -68,17 +85,8 @@ const JobForm = ({ jobTypes, jobStages, onClose, onSaved }) => {
     jobExpectedDeliveryDate: '',
     parentJobId:             '',   // only required when preview.requiresParentJob
     parentJobLabel:          '',   // display text for selected parent job
-    budgetCategoryId:        '',   // only required when preview.isBudgetHeaderLinked
+    budgetCategoryId:        '',   // no longer exposed on the create form — always sent as null
   });
-
-  // Budget header options (job expense categories flagged UsedForBudget=1)
-  const [budgetCategories, setBudgetCategories] = useState([]);
-  useEffect(() => {
-    fetch(`${variables.API_URL}Lookup/budgetcategories`, { headers: authHeaders() })
-      .then(r => r.ok ? r.json() : [])
-      .then(d => setBudgetCategories(Array.isArray(d) ? d : []))
-      .catch(console.error);
-  }, []);
 
   // Auto-select first stage once stages are available
   useEffect(() => {
@@ -121,12 +129,6 @@ const JobForm = ({ jobTypes, jobStages, onClose, onSaved }) => {
       setParentResults([]);
     }
   }, [preview?.requiresParentJob]); // eslint-disable-line
-
-  // Clear budget header when job type is no longer budget-header-linked
-  useEffect(() => {
-    if (!preview?.isBudgetHeaderLinked)
-      setForm(p => ({ ...p, budgetCategoryId: '' }));
-  }, [preview?.isBudgetHeaderLinked]); // eslint-disable-line
 
   // ── Customer search ───────────────────────────────────────────
   const [errors, setErrors] = useState({});
@@ -180,8 +182,6 @@ const JobForm = ({ jobTypes, jobStages, onClose, onSaved }) => {
     if (!form.jobTypeId)                          e.jobTypeId     = 'Job Type is required.';
     if (preview?.requiresParentJob && !form.parentJobId)
                                                   e.parentJobId   = 'Parent Job is required for this job type.';
-    if (preview?.isBudgetHeaderLinked && !form.budgetCategoryId)
-                                                  e.budgetCategoryId = 'Budget Header is required for this job type.';
     if (!form.jobStageId)                         e.jobStageId    = 'Job Stage is required.';
     if (!form.customerId)                         e.customerId    = 'Customer is required.';
     if (!form.jobDate)                            e.jobDate       = 'Job Date is required.';
@@ -243,8 +243,9 @@ const JobForm = ({ jobTypes, jobStages, onClose, onSaved }) => {
     setSaving(true);
     setSaveError('');
 
-    // Convert empty strings to null for nullable date fields —
-    // System.Text.Json in .NET 8 cannot deserialize "" to DateTime? and returns 400.
+    // Convert empty strings to null for nullable fields — both dates
+    // (System.Text.Json in .NET 8 can't deserialize "" to DateTime?) and
+    // optional text fields (so unfilled fields store as NULL, not '').
     const d2n = v => v || null;
 
     fetch(`${variables.API_URL}job/save`, {
@@ -261,6 +262,11 @@ const JobForm = ({ jobTypes, jobStages, onClose, onSaved }) => {
         lpoDate:                    d2n(form.lpoDate),
         jobExpectedCompleteDate:    d2n(form.jobExpectedCompleteDate),
         jobExpectedDeliveryDate:    d2n(form.jobExpectedDeliveryDate),
+        jobDescription:             d2n(form.jobDescription),
+        projectName:                d2n(form.projectName),
+        contractRef:                d2n(form.contractRef),
+        lpoRef:                     d2n(form.lpoRef),
+        externalRef:                d2n(form.externalRef),
         parentJobId:                form.parentJobId || null,
         parentJobLabel:             undefined,   // UI-only — strip before sending
         budgetCategoryId:           form.budgetCategoryId ? Number(form.budgetCategoryId) : null,
@@ -278,8 +284,49 @@ const JobForm = ({ jobTypes, jobStages, onClose, onSaved }) => {
         setSaveError(msg);
         return;
       }
-      onSaved(d.jobId);
-      onClose();
+      const newJobId = d.jobId;
+
+      // In-house job types (IsCostingRequired = 0) skip Terms/Meta entry —
+      // auto-fill with fixed defaults so only Engineer + Documents remain.
+      if (preview?.isCostingRequired === false) {
+        Promise.all([
+          fetch(`${variables.API_URL}job/${encodeURIComponent(newJobId)}/terms`, {
+            method: 'POST', headers: authHeaders(),
+            body: JSON.stringify({
+              jobId:             newJobId,
+              jobPaymentTerms:   'INHOUSE',
+              warrantyTerms:     'INHOUSE',
+              jobDeliveryTerms:  'INHOUSE',
+              createdBy:         currentUser,
+            }),
+          }),
+          Promise.all([
+            fetch(`${variables.API_URL}job/bays`,           { headers: authHeaders() }).then(r => r.json()),
+            fetch(`${variables.API_URL}job/categories`,      { headers: authHeaders() }).then(r => r.json()),
+            fetch(`${variables.API_URL}job/quality-levels`,  { headers: authHeaders() }).then(r => r.json()),
+          ]).then(([bays, cats, quals]) => {
+            const bay  = (bays  || []).find(b => (b.bayName          || '').trim().toLowerCase() === 'default');
+            const cat  = (cats  || []).find(c => (c.jobCategoryName  || '').trim().toLowerCase() === 'default');
+            const qual = (quals || []).find(q => (q.qualityLevelName || '').trim().toLowerCase() === 'default');
+            if (!bay || !cat || !qual) return; // no 'Default' row configured — skip silently
+            return fetch(`${variables.API_URL}job/${encodeURIComponent(newJobId)}/meta`, {
+              method: 'POST', headers: authHeaders(),
+              body: JSON.stringify({
+                bayId:          bay.bayId,
+                jobCategoryId:  cat.jobCategoryId,
+                qualityLevelId: qual.qualityLevelId,
+                totalUnits:     1,
+                modifiedBy:     currentUser,
+              }),
+            });
+          }),
+        ])
+        .catch(console.error)
+        .finally(() => { onSaved(newJobId); onClose(); });
+      } else {
+        onSaved(newJobId);
+        onClose();
+      }
     })
     .catch(() => setSaveError('Network error. Please check your connection.'))
     .finally(() => setSaving(false));
@@ -400,27 +447,6 @@ const JobForm = ({ jobTypes, jobStages, onClose, onSaved }) => {
               {errors.jobDate && <span className="jf-err-msg">{errors.jobDate}</span>}
             </div>
           </div>
-
-          {/* ── Budget Header (only when job type is budget-header-linked) ── */}
-          {preview?.isBudgetHeaderLinked && (
-            <>
-              <Sec label="Budget Header" />
-              <div className="jf-row">
-                <div className="jf-field jf-f2">
-                  <label>Budget Header <span className="req">*</span></label>
-                  <select name="budgetCategoryId"
-                    className={`jf-input${errors.budgetCategoryId ? ' jf-input-err' : ''}`}
-                    value={form.budgetCategoryId} onChange={handle}>
-                    <option value="">-- Select --</option>
-                    {budgetCategories.map(b => (
-                      <option key={b.id} value={b.id}>{b.code ? `${b.code} — ` : ''}{b.name}</option>
-                    ))}
-                  </select>
-                  {errors.budgetCategoryId && <span className="jf-err-msg">{errors.budgetCategoryId}</span>}
-                </div>
-              </div>
-            </>
-          )}
 
           {/* ── Parent Job (only when job type requires it) ── */}
           {preview?.requiresParentJob && (
@@ -650,25 +676,34 @@ const JobForm = ({ jobTypes, jobStages, onClose, onSaved }) => {
 // MAIN JOB LIST PAGE
 // ═══════════════════════════════════════════════════════════════
 export const Job = () => {
+  const navigate = useNavigate();
   const { registerFilters, unregisterFilters, updateFilterDefs } = useFilters();
   const { canDo } = usePermission();
   const canAdd    = canDo('/jobs', 'ADD');
+  const { baseCurrencyCode } = useLookup();
+  // Seeded from dashboard tiles (e.g. "Active Jobs" → jobStatusIds='1') —
+  // see [[weberp-synergy-fork]]. Falls back to DEFAULT_FILTERS untouched
+  // when this route was reached any other way.
+  const initialFilters = useInitialFilters(DEFAULT_FILTERS);
 
   const [rows, setRows]         = useState([]);
   const [totalRows, setTotal]   = useState(0);
   const [totalPages, setPages]  = useState(1);
   const [page, setPage]         = useState(1);
-  const [pageSize, setPageSize] = useState(20);
-  const [sortCol, setSortCol]   = useState('JobDate');
-  const [sortDir, setSortDir]   = useState('DESC');
+  const [pageSize, setPageSize] = useState(200);
+  // Default: grouped by Job Type, newest-created first within each type
+  // (the secondary "CreatedDate DESC" tiebreak lives in sp_SearchJobs itself
+  // whenever sorting by JobTypeName, not just on this initial load).
+  const [sortCol, setSortCol]   = useState('JobTypeName');
+  const [sortDir, setSortDir]   = useState('ASC');
   const [loading, setLoading]   = useState(false);
-  const [applied, setApplied]   = useState({ ...DEFAULT_FILTERS });
+  const [applied, setApplied]   = useState(initialFilters);
   const [jobTypes,  setJobTypes]  = useState([]);
   const [jobStages, setJobStages] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [showForm,  setShowForm]  = useState(false);
 
-  const gridRef = useRef({ pageSize: 20, sortCol: 'JobDate', sortDir: 'DESC', applied: DEFAULT_FILTERS });
+  const gridRef = useRef({ pageSize: 200, sortCol: 'JobTypeName', sortDir: 'ASC', applied: DEFAULT_FILTERS });
   useEffect(() => { gridRef.current = { pageSize, sortCol, sortDir, applied }; }, [pageSize, sortCol, sortDir, applied]);
 
   useEffect(() => {
@@ -697,7 +732,7 @@ export const Job = () => {
       .catch(console.error).finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { load(1, pageSize, sortCol, sortDir, DEFAULT_FILTERS); }, [load]); // eslint-disable-line
+  useEffect(() => { load(1, pageSize, sortCol, sortDir, initialFilters); }, [load]); // eslint-disable-line
 
   // Mount-only: register with empty options to avoid re-render loop
   useEffect(() => {
@@ -715,7 +750,7 @@ export const Job = () => {
       jobStageId:   { label: 'Stage',     type: 'select',      placeholder: 'All Stages',    options: [] },
       dateFrom:     { label: 'Date From', type: 'date' },
       dateTo:       { label: 'Date To',   type: 'date' },
-    }, DEFAULT_FILTERS, onApply);
+    }, initialFilters, onApply);
     return () => unregisterFilters('job');
   }, []); // eslint-disable-line
 
@@ -766,7 +801,7 @@ export const Job = () => {
           jobTypes={jobTypes}
           jobStages={jobStages}
           onClose={() => setShowForm(false)}
-          onSaved={() => { setShowForm(false); load(1, pageSize, sortCol, sortDir, applied); }}
+          onSaved={(newJobId) => { setShowForm(false); navigate(`/jobs/${newJobId}`); }}
         />
       )}
 
@@ -804,14 +839,13 @@ export const Job = () => {
               <Th col="ProjectName">Project</Th>
               <Th col="JobTypeName">Type</Th>
               <Th col="JobStageName">Stage</Th>
-              <Th col="CurrencySymbol" style={{ textAlign: 'center' }}>Curr</Th>
               <Th col="OrderValue" style={{ textAlign: 'right' }}>Order Value</Th>
               <th>Status</th>
-              <th>Actions</th>
+              <th>Approval</th>
             </tr></thead>
             <tbody>
               {rows.length === 0 && !loading
-                ? <tr><td colSpan="10" className="job-empty">No jobs found. Use the filters on the left or create a new job.</td></tr>
+                ? <tr><td colSpan="9" className="job-empty">No jobs found. Use the filters on the left or create a new job.</td></tr>
                 : rows.map(j => (
                   <tr key={j.jobId}>
                     <td>
@@ -829,16 +863,21 @@ export const Job = () => {
                     <td className="job-project-cell" title={j.projectName}>{j.projectName || '—'}</td>
                     <td><span className="job-type-badge">{j.jobTypeName || '—'}</span></td>
                     <td>{j.jobStageName || '—'}</td>
-                    <td style={{ textAlign: 'center', fontSize: 11.5, fontWeight: 700, color: j.jobExcRate && j.jobExcRate !== 1 ? '#7c3aed' : '#64748b' }}>
-                      {j.currencySymbol || '—'}
+                    <td className="job-num-cell"
+                      title={j.orderValue && j.jobExcRate && j.jobExcRate !== 1
+                        ? `${fmt(j.orderValue * j.jobExcRate)} ${baseCurrencyCode || ''} (base)`
+                        : undefined}>
+                      {j.orderValue
+                        ? <>
+                            <span style={{ fontSize: 11.5, fontWeight: 700, color: j.jobExcRate && j.jobExcRate !== 1 ? '#7c3aed' : '#64748b', marginRight: 4 }}>
+                              {j.currencySymbol || ''}
+                            </span>
+                            {fmt(j.orderValue)}
+                          </>
+                        : '—'}
                     </td>
-                    <td className="job-num-cell">{j.orderValue ? fmt(j.orderValue) : '—'}</td>
                     <td><StatusBadge id={j.jobStatusId} /></td>
-                    <td className="job-actions-cell">
-                      <RowLink className="job-act-btn job-act-open" to={`/jobs/${encodeURIComponent(j.jobId)}`}>
-                        Open
-                      </RowLink>
-                    </td>
+                    <td><ApprovalBadge status={j.approvalStatus} /></td>
                   </tr>
                 ))}
             </tbody>

@@ -10,7 +10,7 @@ import {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const API          = variables.API_URL;
-const PAGE_SIZES   = [15, 30, 50, 100];
+const PAGE_SIZES = [50, 100, 200, 500, 1000];
 const DEFAULT_FILTERS = { searchText: '', jobTypeId: '', jobId: '', statusId: '', dateFrom: '', dateTo: '' };
 const GROUP_OPTIONS   = [
     { value: 'Job',      label: 'Per Job' },
@@ -105,7 +105,7 @@ export default function JobAnalysis() {
     const [totalRows,  setTotalRows]  = useState(0);
     const [totalPages, setTotalPages] = useState(1);
     const [page,       setPage]       = useState(1);
-    const [pageSize,   setPageSize]   = useState(30);
+    const [pageSize,   setPageSize]   = useState(200);
     const [groupBy,    setGroupBy]    = useState('Job');
     const [loading,    setLoading]    = useState(false);
     const [activeTab,  setActiveTab]  = useState('charts');

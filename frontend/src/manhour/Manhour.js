@@ -5,7 +5,7 @@ import { useCurrentUser } from '../AuthContext';
 import { useLookup } from '../LookupContext';
 import './Manhour.css';
 
-const PAGE_SIZES = [10, 20, 50];
+const PAGE_SIZES = [50, 100, 200, 500, 1000];
 
 const DEFAULT_FILTERS = {
     searchText: '', jobId: '', status: '', createdBy: '', dateFrom: '', dateTo: ''
@@ -54,7 +54,7 @@ const Manhour = () => {
     const [data,      setData]         = useState([]);
     const [loading,   setLoading]      = useState(false);
     const [page,      setPage]         = useState(1);
-    const [pageSize,  setPageSize]     = useState(20);
+    const [pageSize,  setPageSize]     = useState(200);
     const [totalRows, setTotalRows]    = useState(0);
     const [totalPages,setTotalPages]   = useState(1);
     const [sortCol,   setSortCol]      = useState('DocumentDate');

@@ -8,7 +8,7 @@ import './Reports.css';
 const today        = () => new Date().toISOString().slice(0, 10);
 const firstOfYear  = () => `${new Date().getFullYear()}-01-01`;
 
-const PAGE_SIZES = [10, 20, 50, 100];
+const PAGE_SIZES = [50, 100, 200, 500, 1000];
 
 
 const DEFAULT_FILTERS = {
@@ -112,7 +112,7 @@ const Pagination = ({ page, totalPages, pageSize, totalRows, onPage, onPageSize 
 // ═══════════════════════════════════════════════════════════════════════
 const JobReport = () => {
     const navigate = useNavigate();
-    const { lookups, getModuleStatuses } = useLookup();
+    const { lookups, getModuleStatuses, baseCurrencyCode } = useLookup();
 
     const [filters,   setFilters]  = useState({ ...DEFAULT_FILTERS });
     const [rows,      setRows]     = useState(null);
@@ -121,7 +121,7 @@ const JobReport = () => {
     const [sortCol,   setSortCol]  = useState('jobDate');
     const [sortDir,   setSortDir]  = useState('desc');
     const [page,      setPage]     = useState(1);
-    const [pageSize,  setPageSize] = useState(20);
+    const [pageSize,  setPageSize] = useState(200);
 
     const [customers, setCustomers] = useState([]);
     const [jobTypes,  setJobTypes]  = useState([]);
@@ -402,10 +402,10 @@ const JobReport = () => {
                                 <th className="r">Rate</th>
                                 <th className="r">Count</th>
                                 <th className="r">Order Value</th>
-                                <th className="r">Order Value (AED)</th>
-                                <th className="r">Invoiced (AED)</th>
-                                <th className="r">Payments (AED)</th>
-                                <th className="r">Credits (AED)</th>
+                                <th className="r">Order Value ({baseCurrencyCode})</th>
+                                <th className="r">Invoiced ({baseCurrencyCode})</th>
+                                <th className="r">Payments ({baseCurrencyCode})</th>
+                                <th className="r">Credits ({baseCurrencyCode})</th>
                                 <th className="r">Bal. to Invoice</th>
                                 <th className="r">Bal. Receipts</th>
                             </tr>
@@ -476,10 +476,10 @@ const JobReport = () => {
                                         <Th col="currencySymbol" label="Curr"       cls="r" />
                                         <Th col="exchangeRate"   label="Rate"       cls="r" />
                                         <Th col="orderValue"         label="Order Value"       cls="r" />
-                                        <Th col="orderValueBase"     label="Order Val (AED)"   cls="r" />
-                                        <Th col="totalInvoicingBase" label="Invoiced (AED)"    cls="r" />
-                                        <Th col="totalPaymentsBase"  label="Payments (AED)"    cls="r" />
-                                        <Th col="totalCreditBase"    label="Credits (AED)"     cls="r" />
+                                        <Th col="orderValueBase"     label={`Order Val (${baseCurrencyCode})`}   cls="r" />
+                                        <Th col="totalInvoicingBase" label={`Invoiced (${baseCurrencyCode})`}    cls="r" />
+                                        <Th col="totalPaymentsBase"  label={`Payments (${baseCurrencyCode})`}    cls="r" />
+                                        <Th col="totalCreditBase"    label={`Credits (${baseCurrencyCode})`}     cls="r" />
                                         <Th col="balanceToInvoice"   label="Bal. to Invoice"   cls="r" />
                                         <Th col="balanceReceipts"    label="Bal. Receipts"     cls="r" />
                                         <Th col="totalActual"        label="Actual Cost"       cls="r" />

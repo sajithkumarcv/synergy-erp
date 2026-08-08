@@ -241,10 +241,10 @@ namespace ERPWEB.Controllers.Item
                     int? budgetCategoryId = null;
                     if (!string.IsNullOrWhiteSpace(row.CategoryName))
                         categoryId    = Resolve(row.CategoryName, "Category",   catIds,  catByCode,  catByName,  errors);
+                    // BudgetHeader is optional now — items are no longer required to carry a
+                    // budget category at creation; it's resolved at PR/PO line level instead.
                     if (!string.IsNullOrWhiteSpace(row.BudgetHeader))
                         budgetCategoryId = Resolve(row.BudgetHeader, "BudgetHeader", budgetIds, budgetByCode, budgetByName, errors);
-                    else
-                        errors.Add("BudgetHeader is required");
                     if (!string.IsNullOrWhiteSpace(row.ItemTypeName))
                         itemTypeId    = Resolve(row.ItemTypeName, "ItemType",   typeIds, typeByCode, typeByName, errors);
                     if (!string.IsNullOrWhiteSpace(row.BaseUom))

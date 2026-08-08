@@ -67,6 +67,7 @@ const BomImportModal = ({ pr, onClose, onImported }) => {
     const [loading,   setLoading]   = useState(true);
     const [selected,  setSelected]  = useState({});   // bomDetailId → bool
     const [qtys,      setQtys]      = useState({});   // bomDetailId → qty string (editable)
+    const [prices,    setPrices]    = useState({});   // bomDetailId → unit price string (editable)
     const [importing, setImporting] = useState(false);
     const [error,     setError]     = useState('');
     const [search,    setSearch]    = useState('');
@@ -89,15 +90,18 @@ const BomImportModal = ({ pr, onClose, onImported }) => {
                 const rows = Array.isArray(d) ? d : [];
                 setBomLines(rows);
                 // Start with nothing selected — the user chooses which lines to import.
-                // Still pre-fill each line's editable qty so a tick is one click away.
+                // Still pre-fill each line's editable qty/price so a tick is one click away.
                 const qMap = {};
+                const pMap = {};
                 rows.forEach(r => {
                     if (!r.alreadyAdded) {
                         qMap[r.bomDetailId] = String(r.remainingQty > 0 ? r.remainingQty : r.plannedQty);
+                        pMap[r.bomDetailId] = r.unitPrice ? String(r.unitPrice) : '';
                     }
                 });
                 setSelected({});
                 setQtys(qMap);
+                setPrices(pMap);
             })
             .catch(() => setError('Failed to load BOM materials.'))
             .finally(() => setLoading(false));
@@ -139,7 +143,8 @@ const BomImportModal = ({ pr, onClose, onImported }) => {
         setSelected(p => ({ ...p, ...next }));
     };
 
-    const setQty = (id, val) => setQtys(p => ({ ...p, [id]: val }));
+    const setQty   = (id, val) => setQtys(p => ({ ...p, [id]: val }));
+    const setPrice = (id, val) => setPrices(p => ({ ...p, [id]: val }));
 
     const doImport = async () => {
         const toImport = bomLines.filter(b => selected[b.bomDetailId] && !b.alreadyAdded);
@@ -176,7 +181,7 @@ const BomImportModal = ({ pr, onClose, onImported }) => {
                         uomId:         b.uomId   || null,
                         uomName:       b.uomName || null,
                         requiredDate:  null,
-                        estUnitPrice:  b.unitPrice || null,
+                        estUnitPrice:  prices[b.bomDetailId] ? Number(prices[b.bomDetailId]) : null,
                         remarks:       b.remarks || null,
                         bomDetailId:   b.bomDetailId,
                         createdBy:     currentUser,
@@ -362,8 +367,30 @@ const BomImportModal = ({ pr, onClose, onImported }) => {
                                                 )}
                                             </td>
                                             <td style={{ padding: '8px 10px', borderBottom: '1px solid #f0f4f8', color: '#475569' }}>{b.uomName || b.uomCode || '—'}</td>
-                                            <td style={{ padding: '8px 10px', borderBottom: '1px solid #f0f4f8', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: b.unitPrice ? '#1e293b' : '#94a3b8' }}>
-                                                {b.unitPrice ? fmt(b.unitPrice) : '—'}
+                                            <td style={{ padding: '5px 8px', borderBottom: '1px solid #f0f4f8', background: isAdded ? 'transparent' : (isChecked ? '#eff6ff' : '#f8fafc') }}
+                                                onClick={e => e.stopPropagation()}>
+                                                {isAdded ? (
+                                                    <span style={{ color: '#94a3b8', fontSize: 11 }}>{b.unitPrice ? fmt(b.unitPrice) : '—'}</span>
+                                                ) : (
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        step="any"
+                                                        placeholder="—"
+                                                        value={prices[b.bomDetailId] ?? ''}
+                                                        disabled={!isChecked}
+                                                        onChange={e => setPrice(b.bomDetailId, e.target.value)}
+                                                        style={{
+                                                            width: 90, padding: '4px 6px',
+                                                            border: `1px solid ${isChecked ? '#93c5fd' : '#e2e8f0'}`,
+                                                            borderRadius: 5, fontSize: 12,
+                                                            textAlign: 'right',
+                                                            background: isChecked ? '#fff' : '#f1f5f9',
+                                                            color: isChecked ? '#1e3a5f' : '#94a3b8',
+                                                            outline: 'none',
+                                                        }}
+                                                    />
+                                                )}
                                             </td>
                                             <td style={{ padding: '8px 10px', borderBottom: '1px solid #f0f4f8' }}>
                                                 {isAdded
@@ -615,7 +642,9 @@ const PrLinesTab = ({ pr, onRefresh }) => {
                     titleColor={confirmStatus.newStatus === 'Closed' ? '#374151' : '#b45309'}
                     icon={confirmStatus.newStatus === 'Closed' ? '🔒' : '✖️'}
                     detail={confirmStatus.line}
-                    warning="This action cannot be undone."
+                    warning={confirmStatus.newStatus === 'Closed'
+                        ? 'Once closed, no Purchase Order can be created from this PR line. This action cannot be undone.'
+                        : 'Once cancelled, this PR line can no longer be used to raise a Purchase Order. This action cannot be undone.'}
                     error={modalError}
                     confirmLabel={confirmStatus.newStatus === 'Closed' ? 'Close Line' : 'Cancel Line'}
                     confirmColor={confirmStatus.newStatus === 'Closed' ? '#374151' : '#b45309'}
@@ -805,7 +834,17 @@ const PrLinesTab = ({ pr, onRefresh }) => {
                             </div>
                             <div className="prd-lf-field">
                                 <label>Est. Unit Price</label>
-                                <AmountInput className="prd-lf-input" value={form.estUnitPrice} onChange={v => handle({ target: { name: 'estUnitPrice', value: v } })} />
+                                {form.bomDetailId ? (
+                                    <input
+                                        className="prd-lf-input"
+                                        value={form.estUnitPrice !== '' ? form.estUnitPrice : '—'}
+                                        readOnly
+                                        style={{ background: '#f1f5f9', color: '#64748b', cursor: 'not-allowed' }}
+                                        title="Price is set from the BOM line and cannot be changed here"
+                                    />
+                                ) : (
+                                    <AmountInput className="prd-lf-input" value={form.estUnitPrice} onChange={v => handle({ target: { name: 'estUnitPrice', value: v } })} />
+                                )}
                             </div>
                         </div>
                         <div className="prd-lf-row">

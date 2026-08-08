@@ -8,7 +8,7 @@ import { fmtDate, today, FormSection } from '../procurementConstants';
 import '../Procurement.css';
 import RowLink from '../../common/RowLink';
 
-const PAGE_SIZES = [100, 200, 500];
+const PAGE_SIZES = [50, 100, 200, 500, 1000];
 const MENU_URL = '/free-issue-grn';
 
 const DEFAULT_FILTERS = {
@@ -214,13 +214,13 @@ const FreeIssueGrn = () => {
     const [totalRows,  setTotal]     = useState(0);
     const [totalPages, setPages]     = useState(1);
     const [page,       setPage]      = useState(1);
-    const [pageSize,   setPageSize]  = useState(100);
+    const [pageSize,   setPageSize]  = useState(200);
     const [sortCol,    setSortCol]   = useState('ReceiptDate');
     const [sortDir,    setSortDir]   = useState('DESC');
     const [applied,    setApplied]   = useState({ ...DEFAULT_FILTERS });
     const [showForm,   setShowForm]  = useState(false);
 
-    const gridRef = useRef({ pageSize: 100, sortCol: 'ReceiptDate', sortDir: 'DESC', applied: DEFAULT_FILTERS });
+    const gridRef = useRef({ pageSize: 200, sortCol: 'ReceiptDate', sortDir: 'DESC', applied: DEFAULT_FILTERS });
     useEffect(() => { gridRef.current = { pageSize, sortCol, sortDir, applied }; }, [pageSize, sortCol, sortDir, applied]);
 
     const [jobOptions, setJobOptions] = useState([]);

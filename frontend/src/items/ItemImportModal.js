@@ -118,7 +118,9 @@ const COL_MAP = {
     'isactive':         'isActive',
 };
 
-const REQUIRED = ['itemName', 'budgetHeader', 'itemTypeName', 'baseUom'];
+// Budget Header is no longer mandatory at item creation — items are decoupled
+// from budget; category attribution now happens at PR/PO line level instead.
+const REQUIRED = ['itemName', 'itemTypeName', 'baseUom'];
 const DISPLAY_COLS = [
     { key: 'itemCode',      label: 'Item Code' },
     { key: 'itemName',      label: 'Item Name' },
@@ -334,7 +336,7 @@ const ItemImportModal = ({ onClose, onImported }) => {
                             </div>
                             <div className="iim-tip">
                                 💡 <strong>Tip:</strong> Fill the <em>Item Master</em> sheet, delete sample rows (3–5), then upload.
-                                The <em>Category</em>, <em>Budget Header</em>, <em>Item Type</em> and <em>UOM</em> columns accept the <strong>name, code, or numeric id</strong>. Budget Header is required.
+                                The <em>Category</em>, <em>Budget Header</em>, <em>Item Type</em> and <em>UOM</em> columns accept the <strong>name, code, or numeric id</strong>. Budget Header is optional.
                             </div>
                         </div>
                     )}

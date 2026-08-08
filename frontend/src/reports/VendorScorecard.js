@@ -6,7 +6,7 @@ import './Reports.css';
 
 const today       = () => new Date().toISOString().slice(0, 10);
 const firstOfYear = () => `${new Date().getFullYear()}-01-01`;
-const PAGE_SIZES  = [10, 20, 50, 100];
+const PAGE_SIZES = [50, 100, 200, 500, 1000];
 
 const DEFAULT_FILTERS = { dateFrom: firstOfYear(), dateTo: today(), supplierId: '' };
 
@@ -16,8 +16,8 @@ const goodColor = (v, hi = 95, lo = 80) => v == null ? '#94a3b8' : v >= hi ? '#1
 // For reject %, lower is better
 const badColor  = (v, lo = 2, hi = 5) => v == null ? '#94a3b8' : v <= lo ? '#166534' : v <= hi ? '#b45309' : '#b91c1c';
 
-const exportCsv = (rows) => {
-    const headers = ['#','Supplier','Code','POs','PO Value (AED)','Lines','Received','Fill Rate %','OTIF %','Avg Lead (d)','Reject %','Open Commitment (AED)','Late Open Lines'];
+const exportCsv = (rows, baseCurrencyCode) => {
+    const headers = ['#','Supplier','Code','POs',`PO Value (${baseCurrencyCode})`,'Lines','Received','Fill Rate %','OTIF %','Avg Lead (d)','Reject %',`Open Commitment (${baseCurrencyCode})`,'Late Open Lines'];
     const esc = v => { if (v == null) return ''; const s = String(v); return s.includes(',')||s.includes('"')||s.includes('\n') ? `"${s.replace(/"/g,'""')}"` : s; };
     const lines = [headers.join(','), ...rows.map((r,i)=>[
         i+1, r.supplierName, r.supplierCode, r.poCount, r.poValueBase, r.totalLines, r.receivedLines,
@@ -50,7 +50,7 @@ const Pagination = ({ page, totalPages, pageSize, totalRows, onPage, onPageSize 
 };
 
 const VendorScorecard = () => {
-    const { getSetting } = useLookup();
+    const { getSetting, baseCurrencyCode } = useLookup();
     // Colour thresholds are admin-configurable via Biz.Vendor.* app settings.
     const otifGreen = Number(getSetting('Biz.Vendor.OtifGreenPct', 95));
     const otifAmber = Number(getSetting('Biz.Vendor.OtifAmberPct', 80));
@@ -66,7 +66,7 @@ const VendorScorecard = () => {
     const [sortCol, setSortCol] = useState('openCommitmentBase');
     const [sortDir, setSortDir] = useState('desc');
     const [page, setPage]       = useState(1);
-    const [pageSize, setPageSize] = useState(20);
+    const [pageSize, setPageSize] = useState(200);
     const [suppliers, setSuppliers] = useState([]);
     const setF = (k,v) => setFilters(f => ({ ...f, [k]: v }));
 
@@ -119,7 +119,7 @@ const VendorScorecard = () => {
                     <div className="rpt-header-title">Vendor Scorecard</div>
                     <div className="rpt-header-sub">{rows==null?'Set filters and click Run Report':`${rows.length} supplier${rows.length!==1?'s':''} evaluated`}</div>
                 </div>
-                <div className="rpt-header-actions">{rows && rows.length>0 && <button className="rpt-btn-export" onClick={()=>exportCsv(sorted)}>⬇ Export CSV</button>}</div>
+                <div className="rpt-header-actions">{rows && rows.length>0 && <button className="rpt-btn-export" onClick={()=>exportCsv(sorted, baseCurrencyCode)}>⬇ Export CSV</button>}</div>
             </div>
 
             <div className="rpt-filter-card">
@@ -146,8 +146,8 @@ const VendorScorecard = () => {
             {totals && (
                 <div className="rpt-summary">
                     <div className="rpt-summary-item"><div className="rpt-summary-label">Suppliers</div><div className="rpt-summary-val">{totals.count}</div></div>
-                    <div className="rpt-summary-item"><div className="rpt-summary-label">PO Value (AED)</div><div className="rpt-summary-val blue">{fmt(totals.poValue)}</div></div>
-                    <div className="rpt-summary-item"><div className="rpt-summary-label">Open Commitment (AED)</div><div className="rpt-summary-val" style={{ color:'#b45309' }}>{fmt(totals.openCommit)}</div></div>
+                    <div className="rpt-summary-item"><div className="rpt-summary-label">PO Value ({baseCurrencyCode})</div><div className="rpt-summary-val blue">{fmt(totals.poValue)}</div></div>
+                    <div className="rpt-summary-item"><div className="rpt-summary-label">Open Commitment ({baseCurrencyCode})</div><div className="rpt-summary-val" style={{ color:'#b45309' }}>{fmt(totals.openCommit)}</div></div>
                     <div className="rpt-summary-item"><div className="rpt-summary-label">Avg OTIF</div><div className="rpt-summary-val" style={{ color: gc(totals.avgOtif) }}>{pct(totals.avgOtif)}</div></div>
                     <div className="rpt-summary-item"><div className="rpt-summary-label">Late Open Lines</div><div className="rpt-summary-val" style={{ color: totals.lateLines>0?'#b91c1c':'#166534' }}>{totals.lateLines}</div></div>
                 </div>
@@ -171,14 +171,14 @@ const VendorScorecard = () => {
                                     <th className="c" style={{ width:42 }}>#</th>
                                     <Th col="supplierName" label="Supplier" />
                                     <Th col="poCount" label="POs" cls="r" />
-                                    <Th col="poValueBase" label="PO Value (AED)" cls="r" />
+                                    <Th col="poValueBase" label={`PO Value (${baseCurrencyCode})`} cls="r" />
                                     <Th col="totalLines" label="Lines" cls="r" />
                                     <Th col="receivedLines" label="Recd" cls="r" />
                                     <Th col="fillRatePct" label="Fill Rate" cls="r" />
                                     <Th col="otifPct" label="OTIF" cls="r" />
                                     <Th col="avgLeadDays" label="Avg Lead" cls="r" />
                                     <Th col="rejectPct" label="Reject %" cls="r" />
-                                    <Th col="openCommitmentBase" label="Open Commit (AED)" cls="r" />
+                                    <Th col="openCommitmentBase" label={`Open Commit (${baseCurrencyCode})`} cls="r" />
                                     <Th col="lateOpenLines" label="Late Open" cls="r" />
                                 </tr></thead>
                                 <tbody>

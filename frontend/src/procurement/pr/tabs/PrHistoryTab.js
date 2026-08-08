@@ -7,7 +7,8 @@ const actionColor = (action) => {
     if (action === 'Rejected')      return '#dc2626';
     if (action === 'Submitted')     return '#1e40af';
     if (action === 'Revised to Draft') return '#b45309';
-    if (action === 'Cancelled')     return '#6b7280';
+    if (action === 'Cancelled' || action === 'Line Cancelled') return '#6b7280';
+    if (action === 'PR Closed' || action === 'Line Closed')    return '#374151';
     return '#64748b';
 };
 
@@ -17,7 +18,8 @@ const actionBg = (action) => {
     if (action === 'Rejected')      return '#fee2e2';
     if (action === 'Submitted')     return '#dbeafe';
     if (action === 'Revised to Draft') return '#fef3c7';
-    if (action === 'Cancelled')     return '#f3f4f6';
+    if (action === 'Cancelled' || action === 'Line Cancelled') return '#f3f4f6';
+    if (action === 'PR Closed' || action === 'Line Closed')    return '#f1f5f9';
     return '#f1f5f9';
 };
 
@@ -54,8 +56,12 @@ const PrHistoryTab = ({ pr }) => {
                     const d = e.actionDate ? new Date(e.actionDate) : null;
                     const dateStr = d ? d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
                     const timeStr = d ? d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '';
-                    const isRevision = e.entryType === 'Revision';
-                    const isLast     = idx === entries.length - 1;
+                    // RevisionNo=0 marks sp_ClosePR's reuse of the revision log
+                    // for the header "Close PR" action — not a real numbered
+                    // revision, so it doesn't get the "Rev N" pill.
+                    const isRevision   = e.entryType === 'Revision' && e.revisionNo > 0;
+                    const isLineStatus = e.entryType === 'LineStatus';
+                    const isLast       = idx === entries.length - 1;
 
                     return (
                         <div key={`${e.entryType}-${e.entryId}`} style={{ display: 'flex', gap: 16, paddingBottom: isLast ? 0 : 20, position: 'relative' }}>
@@ -99,6 +105,11 @@ const PrHistoryTab = ({ pr }) => {
                                         {!isRevision && e.levelNo > 0 && (
                                             <span style={{ background: '#f1f5f9', color: '#475569', padding: '1px 7px', borderRadius: 8, fontSize: 10 }}>
                                                 Level {e.levelNo}
+                                            </span>
+                                        )}
+                                        {isLineStatus && (
+                                            <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '1px 7px', borderRadius: 8, fontSize: 10, fontWeight: 600 }}>
+                                                📋 Line
                                             </span>
                                         )}
                                         {e.isDelegated && (

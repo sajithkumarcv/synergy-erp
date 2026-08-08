@@ -9,7 +9,7 @@ import '../procurement/Procurement.css';
 const fmt     = (n) => (n == null ? '0.00' : Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—');
 
-const PAGE_SIZES = [20, 50, 100];
+const PAGE_SIZES = [50, 100, 200, 500, 1000];
 
 const PAYMENT_STATUS_CFG = {
     Unpaid:       { bg: '#fff7ed', color: '#c2410c', dot: '#f97316', label: 'Unpaid' },
@@ -107,14 +107,14 @@ const InvoicesTab = ({ customerId, currencies }) => {
     const [totalRows,  setTotal]     = useState(0);
     const [totalPages, setPages]     = useState(1);
     const [page,       setPage]      = useState(1);
-    const [pageSize,   setPageSize]  = useState(20);
+    const [pageSize,   setPageSize]  = useState(200);
     const [sortCol,    setSortCol]   = useState('InvoiceDate');
     const [sortDir,    setSortDir]   = useState('DESC');
     const [applied,    setApplied]   = useState({ ...DEFAULT_INV_FILTERS });
     const [expanded,   setExpanded]  = useState({}); // invoiceId → bool
     const [error,      setError]     = useState('');
 
-    const gridRef = useRef({ pageSize: 20, sortCol: 'InvoiceDate', sortDir: 'DESC', applied: DEFAULT_INV_FILTERS });
+    const gridRef = useRef({ pageSize: 200, sortCol: 'InvoiceDate', sortDir: 'DESC', applied: DEFAULT_INV_FILTERS });
     useEffect(() => { gridRef.current = { pageSize, sortCol, sortDir, applied }; }, [pageSize, sortCol, sortDir, applied]);
 
     const load = useCallback((pg, ps, sc, sd, af) => {

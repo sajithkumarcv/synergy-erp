@@ -35,6 +35,17 @@ const ApprovalActionModal = ({ transactionId, allowedActions = ['Approve','Rejec
 
     const meta = action ? ACTION_META[action] : null;
 
+    // Verb shown on the busy overlay while the request is in flight — this can
+    // take a few seconds (password check + workflow update), and without a
+    // clear "still working" indicator a user watching a frozen-looking modal
+    // assumes something has silently failed rather than just being slow.
+    const BUSY_VERB = {
+        Approve:  'Approving',
+        Reject:   'Rejecting',
+        SendBack: 'Sending back',
+        Cancel:   'Cancelling',
+    };
+
     const submit = async (budgetPassword = null, overrideReason = null) => {
         if (!action) { setError('Please select an action.'); return; }
         if (meta?.requiresRemarks && !remarks.trim()) {
@@ -143,7 +154,19 @@ const ApprovalActionModal = ({ transactionId, allowedActions = ['Approve','Rejec
 
     return (
         <div className="pf-overlay">
-            <div className="pf-panel" style={{ maxWidth: 460 }}>
+            <div className="pf-panel" style={{ maxWidth: 460, position: 'relative' }}>
+                {saving && (
+                    <div style={{
+                        position: 'absolute', inset: 0, zIndex: 10,
+                        background: 'rgba(255,255,255,.94)', borderRadius: 'inherit',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                        <div className="pr-spinner">
+                            <div className="pr-spinner-ring" />
+                            <div className="pr-spinner-text">{BUSY_VERB[action] || 'Processing'}… please wait</div>
+                        </div>
+                    </div>
+                )}
                 <div className="pf-header">
                     <div className="pf-header-title">Approval Action</div>
                     {documentLabel && <div className="pf-header-sub">{documentLabel}</div>}

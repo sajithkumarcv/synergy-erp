@@ -2,11 +2,12 @@ import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { variables, authHeaders } from '../Variable';
 import { fmtDate, fmt } from '../procurement/procurementConstants';
+import { useLookup } from '../LookupContext';
 import './Reports.css';
 
 const today       = () => new Date().toISOString().slice(0, 10);
 const firstOfYear = () => `${new Date().getFullYear()}-01-01`;
-const PAGE_SIZES  = [10, 20, 50, 100];
+const PAGE_SIZES = [50, 100, 200, 500, 1000];
 
 const DEFAULT_FILTERS = { dateFrom: firstOfYear(), dateTo: today(), supplierId: '', jobId: '', overdueOnly: false };
 
@@ -20,8 +21,8 @@ const BUCKETS = [
 ];
 const bucketCfg = (k) => BUCKETS.find(b => b.key === k) || { label: k, color: '#64748b', bg: '#f1f5f9' };
 
-const exportCsv = (rows) => {
-    const headers = ['#','PO No','PO Date','Expected','Supplier','Job','Item Code','Item','Ordered','Received','Open Qty','Unit Price','CCY','Open Value','Open Value (AED)','Last GRN','Days Overdue','Aging'];
+const exportCsv = (rows, baseCurrencyCode) => {
+    const headers = ['#','PO No','PO Date','Expected','Supplier','Job','Item Code','Item','Ordered','Received','Open Qty','Unit Price','CCY','Open Value',`Open Value (${baseCurrencyCode})`,'Last GRN','Days Overdue','Aging'];
     const esc = v => { if (v == null) return ''; const s = String(v); return s.includes(',')||s.includes('"')||s.includes('\n') ? `"${s.replace(/"/g,'""')}"` : s; };
     const lines = [headers.join(','), ...rows.map((r,i) => [
         i+1, r.poNumber, r.poDate?fmtDate(r.poDate):'', r.deliveryDate?fmtDate(r.deliveryDate):'', r.vendorName, r.jobId,
@@ -56,6 +57,7 @@ const Pagination = ({ page, totalPages, pageSize, totalRows, onPage, onPageSize 
 
 const OpenPoReport = () => {
     const navigate = useNavigate();
+    const { baseCurrencyCode } = useLookup();
     const [filters, setFilters] = useState({ ...DEFAULT_FILTERS });
     const [rows, setRows]       = useState(null);
     const [loading, setLoading] = useState(false);
@@ -63,7 +65,7 @@ const OpenPoReport = () => {
     const [sortCol, setSortCol] = useState('daysOverdue');
     const [sortDir, setSortDir] = useState('desc');
     const [page, setPage]       = useState(1);
-    const [pageSize, setPageSize] = useState(20);
+    const [pageSize, setPageSize] = useState(200);
     const [suppliers, setSuppliers] = useState([]);
     const setF = (k,v) => setFilters(f => ({ ...f, [k]: v }));
 
@@ -119,7 +121,7 @@ const OpenPoReport = () => {
                     <div className="rpt-header-title">Open PO / Pending-GRN Report</div>
                     <div className="rpt-header-sub">{rows==null?'Set filters and click Run Report':`${rows.length} open line${rows.length!==1?'s':''} · ${totals?.overdueCount||0} overdue`}</div>
                 </div>
-                <div className="rpt-header-actions">{rows && rows.length>0 && <button className="rpt-btn-export" onClick={()=>exportCsv(sorted)}>⬇ Export CSV</button>}</div>
+                <div className="rpt-header-actions">{rows && rows.length>0 && <button className="rpt-btn-export" onClick={()=>exportCsv(sorted, baseCurrencyCode)}>⬇ Export CSV</button>}</div>
             </div>
 
             <div className="rpt-filter-card">
@@ -152,9 +154,9 @@ const OpenPoReport = () => {
             {totals && (
                 <div className="rpt-summary">
                     <div className="rpt-summary-item"><div className="rpt-summary-label">Open Lines</div><div className="rpt-summary-val">{totals.count}</div></div>
-                    <div className="rpt-summary-item"><div className="rpt-summary-label">Open Commitment (AED)</div><div className="rpt-summary-val blue">{fmt(totals.openValue)}</div></div>
+                    <div className="rpt-summary-item"><div className="rpt-summary-label">Open Commitment ({baseCurrencyCode})</div><div className="rpt-summary-val blue">{fmt(totals.openValue)}</div></div>
                     <div className="rpt-summary-item"><div className="rpt-summary-label">Overdue Lines</div><div className="rpt-summary-val" style={{ color:'#b91c1c' }}>{totals.overdueCount}</div></div>
-                    <div className="rpt-summary-item"><div className="rpt-summary-label">Overdue Value (AED)</div><div className="rpt-summary-val" style={{ color:'#b91c1c' }}>{fmt(totals.overdueValue)}</div></div>
+                    <div className="rpt-summary-item"><div className="rpt-summary-label">Overdue Value ({baseCurrencyCode})</div><div className="rpt-summary-val" style={{ color:'#b91c1c' }}>{fmt(totals.overdueValue)}</div></div>
                 </div>
             )}
 
@@ -194,7 +196,7 @@ const OpenPoReport = () => {
                                     <Th col="openQty" label="Open" cls="r" />
                                     <Th col="currencyShort" label="Curr" cls="r" />
                                     <Th col="openValue" label="Open Val" cls="r" />
-                                    <Th col="openValueBase" label="Open Val (AED)" cls="r" />
+                                    <Th col="openValueBase" label={`Open Val (${baseCurrencyCode})`} cls="r" />
                                     <Th col="lastGrnDate" label="Last GRN" />
                                     <Th col="daysOverdue" label="Overdue" cls="r" />
                                     <Th col="agingBucket" label="Aging" cls="c" />
@@ -223,7 +225,7 @@ const OpenPoReport = () => {
                                 </tbody>
                                 {totals && (
                                     <tfoot><tr style={{ background:'#f1f5f9', borderTop:'2px solid #cbd5e1', fontWeight:700 }}>
-                                        <td colSpan={12} style={{ textAlign:'right', padding:'8px 10px', color:'#334155', fontSize:12 }}>Total Open Commitment (AED) — {totals.count} line{totals.count!==1?'s':''}</td>
+                                        <td colSpan={12} style={{ textAlign:'right', padding:'8px 10px', color:'#334155', fontSize:12 }}>Total Open Commitment ({baseCurrencyCode}) — {totals.count} line{totals.count!==1?'s':''}</td>
                                         <td style={{ textAlign:'right', padding:'8px 6px', fontFamily:'monospace', color:'#1e40af' }}>{fmt(totals.openValue)}</td>
                                         <td colSpan={3}></td>
                                     </tr></tfoot>

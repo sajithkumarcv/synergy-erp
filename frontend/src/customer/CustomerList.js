@@ -14,7 +14,7 @@ import AmountInput from '../common/AmountInput';
 import '../jobs/JobDetail.css';
 import './Customer.css';
 
-const PAGE_SIZES = [50, 100, 200, 300, 500];
+const PAGE_SIZES = [50, 100, 200, 500, 1000];
 const DEFAULT_FILTERS = {
     searchText: '', categoryId: '', customerType: '', currencyId: '',
     paymentTermsId: '', creditHold: '', isActive: '', creditFlag: '',
@@ -96,7 +96,7 @@ const CustomerCreateForm = ({ onClose, onCreated }) => {
     const customerTypes = getVList('Customer', 'CustomerType');
 
     const [form, setForm] = useState({
-        customerId: 0, customerCode: '', customerName: '', customerShortName: '',
+        customerId: 0, customerName: '', customerShortName: '',
         customerRef: '', customerType: '', customerCategoryId: '', salesPerson: '',
         phone: '', mobile: '', email: '', web: '',
         currencyId: '', paymentTermsId: '', creditLimit: 0, creditDays: 0,
@@ -123,7 +123,6 @@ const CustomerCreateForm = ({ onClose, onCreated }) => {
 
     const save = async () => {
         const errs = [];
-        if (!form.customerCode.trim()) errs.push('Customer Code is required.');
         if (!form.customerName.trim()) errs.push('Customer Name is required.');
         if (!form.currencyId)          errs.push('Currency is required.');
         if (!form.paymentTermsId)      errs.push('Payment Terms are required.');
@@ -162,10 +161,6 @@ const CustomerCreateForm = ({ onClose, onCreated }) => {
 
                     <Sec label="Identity" />
                     <div className="jf-row">
-                        <div className="jf-field" style={{ flex: '0 0 150px' }}>
-                            <label>Code {isReq('customerCode') && <span className="req">*</span>}</label>
-                            <input name="customerCode" className="jf-input" value={form.customerCode} onChange={handle} placeholder="CUST-001" />
-                        </div>
                         <div className="jf-field jf-f2">
                             <label>Customer Name {isReq('customerName') && <span className="req">*</span>}</label>
                             <input name="customerName" className="jf-input" value={form.customerName} onChange={handle} />
@@ -300,7 +295,7 @@ const CustomerList = () => {
     const [totalRows, setTotalRows]   = useState(0);
     const [totalPages, setTotalPages] = useState(1);
     const [page, setPage]             = useState(1);
-    const [pageSize, setPageSize]     = useState(20);
+    const [pageSize, setPageSize]     = useState(200);
     const [sortCol, setSortCol]       = useState('CustomerName');
     const [sortDir, setSortDir]       = useState('ASC');
     const [loading, setLoading]       = useState(false);
@@ -308,7 +303,7 @@ const CustomerList = () => {
     const [showCreate, setShowCreate] = useState(false);
     const [holdCust, setHoldCust]     = useState(null);
 
-    const gridRef = useRef({ pageSize: 20, sortCol: 'CustomerName', sortDir: 'ASC', applied: DEFAULT_FILTERS });
+    const gridRef = useRef({ pageSize: 200, sortCol: 'CustomerName', sortDir: 'ASC', applied: DEFAULT_FILTERS });
     useEffect(() => { gridRef.current = { pageSize, sortCol, sortDir, applied }; }, [pageSize, sortCol, sortDir, applied]);
 
     const load = useCallback((pg, ps, sc, sd, af) => {

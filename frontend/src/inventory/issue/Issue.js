@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useInitialFilters } from '../../utils/useInitialFilters';
 import { variables, authHeaders } from '../../Variable';
 import { useCurrentUser } from '../../AuthContext';
 import { useLookup } from '../../LookupContext';
@@ -11,7 +12,7 @@ import { useFieldConfig } from '../../FieldConfigContext';
 import '../../procurement/Procurement.css';
 import RowLink from '../../common/RowLink';
 
-const PAGE_SIZES = [10, 20, 50];
+const PAGE_SIZES = [50, 100, 200, 500, 1000];
 const DEFAULT_FILTERS = { searchText: '', status: '', jobId: '', costingType: '', createdBy: '', dateFrom: '', dateTo: '' };
 
 const SortIcon = ({ col, sortCol, sortDir }) => {
@@ -289,19 +290,23 @@ const Issue = () => {
     const { registerFilters, unregisterFilters, updateFilterDefs } = useFilters();
     const { canDo } = usePermission();
     const canAdd    = canDo('/inventory-issue', 'ADD');
+    // Seeded from dashboard tiles (e.g. Today's Activity "Issue Notes" tile)
+    // — see [[weberp-synergy-fork]]. Falls back to DEFAULT_FILTERS untouched
+    // when this route was reached any other way.
+    const initialFilters = useInitialFilters(DEFAULT_FILTERS);
 
     const [rows,       setRows]      = useState([]);
     const [loading,    setLoading]   = useState(false);
     const [totalRows,  setTotal]     = useState(0);
     const [totalPages, setPages]     = useState(1);
     const [page,       setPage]      = useState(1);
-    const [pageSize,   setPageSize]  = useState(20);
+    const [pageSize,   setPageSize]  = useState(200);
     const [sortCol,    setSortCol]   = useState('IssueDate');
     const [sortDir,    setSortDir]   = useState('DESC');
-    const [applied,    setApplied]   = useState({ ...DEFAULT_FILTERS });
+    const [applied,    setApplied]   = useState(initialFilters);
     const [showForm,   setShowForm]  = useState(false);
 
-    const gridRef = useRef({ pageSize: 20, sortCol: 'IssueDate', sortDir: 'DESC', applied: DEFAULT_FILTERS });
+    const gridRef = useRef({ pageSize: 200, sortCol: 'IssueDate', sortDir: 'DESC', applied: DEFAULT_FILTERS });
     useEffect(() => { gridRef.current = { pageSize, sortCol, sortDir, applied }; }, [pageSize, sortCol, sortDir, applied]);
 
     const [jobOptions,   setJobOptions]   = useState([]);
@@ -330,7 +335,7 @@ const Issue = () => {
             .catch(console.error).finally(() => setLoading(false));
     }, []);
 
-    useEffect(() => { load(1, pageSize, sortCol, sortDir, DEFAULT_FILTERS); }, [load]); // eslint-disable-line
+    useEffect(() => { load(1, pageSize, sortCol, sortDir, initialFilters); }, [load]); // eslint-disable-line
 
     const buildDefs = (jobOpts, typeOpts) => ({
         searchText:  { label: 'Search',     type: 'text',        placeholder: 'Issue #, job ID…' },
@@ -347,7 +352,7 @@ const Issue = () => {
             const { pageSize: ps, sortCol: sc, sortDir: sd } = gridRef.current;
             setApplied({ ...vals }); setPage(1); load(1, ps, sc, sd, vals);
         };
-        registerFilters('inventory-issue', buildDefs([], []), DEFAULT_FILTERS, onApply);
+        registerFilters('inventory-issue', buildDefs([], []), initialFilters, onApply);
         return () => unregisterFilters('inventory-issue');
     }, []); // eslint-disable-line
 

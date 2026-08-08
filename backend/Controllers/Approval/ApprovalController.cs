@@ -4,6 +4,7 @@ using ERPWEB.Models.Approval;
 using ERPWEB.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 using System.Text.Json;
 
 namespace ERPWEB.Controllers.Approval
@@ -16,11 +17,13 @@ namespace ERPWEB.Controllers.Approval
         private readonly DbCon _dbcon;
         private readonly EmailService _email;
         private readonly IConfiguration _config;
-        public ApprovalController(DbCon dbcon, EmailService email, IConfiguration config)
+        private readonly IServiceScopeFactory _scopeFactory;
+        public ApprovalController(DbCon dbcon, EmailService email, IConfiguration config, IServiceScopeFactory scopeFactory)
         {
             _dbcon  = dbcon;
             _email  = email;
             _config = config;
+            _scopeFactory = scopeFactory;
         }
 
         private static string Sha256Hex(string raw)
@@ -31,13 +34,19 @@ namespace ERPWEB.Controllers.Approval
 
         // Emails the procurement team when a PR is fully approved so they can raise the PO.
         // Never throws back to the caller — a mail failure must not fail the approval.
-        private async Task NotifyProcurementOnPRApproval(int prId)
+        //
+        // Takes its dependencies as parameters (not the controller's own _dbcon/_email
+        // fields) because it's invoked from a fire-and-forget background Task after the
+        // HTTP response has already started returning — see the dispatcher below for why.
+        // Using the request-scoped _dbcon/_email there would risk them being disposed
+        // mid-send once ASP.NET Core tears down the request's DI scope.
+        private async Task NotifyProcurementOnPRApproval(DbCon dbcon, EmailService email, int prId)
         {
             try
             {
-                if (!await _email.IsConfiguredAsync()) return;
+                if (!await email.IsConfiguredAsync()) return;
 
-                using var grid = await _dbcon.QueryMultipleAsync("sp_GetPRApprovalNotify", new { PrId = prId });
+                using var grid = await dbcon.QueryMultipleAsync("sp_GetPRApprovalNotify", new { PrId = prId });
                 var pr         = (await grid.ReadAsync<dynamic>()).FirstOrDefault();
                 var recipients = (await grid.ReadAsync<dynamic>()).ToList();
                 if (pr == null || recipients.Count == 0) return;
@@ -61,22 +70,62 @@ namespace ERPWEB.Controllers.Approval
 
                     // SendAsync never throws — an unchecked result would mean procurement
                     // silently never hears about an approved PR.
-                    if (!await _email.SendAsync(to.Trim(), subject, body))
+                    if (!await email.SendAsync(to.Trim(), subject, body))
                     {
-                        await _dbcon.WriteRawLog(
+                        await dbcon.WriteRawLog(
                             message: $"PR approval notification failed to send to '{to.Trim()}' for {prNumber} (PrId {prId}).",
                             controller: "Approval",
                             action: "NotifyProcurementOnPRApproval",
-                            requestPath: HttpContext.Request.Path,
                             logLevel: "Warning");
                     }
                 }
             }
             catch (Exception ex)
             {
-                await _dbcon.WriteLog(ex, controller: "Approval", action: "NotifyProcurementOnPRApproval",
-                    requestPath: HttpContext.Request.Path);
+                await dbcon.WriteLog(ex, controller: "Approval", action: "NotifyProcurementOnPRApproval");
             }
+        }
+
+        // Creates a "create PO" task (proj.TBL_MOM_TASK, via sp_CreateProcurementPOTasks)
+        // for every member of the "Procurement" user group. Idempotent on the SQL
+        // side (skips if one's already open for this PR) and auto-closed by
+        // sp_SetPOLine the moment any PO line gets raised against this PR — see
+        // [[weberp-synergy-fork]]. Never throws back — a task-creation failure
+        // must not fail the approval itself, same discipline as the email notify.
+        // Same "takes dbcon as a parameter" reasoning as NotifyProcurementOnPRApproval above.
+        private async Task CreateProcurementPOTask(DbCon dbcon, int prId)
+        {
+            try
+            {
+                await dbcon.ExecuteScalarAsync("sp_CreateProcurementPOTasks", new { PrId = prId, CreatedBy = "System" });
+            }
+            catch (Exception ex)
+            {
+                await dbcon.WriteLog(ex, controller: "Approval", action: "CreateProcurementPOTask");
+            }
+        }
+
+        // Runs the two PR-approval side effects (email + task) in the background,
+        // AFTER this request has already returned its response to the caller.
+        // Approving a PR was measurably slow (8-12s+) because these ran synchronously
+        // and NotifyProcurementOnPRApproval's email send retries (up to 3 attempts,
+        // each up to 20s, see EmailService.SendAsync) against a currently-unreachable/
+        // misconfigured SMTP host — entirely irrelevant to whether the approval itself
+        // succeeded, which sp_ProcessApproval already committed before this runs.
+        // Uses a fresh DI scope (IServiceScopeFactory) rather than this request's own
+        // _dbcon/_email, since those are Scoped and get disposed when the request ends —
+        // reusing them here would risk failures mid-flight once the response completes.
+        private void FireAndForgetPrApprovalSideEffects(int prId)
+        {
+            _ = Task.Run(async () =>
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var sp     = scope.ServiceProvider;
+                var dbcon  = sp.GetRequiredService<DbCon>();
+                var email  = sp.GetRequiredService<EmailService>();
+                await NotifyProcurementOnPRApproval(dbcon, email, prId);
+                await CreateProcurementPOTask(dbcon, prId);
+            });
         }
 
         private static string BuildPRApprovedEmail(string prNumber, string jobId, string project,
@@ -317,13 +366,19 @@ namespace ERPWEB.Controllers.Approval
                 var doneModule = (string?)result.ModuleCode;
                 var doneDocId  = result.DocumentId != null ? (int?)result.DocumentId : null;
 
-                // A fully-approved PR notifies the procurement team so they can raise the PO.
+                // A fully-approved PR notifies the procurement team (email) and gives
+                // them an actionable "create PO" task so it doesn't just get missed
+                // in an inbox — see [[weberp-synergy-fork]].
                 if (isComplete
                     && string.Equals((string?)result.NewStatus, "Approved", StringComparison.OrdinalIgnoreCase)
                     && string.Equals(doneModule, "PR", StringComparison.OrdinalIgnoreCase)
                     && doneDocId is int prId)
                 {
-                    await NotifyProcurementOnPRApproval(prId);
+                    // Fire-and-forget — the approval itself is already committed by
+                    // sp_ProcessApproval above; the caller shouldn't wait on an email
+                    // send (which can take 8-12s+ on a flaky/misconfigured SMTP host)
+                    // for something that's irrelevant to whether their click succeeded.
+                    FireAndForgetPrApprovalSideEffects(prId);
                 }
 
                 return Ok(new

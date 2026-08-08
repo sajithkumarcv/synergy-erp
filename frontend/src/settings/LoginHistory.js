@@ -3,7 +3,7 @@ import { variables, authHeaders } from '../Variable';
 import '../reports/Reports.css';
 
 const TOP_SIZES  = [100, 200, 500, 1000];
-const PAGE_SIZES = [25, 50, 100, 200];
+const PAGE_SIZES = [50, 100, 200, 500, 1000];
 
 const fmtDateTime = d => d
     ? new Date(d).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })
@@ -53,7 +53,7 @@ const LoginHistory = () => {
     const [status,   setStatus]   = useState('');
     const [search,   setSearch]   = useState('');
     const [page,     setPage]     = useState(1);
-    const [pageSize, setPageSize] = useState(50);
+    const [pageSize, setPageSize] = useState(200);
     const [sortCol,  setSortCol]  = useState('loginTime');
     const [sortDir,  setSortDir]  = useState('desc');
 

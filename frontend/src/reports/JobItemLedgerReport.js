@@ -7,7 +7,7 @@ import './JobItemLedger.css';
 
 const today       = () => new Date().toISOString().slice(0, 10);
 const firstOfYear = () => `${new Date().getFullYear()}-01-01`;
-const PAGE_SIZES  = [10, 20, 50, 100];
+const PAGE_SIZES = [50, 100, 200, 500, 1000];
 
 // ── Shared small helpers ────────────────────────────────────────────────────
 const esc = v => {
@@ -349,7 +349,7 @@ const JobItemLedgerReport = () => {
     const [sortCol,    setSortCol]    = useState('jobId');
     const [sortDir,    setSortDir]    = useState('asc');
     const [page,       setPage]       = useState(1);
-    const [pageSize,   setPageSize]   = useState(20);
+    const [pageSize,   setPageSize]   = useState(200);
     const [selected,   setSelected]   = useState(null);   // clicked row
 
     // Lookup data

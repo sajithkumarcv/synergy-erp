@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useInitialFilters } from '../utils/useInitialFilters';
 import { variables, authHeaders } from '../Variable';
 import { useCurrentUser } from '../AuthContext';
 import { useLookup } from '../LookupContext';
@@ -11,7 +12,7 @@ import '../procurement/Procurement.css';
 import { useFieldConfig } from '../FieldConfigContext';
 import RowLink from '../common/RowLink';
 
-const PAGE_SIZES = [10, 20, 50];
+const PAGE_SIZES = [50, 100, 200, 500, 1000];
 // Rows pulled per customer/job lookup. Higher than the old 8 because the field
 // is now browsable on click, not just typed into — but still capped, since the
 // dropdown scrolls rather than showing the whole master list.
@@ -422,19 +423,23 @@ export const Invoice = () => {
     const { registerFilters, unregisterFilters } = useFilters();
     const { canDo } = usePermission();
     const canAdd    = canDo('/invoices', 'ADD');
+    // Seeded from dashboard tiles (e.g. "Open Invoices" → status='Confirmed')
+    // — see [[weberp-synergy-fork]]. Falls back to DEFAULT_FILTERS untouched
+    // when this route was reached any other way.
+    const initialFilters = useInitialFilters(DEFAULT_FILTERS);
 
     const [rows,       setRows]     = useState([]);
     const [loading,    setLoading]  = useState(false);
     const [totalRows,  setTotal]    = useState(0);
     const [totalPages, setPages]    = useState(1);
     const [page,       setPage]     = useState(1);
-    const [pageSize,   setPageSize] = useState(20);
+    const [pageSize,   setPageSize] = useState(200);
     const [sortCol,    setSortCol]  = useState('InvoiceDate');
     const [sortDir,    setSortDir]  = useState('DESC');
-    const [applied,    setApplied]  = useState({ ...DEFAULT_FILTERS });
+    const [applied,    setApplied]  = useState(initialFilters);
     const [showForm,   setShowForm] = useState(false);
 
-    const gridRef = useRef({ pageSize: 20, sortCol: 'InvoiceDate', sortDir: 'DESC', applied: DEFAULT_FILTERS });
+    const gridRef = useRef({ pageSize: 200, sortCol: 'InvoiceDate', sortDir: 'DESC', applied: DEFAULT_FILTERS });
     useEffect(() => { gridRef.current = { pageSize, sortCol, sortDir, applied }; }, [pageSize, sortCol, sortDir, applied]);
 
     const load = useCallback((pg, ps, sc, sd, af) => {
@@ -453,7 +458,7 @@ export const Invoice = () => {
             .finally(() => setLoading(false));
     }, []);
 
-    useEffect(() => { load(1, 20, 'InvoiceDate', 'DESC', DEFAULT_FILTERS); }, [load]); // eslint-disable-line
+    useEffect(() => { load(1, 20, 'InvoiceDate', 'DESC', initialFilters); }, [load]); // eslint-disable-line
 
     useEffect(() => {
         const onApply = (vals) => {
@@ -469,7 +474,7 @@ export const Invoice = () => {
             dateFrom:   { label: 'Date From', type: 'date' },
             dateTo:     { label: 'Date To',   type: 'date' },
         };
-        registerFilters('invoice', defs, DEFAULT_FILTERS, onApply);
+        registerFilters('invoice', defs, initialFilters, onApply);
         return () => unregisterFilters('invoice');
     }, [getModuleStatuses]); // eslint-disable-line
 

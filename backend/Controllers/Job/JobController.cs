@@ -489,6 +489,14 @@ namespace ERPWEB.Controllers.Job
                 });
                 return Ok(new { message = "Financial values updated." });
             }
+            catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+            {
+                // Business-rule violations raised by the SP (e.g. order value reduced
+                // below the budget already allocated) are user-facing messages —
+                // return 400 so the frontend can display them, instead of the
+                // generic 500 below swallowing the specific reason.
+                return BadRequest(new { message = sqlEx.Message });
+            }
             catch (Exception ex)
             {
                 await _dbcon.WriteLog(ex, controller: "Job", action: "UpdateFinance", requestPath: HttpContext.Request.Path);

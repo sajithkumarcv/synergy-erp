@@ -8,7 +8,7 @@ import '../procurement/Procurement.css';
 
 const fmt = (n) => (n == null ? '0.00' : Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 
-const PAGE_SIZES = [10, 20, 50];
+const PAGE_SIZES = [50, 100, 200, 500, 1000];
 
 const AGING_COLORS = {
     current: '#22c55e',
@@ -339,13 +339,13 @@ const SuppliersTab = () => {
     const [totalRows,  setTotal]     = useState(0);
     const [totalPages, setPages]     = useState(1);
     const [page,       setPage]      = useState(1);
-    const [pageSize,   setPageSize]  = useState(20);
+    const [pageSize,   setPageSize]  = useState(200);
     const [sortCol,    setSortCol]   = useState('TotalPendingBase');
     const [sortDir,    setSortDir]   = useState('DESC');
     const [applied,    setApplied]   = useState({ ...DEFAULT_FILTERS });
     const [listError,  setListError] = useState('');
 
-    const gridRef = useRef({ pageSize: 20, sortCol: 'TotalPendingBase', sortDir: 'DESC', applied: DEFAULT_FILTERS });
+    const gridRef = useRef({ pageSize: 200, sortCol: 'TotalPendingBase', sortDir: 'DESC', applied: DEFAULT_FILTERS });
     useEffect(() => { gridRef.current = { pageSize, sortCol, sortDir, applied }; }, [pageSize, sortCol, sortDir, applied]);
 
     const load = useCallback((pg, ps, sc, sd, af) => {
@@ -602,7 +602,7 @@ const AgingTab = () => {
     const [totalRows,  setTotal]    = useState(0);
     const [totalPages, setPages]    = useState(1);
     const [page,       setPage]     = useState(1);
-    const [pageSize,   setPageSize] = useState(20);
+    const [pageSize,   setPageSize] = useState(200);
     const [sortCol,    setSortCol]  = useState('Total');
     const [sortDir,    setSortDir]  = useState('DESC');
     const [search,     setSearch]   = useState('');

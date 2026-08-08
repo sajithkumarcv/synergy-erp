@@ -346,7 +346,13 @@ const InvoiceDetailPage = () => {
     // Draft invoices can be printed as a preview (logo/address hidden + DRAFT
     // watermark + PREVIEW banners); other statuses follow the status config.
     const isDraft    = invoice.status === 'Draft';
-    const canPrint   = ((statusData?.canPrint  ?? invoice.status !== 'Draft') || isDraft) && canDo('/invoices', 'PRINT');
+    // Same fix as PoDetailPage's isNotApproved: an invoice sitting in
+    // PendingApproval/PendingL1-3 was previously treated as "not draft" for
+    // print purposes and printed as the final document with no watermark,
+    // even though it hasn't cleared approval yet. Draft/Pending*/Rejected all
+    // force the preview watermark now.
+    const isNotApproved = isDraft || invoice.status?.startsWith('Pending') || invoice.status === 'Rejected';
+    const canPrint   = ((statusData?.canPrint  ?? invoice.status !== 'Draft') || isNotApproved) && canDo('/invoices', 'PRINT');
     const canRevise  = invoice.status === 'Confirmed' && canDo('/invoices', 'REVISE');
     const canCopy    = canDo('/invoices', 'ADD');
 
@@ -509,7 +515,7 @@ const InvoiceDetailPage = () => {
                 <InvoicePrintModal
                     invoice={invoice}
                     lines={lines}
-                    preview={isDraft}
+                    preview={isNotApproved}
                     onClose={() => setShowPrint(false)}
                 />
             )}
@@ -517,7 +523,7 @@ const InvoiceDetailPage = () => {
                 <InvoicePrintModal2
                     invoice={invoice}
                     lines={lines}
-                    preview={isDraft}
+                    preview={isNotApproved}
                     onClose={() => setShowPrint(false)}
                 />
             )}
@@ -525,7 +531,7 @@ const InvoiceDetailPage = () => {
                 <InvoicePrintModal3
                     invoice={invoice}
                     lines={lines}
-                    preview={isDraft}
+                    preview={isNotApproved}
                     onClose={() => setShowPrint(false)}
                 />
             )}

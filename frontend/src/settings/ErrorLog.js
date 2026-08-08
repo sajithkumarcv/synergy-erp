@@ -4,7 +4,7 @@ import '../reports/Reports.css';
 
 const today        = () => new Date().toISOString().slice(0, 10);
 const weekAgo      = () => { const d = new Date(); d.setDate(d.getDate() - 7); return d.toISOString().slice(0, 10); };
-const PAGE_SIZES   = [25, 50, 100, 200];
+const PAGE_SIZES = [50, 100, 200, 500, 1000];
 
 const DEFAULT_FILTERS = {
     dateFrom: weekAgo(), dateTo: today(),
@@ -105,7 +105,7 @@ const ErrorLog = () => {
     const [loading, setLoading]   = useState(false);
     const [error, setError]       = useState('');
     const [page, setPage]         = useState(1);
-    const [pageSize, setPageSize] = useState(50);
+    const [pageSize, setPageSize] = useState(200);
     const [totalRows, setTotalRows] = useState(0);
     const [detail, setDetail]     = useState(null);
 

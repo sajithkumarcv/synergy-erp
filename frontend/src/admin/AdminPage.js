@@ -762,7 +762,7 @@ const SmartLookupTable = ({ section }) => {
     const [sortDir,     setSortDir]     = useState('asc');
     const [colFilters,  setColFilters]  = useState({});
     const [page,        setPage]        = useState(1);
-    const [pageSize,    setPageSize]    = useState(20);
+    const [pageSize,    setPageSize]    = useState(200);
     // Dynamic options for select-type fields (keyed by field name)
     const [fieldOptions, setFieldOptions] = useState({});
 
@@ -917,7 +917,7 @@ const SmartLookupTable = ({ section }) => {
     const safePage      = Math.min(page, totalPages);
     const pageRows      = sortedRows.slice((safePage - 1) * pageSize, safePage * pageSize);
 
-    const PAGE_SIZES = [10, 20, 50, 100];
+    const PAGE_SIZES = [50, 100, 200, 500, 1000];
 
     return (
         <div className="adm-table-section">

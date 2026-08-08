@@ -173,6 +173,7 @@ namespace ERPWEB.Models.Approval
 
     public class SaveLevelRequest
     {
+        public int     LevelId          { get; set; }   // 0 = new row; existing id = update in place
         public int     LevelNo          { get; set; }
         public string? LevelName        { get; set; }
         public string  ApproverType     { get; set; } = string.Empty;   // ANY | ROLE | USER

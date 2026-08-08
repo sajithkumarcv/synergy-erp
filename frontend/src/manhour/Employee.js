@@ -8,7 +8,7 @@ import '../procurement/Procurement.css';
 import './Manhour.css';
 import { useFieldConfig } from '../FieldConfigContext';
 
-const PAGE_SIZES = [20, 50, 100, 200];
+const PAGE_SIZES = [50, 100, 200, 500, 1000];
 
 // Style map keyed by ItemValue — extend here if new types are added via VList
 const EMP_TYPE_STYLE = {
@@ -710,7 +710,7 @@ const Employee = () => {
     const [search,       setSearch]       = useState('');
     const [statusFilter, setStatusFilter] = useState('active');   // 'all'|'active'|'inactive'
     const [typeFilter,   setTypeFilter]   = useState('all');      // 'all'|'COMPANY'|'OUTSOURCED'
-    const [pageSize,     setPageSize]     = useState(20);
+    const [pageSize,     setPageSize]     = useState(200);
     const [page,         setPage]         = useState(1);
     const [sortCol,      setSortCol]      = useState('empType');
     const [sortDir,      setSortDir]      = useState('ASC');

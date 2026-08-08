@@ -4,7 +4,7 @@ import { useCurrentUser } from './AuthContext';
 import { usePermission } from './PermissionContext';
 import './procurement/Procurement.css';
 
-const PAGE_SIZES = [20, 50, 100, 200];
+const PAGE_SIZES = [50, 100, 200, 500, 1000];
 
 // ── Add / Edit form panel ─────────────────────────────────────────
 const CountryForm = ({ initial, onClose, onSaved }) => {
@@ -133,7 +133,7 @@ const Country = () => {
     const [rows,       setRows]      = useState([]);
     const [loading,    setLoading]   = useState(false);
     const [search,     setSearch]    = useState('');
-    const [pageSize,   setPageSize]  = useState(20);
+    const [pageSize,   setPageSize]  = useState(200);
     const [page,       setPage]      = useState(1);
     const [sortCol,    setSortCol]   = useState('sortOrder');
     const [sortDir,    setSortDir]   = useState('ASC');

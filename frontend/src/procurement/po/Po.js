@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useInitialFilters } from '../../utils/useInitialFilters';
 import { variables, authHeaders } from '../../Variable';
 import { useCurrentUser } from '../../AuthContext';
 import { useLookup } from '../../LookupContext';
@@ -11,7 +12,7 @@ import '../Procurement.css';
 import RowLink from '../../common/RowLink';
 import LookupSelect from '../../common/LookupSelect';
 
-const PAGE_SIZES = [100, 200, 500];
+const PAGE_SIZES = [50, 100, 200, 500, 1000];
 // Rows pulled per job/supplier lookup. Higher than the old 10 because the field
 // is now browsable on click, not just typed into — but still capped, since the
 // supplier list runs into the hundreds and the dropdown scrolls.
@@ -630,7 +631,6 @@ const PoForm = ({ onClose, onSaved }) => {
                                     if (errors.supplierId) setErrors(p => ({ ...p, supplierId: undefined }));
                                 }}
                             />
-                            )}
                             {errors.supplierId && <span className="pf-field-err">{errors.supplierId}</span>}
                         </div>
                         <div className="pf-field">
@@ -744,20 +744,24 @@ export const Po = () => {
     const { getModuleStatuses, getVList } = useLookup();
     const { canDo } = usePermission();
     const canAdd    = canDo('/purchase-orders', 'ADD');
+    // Seeded from dashboard tiles (e.g. "Open POs" → status = the open set) —
+    // see [[weberp-synergy-fork]]. Falls back to DEFAULT_FILTERS untouched
+    // when this route was reached any other way.
+    const initialFilters = useInitialFilters(DEFAULT_FILTERS);
 
     const [rows,        setRows]       = useState([]);
     const [loading,     setLoading]   = useState(false);
     const [totalRows,   setTotal]     = useState(0);
     const [totalPages,  setPages]     = useState(1);
     const [page,        setPage]      = useState(1);
-    const [pageSize,    setPageSize]  = useState(20);
+    const [pageSize,    setPageSize]  = useState(200);
     const [sortCol,     setSortCol]   = useState('PoDate');
     const [sortDir,     setSortDir]   = useState('DESC');
     const [quickViewId, setQuickView] = useState(null);
-    const [applied,    setApplied]   = useState({ ...DEFAULT_FILTERS });
+    const [applied,    setApplied]   = useState(initialFilters);
     const [showForm,   setShowForm]  = useState(false);
 
-    const gridRef = useRef({ pageSize: 20, sortCol: 'PoDate', sortDir: 'DESC', applied: DEFAULT_FILTERS });
+    const gridRef = useRef({ pageSize: 200, sortCol: 'PoDate', sortDir: 'DESC', applied: DEFAULT_FILTERS });
     useEffect(() => { gridRef.current = { pageSize, sortCol, sortDir, applied }; }, [pageSize, sortCol, sortDir, applied]);
 
     // Fetch active jobs for the Job ID filter dropdown
@@ -797,7 +801,7 @@ export const Po = () => {
             .finally(() => setLoading(false));
     }, []);
 
-    useEffect(() => { load(1, pageSize, sortCol, sortDir, DEFAULT_FILTERS); }, [load]); // eslint-disable-line
+    useEffect(() => { load(1, pageSize, sortCol, sortDir, initialFilters); }, [load]); // eslint-disable-line
 
     // Build filter defs — called with latest options snapshots
     const buildDefs = (jobOpts, supplierOpts) => ({
@@ -819,7 +823,7 @@ export const Po = () => {
             setApplied({ ...vals }); setPage(1);
             load(1, ps, sc, sd, vals);
         };
-        registerFilters('purchaseorder', buildDefs([], []), DEFAULT_FILTERS, onApply);
+        registerFilters('purchaseorder', buildDefs([], []), initialFilters, onApply);
         return () => unregisterFilters('purchaseorder');
     }, []); // eslint-disable-line
 

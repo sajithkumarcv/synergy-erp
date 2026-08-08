@@ -6,7 +6,7 @@ import { usePermission } from '../PermissionContext';
 import { STATUS, fmt, fmtDate } from './jobConstants';
 import './JobList.css';
 
-const PAGE_SIZES      = [10, 20, 50, 100];
+const PAGE_SIZES = [50, 100, 200, 500, 1000];
 const DEFAULT_FILTERS = { searchText: '', customerId: '', jobTypeId: '', jobStatusIds: '', jobStageId: '', dateFrom: '', dateTo: '' };
 
 const SortIcon = ({ col, sortCol, sortDir }) => {
@@ -27,7 +27,7 @@ const JobList = () => {
     const [total,     setTotal]    = useState(0);
     const [pages,     setPages]    = useState(1);
     const [page,      setPage]     = useState(1);
-    const [pageSize,  setPageSize] = useState(20);
+    const [pageSize,  setPageSize] = useState(200);
     const [sortCol,   setSortCol]  = useState('JobDate');
     const [sortDir,   setSortDir]  = useState('DESC');
     const [loading,   setLoading]  = useState(false);
@@ -37,7 +37,7 @@ const JobList = () => {
     const [jobStages,  setJobStages] = useState([]);
     const [customers,  setCustomers] = useState([]);
 
-    const gridRef = useRef({ pageSize: 20, sortCol: 'JobDate', sortDir: 'DESC', applied: DEFAULT_FILTERS });
+    const gridRef = useRef({ pageSize: 200, sortCol: 'JobDate', sortDir: 'DESC', applied: DEFAULT_FILTERS });
     useEffect(() => { gridRef.current = { pageSize, sortCol, sortDir, applied }; }, [pageSize, sortCol, sortDir, applied]);
 
     // Load lookups once

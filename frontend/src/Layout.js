@@ -30,6 +30,7 @@ import { Pr } from './procurement/pr/Pr';
 import PrDetailPage from './procurement/pr/PrDetailPage';
 import { Po } from './procurement/po/Po';
 import PoDetailPage from './procurement/po/PoDetailPage';
+import PoApprovalPrintPage from './procurement/po/PoApprovalPrintPage';
 import ProcurementDashboard from './procurement/ProcurementDashboard';
 import ProcurementGrn from './procurement/grn/Grn';
 import FreeIssueGrn from './procurement/freeissuegrn/FreeIssueGrn';
@@ -53,6 +54,7 @@ import ChangePassword          from './settings/ChangePassword';
 import LoginHistory            from './settings/LoginHistory';
 import ErrorLog                 from './settings/ErrorLog';
 import CompanySettings          from './settings/CompanySettings';
+import DashboardRoleConfig      from './settings/DashboardRoleConfig';
 import SmtpSettings             from './settings/SmtpSettings';
 import { Grn } from './inventory/grn/Grn';
 import GrnDetailPage from './inventory/grn/GrnDetailPage';
@@ -692,6 +694,7 @@ const Layout = () => {
             <Route path="/purchase-requests/:prId"    element={<PrDetailPage />} />
             <Route path="/purchase-orders"            element={<Po />} />
             <Route path="/purchase-orders/:poId"      element={<PoDetailPage />} />
+            <Route path="/purchase-orders/:poId/review" element={<PoApprovalPrintPage />} />
             <Route path="/grn"                        element={<ProcurementGrn />} />
             <Route path="/grn/:grnId"                 element={<ProcurementGrnDetailPage />} />
             <Route path="/free-issue-grn"             element={<FreeIssueGrn />} />
@@ -712,6 +715,7 @@ const Layout = () => {
             <Route path="/settings/login-history"            element={<LoginHistory />} />
             <Route path="/settings/error-log"                element={<ErrorLog />} />
             <Route path="/settings/company"                  element={<CompanySettings />} />
+            <Route path="/settings/dashboard-roles"          element={<DashboardRoleConfig />} />
             <Route path="/settings/smtp"                     element={<SmtpSettings />} />
             <Route path="/inventory-grn"              element={<Grn />} />
             <Route path="/inventory-grn/:id"          element={<GrnDetailPage />} />

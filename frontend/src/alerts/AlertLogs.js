@@ -4,7 +4,7 @@ import { useFilters } from '../FilterContext';
 import { useLookup } from '../LookupContext';
 import '../procurement/Procurement.css';
 
-const PAGE_SIZES = [10, 20, 50];
+const PAGE_SIZES = [50, 100, 200, 500, 1000];
 const DEFAULT_FILTERS = { alertId: '', status: '', dateFrom: '', dateTo: '' };
 
 const S = {
@@ -51,7 +51,7 @@ export default function AlertLogs() {
   const [totalRows,  setTotalRows]  = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [page,       setPage]       = useState(1);
-  const [pageSize,   setPageSize]   = useState(20);
+  const [pageSize,   setPageSize]   = useState(200);
   const [loading,    setLoading]    = useState(false);
   const [recipients, setRecipients] = useState({});
   const [expanded,   setExpanded]   = useState(null);

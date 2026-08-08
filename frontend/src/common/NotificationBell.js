@@ -59,6 +59,22 @@ const ANIM_CSS = `
 .nb-bell-ring { animation: bellRing .8s ease; }
 `;
 
+// Highlights the referenced document number (e.g. "PR-26-0009") inside a
+// task's description text, using the module's own color — so it stands out
+// the same way a jobId badge does, without needing the backend to split the
+// description into separate fields.
+const highlightRef = (description, refDocumentNo, color) => {
+    if (!refDocumentNo || !description?.includes(refDocumentNo)) return description;
+    const idx = description.indexOf(refDocumentNo);
+    return (
+        <>
+            {description.slice(0, idx)}
+            <span style={{ color, fontWeight: 700 }}>{refDocumentNo}</span>
+            {description.slice(idx + refDocumentNo.length)}
+        </>
+    );
+};
+
 const Avatar = ({ meta, size = 40 }) => (
     <div style={{
         width: size, height: size, borderRadius: '50%', flexShrink: 0,
@@ -162,7 +178,15 @@ const NotificationBell = ({ userId, userName }) => {
     const isTaskNew     = (t) => !seenIds.tasks.has(t.momTaskId);
     const isApprovalNew = (a) => !seenIds.approvals.has(a.transactionId);
 
-    const goTask     = () => { setOpen(false); navigate('/job-mom'); };
+    // Auto-created tasks (e.g. "create PO" on PR approval) carry a
+    // refModuleCode/refDocumentId pointing at the actual document — jump
+    // straight there. Plain MOM action items have neither, so fall back to
+    // the job MOM board as before.
+    const goTask = (t) => {
+        setOpen(false);
+        if (t?.refModuleCode === 'PR' && t.refDocumentId) navigate(`/purchase-requests/${t.refDocumentId}`);
+        else navigate('/job-mom');
+    };
     const goApproval = () => { setOpen(false); navigate('/my-approvals'); };
 
     return (
@@ -272,9 +296,10 @@ const NotificationBell = ({ userId, userName }) => {
                                     const due  = fmtDue(t.dueDate);
                                     const pri  = PRIORITY_COLOR[t.priority] || PRIORITY_COLOR.Medium;
                                     const isNew = isTaskNew(t);
+                                    const meta  = MODULE_META[t.refModuleCode] || MODULE_META.MOM;
                                     return (
                                         <div key={t.momTaskId}
-                                            onClick={goTask}
+                                            onClick={() => goTask(t)}
                                             style={{
                                                 padding: '8px 18px',
                                                 display: 'flex', alignItems: 'center', gap: 12,
@@ -287,7 +312,7 @@ const NotificationBell = ({ userId, userName }) => {
                                         >
                                             {/* Avatar */}
                                             <div style={{ position: 'relative', flexShrink: 0 }}>
-                                                <Avatar meta={MODULE_META.MOM} />
+                                                <Avatar meta={meta} />
                                                 <span style={{
                                                     position: 'absolute', bottom: -1, right: -1,
                                                     width: 14, height: 14, borderRadius: '50%',
@@ -302,7 +327,7 @@ const NotificationBell = ({ userId, userName }) => {
                                                     fontWeight: isNew ? 600 : 400,
                                                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                                                 }}>
-                                                    {t.description}
+                                                    {highlightRef(t.description, t.refDocumentNo, meta.color)}
                                                 </div>
                                                 <div style={{ fontSize: 12, marginTop: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
                                                     {t.jobId && (

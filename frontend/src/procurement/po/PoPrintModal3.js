@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { variables, authHeaders } from '../../Variable';
+import { variables, authHeaders, getFileUrl } from '../../Variable';
 import { fmt, fmtDate } from '../procurementConstants';
 import useOwnerCompany from '../../hooks/useOwnerCompany';
 import { useLookup } from '../../LookupContext';
@@ -29,8 +29,9 @@ const KV = ({ label, value, mono }) => !value ? null : (
 );
 
 // ═════════════════════════════════════════════════════════════
-const PoPrintModal3 = ({ po, onClose, preview }) => {
+const PoPrintModal3 = ({ po, onClose, preview, overBudget }) => {
     const { company, loading: coLoading } = useOwnerCompany();
+    const logoSrc = company?.logoPath ? getFileUrl(company.logoPath) : null;
     const { getSetting } = useLookup();
     const taxLabel = getSetting('Biz.Print.TAXLABEL', 'VAT');   // Company Settings → Print Formats
     const [lines,     setLines]     = useState([]);
@@ -121,22 +122,26 @@ const PoPrintModal3 = ({ po, onClose, preview }) => {
             {/* ══ A4 Document ══ */}
             <div className="po3-doc" style={{ position: 'relative' }}>
 
-                {preview && <DraftWatermark />}
-                {preview && <PreviewBanner />}
+                {preview && <DraftWatermark label={overBudget ? 'NO BUDGET' : 'DRAFT'} />}
+                {preview && (
+                    <PreviewBanner text={overBudget
+                        ? 'NO BUDGET IN THIS CATEGORY — NOT VALID FOR ISSUE TO SUPPLIER'
+                        : undefined} />
+                )}
 
                 {/* ── 1. Blue banner (matches the invoice header) ── */}
-                <div style={{
+                <div className="po3-banner" style={{
                     background: '#0f4c75', color: '#fff',
-                    margin: '-28px -36px 16px', padding: '18px 36px',
+                    margin: '-28px -36px 16px', padding: '24px 36px',
                     display: 'flex', justifyContent: 'space-between',
                     alignItems: 'center', gap: 20,
                 }}>
                     <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: '.01em', marginBottom: 3 }}>
+                        <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '.01em', lineHeight: 1.3, marginBottom: 5 }}>
                             {coLoading ? '…' : (company?.companyName || '—')}
                         </div>
                         {!preview && (
-                            <div style={{ fontSize: 10, color: 'rgba(255,255,255,.72)', lineHeight: 1.5 }}>
+                            <div style={{ fontSize: 12, color: 'rgba(255,255,255,.72)', lineHeight: 1.5 }}>
                                 {[
                                     addrLine,
                                     company?.phone && `Tel: ${company.phone}`,
@@ -147,20 +152,33 @@ const PoPrintModal3 = ({ po, onClose, preview }) => {
                         )}
                     </div>
                     <div style={{ textAlign: 'right', flexShrink: 0, paddingLeft: 16 }}>
+                        {logoSrc && (
+                            <img src={logoSrc} alt="Logo" style={{
+                                height: 32, width: 'auto', maxWidth: 90, objectFit: 'contain',
+                                background: '#fff', borderRadius: 3, padding: '3px 6px',
+                                display: 'inline-block', marginBottom: 6,
+                            }} />
+                        )}
                         <div style={{ fontSize: 20, fontWeight: 800, textTransform: 'uppercase',
                                       letterSpacing: '.06em', color: '#7dd3fc', marginBottom: 2, whiteSpace: 'nowrap' }}>
                             Purchase Order
                         </div>
                         <div style={{ fontSize: 13, fontWeight: 700, fontFamily: 'Courier New', color: '#fff' }}>
                             {po.revision > 0 && <span style={{ color: '#fca5a5', marginRight: 8 }}>Rev.{po.revision}</span>}
-                            {po.poNumber}
+                            <span style={{
+                                display: 'inline-block', fontSize: 20, fontWeight: 800,
+                                background: '#fde047', color: '#0f4c75',
+                                padding: '3px 10px', borderRadius: 4, letterSpacing: '.02em',
+                            }}>
+                                {po.poNumber}
+                            </span>
                         </div>
                     </div>
                 </div>
 
                 {/* ── 3. Quick info strip ── */}
                 <div style={{
-                    display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
+                    display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
                     background: '#f8fafc', border: '1px solid #e2e8f0',
                     borderRadius: 4, marginBottom: 12, overflow: 'hidden',
                 }}>
@@ -168,10 +186,11 @@ const PoPrintModal3 = ({ po, onClose, preview }) => {
                         ['PO DATE',          fmtDate(po.poDate)],
                         ['JOB',              po.jobId || '—'],
                         ['VENDOR QUOTE REF', po.lpoNo || po.vendorRef || '—'],
+                        ['DELIVERY DATE', fmtDate(po.deliveryDate)],
                     ].map(([label, value], i) => (
                         <div key={label} style={{
                             padding: '8px 12px',
-                            borderRight: i < 2 ? '1px solid #e2e8f0' : 'none',
+                            borderRight: i < 3 ? '1px solid #e2e8f0' : 'none',
                         }}>
                             <div style={{ fontSize: 9, fontWeight: 700, color: '#64748b',
                                           textTransform: 'uppercase', letterSpacing: '.06em',
@@ -241,7 +260,7 @@ const PoPrintModal3 = ({ po, onClose, preview }) => {
                     }}>
                         <thead>
                             <tr style={{ background: '#1e3a5f', color: '#fff' }}>
-                                {['#','Description','Qty','UOM','Unit Price','Total']
+                                {['#','Description','Qty','UOM','Unit Price','Tax%','Total']
                                     .map((h, i) => (
                                     <th key={h} style={{
                                         padding: '8px 8px', textAlign: i >= 2 && i !== 3 ? 'right' : 'left',
@@ -252,7 +271,8 @@ const PoPrintModal3 = ({ po, onClose, preview }) => {
                                         ...(i === 2 ? { width: 44 } : {}),
                                         ...(i === 3 ? { width: 44, textAlign: 'center' } : {}),
                                         ...(i === 4 ? { width: 78 } : {}),
-                                        ...(i === 5 ? { width: 84 } : {}),
+                                        ...(i === 5 ? { width: 44 } : {}),
+                                        ...(i === 6 ? { width: 84 } : {}),
                                     }}>
                                         {h}
                                     </th>
@@ -268,8 +288,7 @@ const PoPrintModal3 = ({ po, onClose, preview }) => {
                                     </td>
                                 </tr>
                             ) : printLines.map((l, i) => {
-                                const lineTotal    = l.lineTotal        ?? (l.orderedQty * l.unitPrice);
-                                const lineTotalTax = l.lineTotalWithTax ?? (lineTotal + lineTotal * (l.taxPct ?? 0) / 100);
+                                const lineTotal = l.lineTotal ?? (l.orderedQty * l.unitPrice);
                                 return (
                                     <tr key={`${l.poLineId}-${i}`}
                                         style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc',
@@ -304,9 +323,13 @@ const PoPrintModal3 = ({ po, onClose, preview }) => {
                                             {n(l.unitPrice)}
                                         </td>
                                         <td style={{ padding: '7px 8px', textAlign: 'right',
+                                                     fontFamily: 'Courier New', fontSize: 11, color: '#64748b' }}>
+                                            {l.taxPct > 0 ? `${l.taxPct}%` : '—'}
+                                        </td>
+                                        <td style={{ padding: '7px 8px', textAlign: 'right',
                                                      fontFamily: 'Courier New', fontSize: 11,
                                                      fontWeight: 600 }}>
-                                            {n(lineTotalTax)}
+                                            {n(lineTotal)}
                                         </td>
                                     </tr>
                                 );
@@ -328,21 +351,16 @@ const PoPrintModal3 = ({ po, onClose, preview }) => {
                             <span style={{ fontFamily: 'Courier New', fontWeight: 600 }}>{n(subtotal)}</span>
                         </div>
 
-                        {/* VAT rows grouped by % */}
-                        {vatGroups.length > 0 ? vatGroups.map(g => (
-                            <div key={g.pct} style={{ display: 'flex', justifyContent: 'space-between',
-                                                       padding: '6px 14px', borderBottom: '1px solid #f1f5f9',
-                                                       fontSize: 12 }}>
-                                <span style={{ color: '#64748b' }}>{taxLabel} ({g.pct}% on applicable lines)</span>
-                                <span style={{ fontFamily: 'Courier New', fontWeight: 600 }}>{n(g.amt)}</span>
-                            </div>
-                        )) : (
-                            <div style={{ display: 'flex', justifyContent: 'space-between',
-                                          padding: '6px 14px', borderBottom: '1px solid #f1f5f9', fontSize: 12 }}>
-                                <span style={{ color: '#64748b' }}>{taxLabel}</span>
-                                <span style={{ fontFamily: 'Courier New', fontWeight: 600 }}>{n(0)}</span>
-                            </div>
-                        )}
+                        {/* VAT — single summed row. Per-rate breakdown now lives in the
+                            line table's Tax% column instead of stacking one row per
+                            distinct rate here (which grew unboundedly as more rates appeared). */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between',
+                                      padding: '6px 14px', borderBottom: '1px solid #f1f5f9', fontSize: 12 }}>
+                            <span style={{ color: '#64748b' }}>{taxLabel}</span>
+                            <span style={{ fontFamily: 'Courier New', fontWeight: 600 }}>
+                                {n(vatGroups.reduce((s, g) => s + g.amt, 0))}
+                            </span>
+                        </div>
 
                         {/* Discount */}
                         <div style={{ display: 'flex', justifyContent: 'space-between',
@@ -352,6 +370,16 @@ const PoPrintModal3 = ({ po, onClose, preview }) => {
                                 {discount > 0 ? `− ${n(discount)}` : n(0)}
                             </span>
                         </div>
+
+                        {/* Tax Amount — header-level field, independent of the line-based VAT
+                            breakdown above and not folded into the Total. Shown only when set. */}
+                        {po.taxAmount > 0 && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between',
+                                          padding: '6px 14px', borderBottom: '1px solid #f1f5f9', fontSize: 12 }}>
+                                <span style={{ color: '#64748b' }}>Tax Amount</span>
+                                <span style={{ fontFamily: 'Courier New', fontWeight: 600 }}>{n(po.taxAmount)}</span>
+                            </div>
+                        )}
 
                         {/* Grand Total */}
                         <div style={{ display: 'flex', justifyContent: 'space-between',
@@ -367,7 +395,7 @@ const PoPrintModal3 = ({ po, onClose, preview }) => {
                 </div>
 
                 {/* ── Spacer: pushes notes + T&C + footer to bottom ── */}
-                <div style={{ flex: 1, minHeight: 12 }} />
+                <div className="po3-spacer" style={{ flex: 1, minHeight: 12 }} />
 
                 {/* ── 7. Notes / Remarks ── */}
                 {po.notes && (
@@ -388,37 +416,7 @@ const PoPrintModal3 = ({ po, onClose, preview }) => {
                     </div>
                 )}
 
-                {/* ── 8. Terms & Conditions ── */}
-                {terms.length > 0 && (
-                    <div className="po3-tc" style={{ marginBottom: 12 }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse',
-                                        border: '1px solid #cbd5e1', fontSize: 11 }}>
-                            <thead>
-                                <tr>
-                                    <th style={{ padding: '7px 10px', textAlign: 'left',
-                                                 fontWeight: 700, fontSize: 11.5,
-                                                 background: '#fff', color: '#1e293b',
-                                                 border: '1px solid #cbd5e1' }}>
-                                        Terms &amp; Conditions
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {terms.map((t, i) => (
-                                    <tr key={t.termId}>
-                                        <td style={{ padding: '5px 10px',
-                                                     border: '1px solid #cbd5e1',
-                                                     color: '#1e293b', lineHeight: 1.5 }}>
-                                            {i + 1} : {resolveTerm(t.termText)}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-
-                {/* ── 9. Annexures — one section per page-break ── */}
+                {/* ── 8. Annexures — one section per page-break ── */}
                 {annexures.map(a => {
                     const linkedLineNums = a.linkedLineIds
                         .map(id => printLines.findIndex(l => l.poLineId === id) + 1)
@@ -482,6 +480,36 @@ const PoPrintModal3 = ({ po, onClose, preview }) => {
                     );
                 })}
 
+                {/* ── 9. Terms & Conditions ── */}
+                {terms.length > 0 && (
+                    <div className="po3-tc" style={{ marginBottom: 12 }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse',
+                                        border: '1px solid #cbd5e1', fontSize: 11 }}>
+                            <thead>
+                                <tr>
+                                    <th style={{ padding: '7px 10px', textAlign: 'left',
+                                                 fontWeight: 700, fontSize: 11.5,
+                                                 background: '#fff', color: '#1e293b',
+                                                 border: '1px solid #cbd5e1' }}>
+                                        Terms &amp; Conditions
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {terms.map((t, i) => (
+                                    <tr key={t.termId}>
+                                        <td style={{ padding: '5px 10px',
+                                                     border: '1px solid #cbd5e1',
+                                                     color: '#1e293b', lineHeight: 1.5 }}>
+                                            {i + 1} : {resolveTerm(t.termText)}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+
                 {/* ── 10. Authorized footer ── */}
                 <div className="po3-footer" style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end',
@@ -503,7 +531,11 @@ const PoPrintModal3 = ({ po, onClose, preview }) => {
                     </div>
                 </div>
 
-                {preview && <PreviewBanner />}
+                {preview && (
+                    <PreviewBanner text={overBudget
+                        ? 'NO BUDGET IN THIS CATEGORY — NOT VALID FOR ISSUE TO SUPPLIER'
+                        : undefined} />
+                )}
 
             </div>
         </div>

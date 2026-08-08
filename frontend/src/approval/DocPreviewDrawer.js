@@ -82,11 +82,11 @@ const MODULE_CONFIG = {
                     <div style={{ width: '100%' }}>
                         <LinesTable
                             columns={[
-                                { label: '#', key: 'lineNo' },
+                                { label: '#', key: 'lineNum' },
                                 { label: 'Item Code', key: 'itemCode', mono: true },
-                                { label: 'Description', key: 'itemName' },
-                                { label: 'UOM', key: 'uomCode' },
-                                { label: 'Qty', key: 'requestedQty', right: true, render: r => fmt(r.requestedQty) },
+                                { label: 'Description', key: 'itemDesc' },
+                                { label: 'UOM', key: 'uomName' },
+                                { label: 'Qty', key: 'requiredQty', right: true, render: r => fmt(r.requiredQty) },
                                 { label: 'Req. Date', key: 'requiredDate', nowrap: true, render: r => fmtD(r.requiredDate) },
                             ]}
                             rows={lines}
@@ -123,10 +123,10 @@ const MODULE_CONFIG = {
                     <div style={{ width: '100%' }}>
                         <LinesTable
                             columns={[
-                                { label: '#', key: 'lineNo' },
+                                { label: '#', key: 'lineNum' },
                                 { label: 'Item Code', key: 'itemCode', mono: true },
-                                { label: 'Description', key: 'itemName' },
-                                { label: 'UOM', key: 'uomCode' },
+                                { label: 'Description', key: 'itemDesc' },
+                                { label: 'UOM', key: 'uomName' },
                                 { label: 'Qty', key: 'orderedQty', right: true, render: r => fmt(r.orderedQty) },
                                 { label: 'Unit Price', key: 'unitPrice', right: true, render: r => fmt(r.unitPrice) },
                                 { label: 'Total', key: 'lineTotal', right: true, render: r => fmt(r.lineTotal) },
@@ -270,9 +270,9 @@ const MODULE_CONFIG = {
                             <LinesTable
                                 columns={[
                                     { label: 'Item Code', key: 'itemCode', mono: true },
-                                    { label: 'Description', key: 'itemName' },
-                                    { label: 'UOM', key: 'uomCode' },
-                                    { label: 'Qty', key: 'adjustmentQty', right: true, render: r => fmt(r.adjustmentQty) },
+                                    { label: 'Description', key: 'itemDesc' },
+                                    { label: 'UOM', key: 'uomName' },
+                                    { label: 'Qty', key: 'adjustQty', right: true, render: r => fmt(r.adjustQty) },
                                 ]}
                                 rows={lines}
                             />
@@ -303,11 +303,12 @@ const MODULE_CONFIG = {
                         <div style={{ width: '100%' }}>
                             <LinesTable
                                 columns={[
-                                    { label: 'Description', key: 'description' },
-                                    { label: 'UOM', key: 'uomCode' },
-                                    { label: 'Qty', key: 'quantity', right: true, render: r => fmt(r.quantity) },
-                                    { label: 'Unit Price', key: 'unitPrice', right: true, render: r => fmt(r.unitPrice) },
-                                    { label: 'Total', key: 'lineTotal', right: true, render: r => fmt(r.lineTotal) },
+                                    { label: 'Item Code', key: 'itemCode', mono: true },
+                                    { label: 'Description', key: 'itemDesc' },
+                                    { label: 'UOM', key: 'uomName' },
+                                    { label: 'Qty', key: 'completedQty', right: true, render: r => fmt(r.completedQty) },
+                                    { label: 'Unit Price', key: 'unitCost', right: true, render: r => fmt(r.unitCost) },
+                                    { label: 'Total', key: 'totalCost', right: true, render: r => fmt(r.totalCost) },
                                 ]}
                                 rows={lines}
                             />
@@ -339,7 +340,7 @@ const MODULE_CONFIG = {
                                 columns={[
                                     { label: 'Item Code', key: 'itemCode', mono: true },
                                     { label: 'Description', key: 'itemName' },
-                                    { label: 'UOM', key: 'uomCode' },
+                                    { label: 'UOM', key: 'uomName' },
                                     { label: 'Qty', key: 'returnQty', right: true, render: r => fmt(r.returnQty) },
                                 ]}
                                 rows={lines}

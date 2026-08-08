@@ -8,7 +8,7 @@ import './Reports.css';
 const today        = () => new Date().toISOString().slice(0, 10);
 const firstOfMonth = () => { const d = new Date(); d.setDate(1); return d.toISOString().slice(0, 10); };
 
-const PAGE_SIZES = [10, 20, 50, 100];
+const PAGE_SIZES = [50, 100, 200, 500, 1000];
 
 const DEFAULT_FILTERS = {
     dateFrom:  firstOfMonth(),
@@ -106,7 +106,7 @@ const Pagination = ({ page, totalPages, pageSize, totalRows, onPage, onPageSize 
 // ═══════════════════════════════════════════════════════════════════════
 const SrvReport = () => {
     const navigate            = useNavigate();
-    const { getStatusConfig, getModuleStatuses } = useLookup();
+    const { getStatusConfig, getModuleStatuses, baseCurrencyCode } = useLookup();
 
     const [filters,   setFilters]  = useState({ ...DEFAULT_FILTERS });
     const [rows,      setRows]     = useState(null);
@@ -115,7 +115,7 @@ const SrvReport = () => {
     const [sortCol,   setSortCol]  = useState('srvDate');
     const [sortDir,   setSortDir]  = useState('desc');
     const [page,      setPage]     = useState(1);
-    const [pageSize,  setPageSize] = useState(20);
+    const [pageSize,  setPageSize] = useState(200);
 
     const [jobs, setJobs] = useState([]);
 
@@ -297,7 +297,7 @@ const SrvReport = () => {
                         <div className="rpt-summary-val">{totals.count}</div>
                     </div>
                     <div className="rpt-summary-item">
-                        <div className="rpt-summary-label">Total Cost (AED)</div>
+                        <div className="rpt-summary-label">Total Cost ({baseCurrencyCode})</div>
                         <div className="rpt-summary-val blue">{fmt(totals.totalCostBase)}</div>
                     </div>
                 </div>
@@ -314,7 +314,7 @@ const SrvReport = () => {
                                 <th className="r">Rate</th>
                                 <th className="r">Count</th>
                                 <th className="r">Total Cost</th>
-                                <th className="r">Total Cost (AED)</th>
+                                <th className="r">Total Cost ({baseCurrencyCode})</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -373,7 +373,7 @@ const SrvReport = () => {
                                         <Th col="exchangeRate"  label="Rate"              cls="r" />
                                         <Th col="lineCount"     label="Lines"             cls="r" />
                                         <Th col="totalCost"     label="Total Cost"        cls="r" />
-                                        <Th col="totalCostBase" label="Total Cost (AED)"  cls="r" />
+                                        <Th col="totalCostBase" label={`Total Cost (${baseCurrencyCode})`}  cls="r" />
                                     </tr>
                                 </thead>
                                 <tbody>

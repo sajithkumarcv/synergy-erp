@@ -9,7 +9,7 @@ import '../procurement/Procurement.css';
 const fmt     = (n) => (n == null ? '0.00' : Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—');
 
-const PAGE_SIZES = [20, 50, 100];
+const PAGE_SIZES = [50, 100, 200, 500, 1000];
 
 // Derived follow-up state → badge styling + label
 export const STATE_CFG = {
@@ -56,14 +56,14 @@ const PaymentFollowup = () => {
     const [totalRows,  setTotal]    = useState(0);
     const [totalPages, setPages]    = useState(1);
     const [page,       setPage]     = useState(1);
-    const [pageSize,   setPageSize] = useState(20);
+    const [pageSize,   setPageSize] = useState(200);
     const [sortCol,    setSortCol]  = useState('Priority');
     const [sortDir,    setSortDir]  = useState('ASC');
     const [applied,    setApplied]  = useState({ ...DEFAULT_FILTERS });
     const [error,      setError]    = useState('');
     const [modalCust,  setModalCust]= useState(null);   // {customerId, customerName} or null
 
-    const gridRef = useRef({ pageSize: 20, sortCol: 'Priority', sortDir: 'ASC', applied: DEFAULT_FILTERS });
+    const gridRef = useRef({ pageSize: 200, sortCol: 'Priority', sortDir: 'ASC', applied: DEFAULT_FILTERS });
     useEffect(() => { gridRef.current = { pageSize, sortCol, sortDir, applied }; }, [pageSize, sortCol, sortDir, applied]);
 
     const loadSummary = useCallback(() => {

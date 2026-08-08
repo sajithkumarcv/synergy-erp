@@ -57,7 +57,6 @@ const OverviewTab = ({ supplier, onRefresh, canEdit = true }) => {
     };
     const save = async () => {
         const errs = [];
-        if (!form.supplierCode?.trim()) errs.push('Supplier Code is required.');
         if (!form.supplierName?.trim()) errs.push('Supplier Name is required.');
         if (!form.currencyId)           errs.push('Currency is required.');
         if (!form.paymentTermsId)       errs.push('Payment Terms are required.');
@@ -103,7 +102,7 @@ const OverviewTab = ({ supplier, onRefresh, canEdit = true }) => {
                 <div className="jf-body">
                     <div className="jf-section"><span className="jf-section-label">Identity</span><div className="jf-section-line" /></div>
                     <div className="jf-row">
-                        <div className="jf-field" style={{ flex: '0 0 150px' }}><label>Code <span className="req">*</span></label><input name="supplierCode" className="jf-input" value={form.supplierCode || ''} onChange={handle} /></div>
+                        <div className="jf-field" style={{ flex: '0 0 150px' }}><label>Code</label><input name="supplierCode" className="jf-input" value={form.supplierCode || ''} disabled title="System-generated, cannot be changed" /></div>
                         <div className="jf-field jf-f2"><label>Supplier Name <span className="req">*</span></label><input name="supplierName" className="jf-input" value={form.supplierName || ''} onChange={handle} /></div>
                         <div className="jf-field"><label>Short Name</label><input name="supplierShortName" className="jf-input" value={form.supplierShortName || ''} onChange={handle} /></div>
                         <div className="jf-field" style={{ flex: '0 0 130px' }}><label>Reference</label><input name="supplierRef" className="jf-input" value={form.supplierRef || ''} onChange={handle} /></div>

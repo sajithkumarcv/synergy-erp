@@ -156,12 +156,20 @@ const PoDetailPage = () => {
     const canRevise  = canDo('/purchase-orders', 'REVISE');
     // Draft POs can be printed as a preview (without company logo); other statuses
     // follow the status config / default rule.
-    const isDraft    = po.status === 'Draft';
-    const canPrint   = ((statusData?.canPrint ?? (po.status !== 'Draft')) || isDraft) && canDo('/purchase-orders', 'PRINT');
-    // Force draft/watermarked print (never the final document) while this PO's
-    // category is over its approved budget — even if the PO itself was approved
-    // via the budget-password override. Real print unlocks once budget covers it.
-    const forcePreview = isDraft || overBudget;
+    const isDraft = po.status === 'Draft';
+    // A PO that hasn't cleared approval yet — Draft, any pending-approval level
+    // (PendingApproval / PendingL1..PendingL4), or Rejected — must never print
+    // as the final document. Previously this only checked isDraft, so once a PO
+    // moved to PendingApproval/PendingL1+ the print silently dropped the DRAFT
+    // watermark and looked identical to a fully-approved PO (prod bug: approvers
+    // and vendors could get a print that reads as final while still pending).
+    const isNotApproved = isDraft || po.status?.startsWith('Pending') || po.status === 'Rejected';
+    const canPrint   = ((statusData?.canPrint ?? (po.status !== 'Draft')) || isNotApproved) && canDo('/purchase-orders', 'PRINT');
+    // Force draft/watermarked print (never the final document) while this PO
+    // hasn't cleared approval, or its category is over its approved budget —
+    // even if the PO itself was approved via the budget-password override.
+    // Real print unlocks once approved (and budget covers it).
+    const forcePreview = isNotApproved || overBudget;
 
     const handleMarkSent = async () => {
         setMarkingSent(true); setActionError('');

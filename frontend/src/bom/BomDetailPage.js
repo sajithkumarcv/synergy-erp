@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { variables, authHeaders } from '../Variable';
-import { useCurrentUser } from '../AuthContext';
+import { useCurrentUser, useCurrentUserId } from '../AuthContext';
 import { useLookup } from '../LookupContext';
 import { usePermission } from '../PermissionContext';
 import { fmt, fmtDate } from '../inventory/inventoryConstants';
@@ -134,6 +134,7 @@ const LineBadge = ({ status, statusList }) => {
 const ItemSearch = ({ value, label, onSelect }) => {
     const [query,    setQuery]    = useState(label || '');
     const [results,  setResults]  = useState([]);
+    const [totalRows, setTotalRows] = useState(0);
     const [open,     setOpen]     = useState(false);
     const [dropRect, setDropRect] = useState(null);
     const timer    = useRef(null);
@@ -174,14 +175,16 @@ const ItemSearch = ({ value, label, onSelect }) => {
     const search = (q) => {
         setQuery(q);
         clearTimeout(timer.current);
-        if (!q.trim()) { setResults([]); setOpen(false); return; }
+        if (!q.trim()) { setResults([]); setTotalRows(0); setOpen(false); return; }
         timer.current = setTimeout(async () => {
             try {
-                const r = await fetch(`${variables.API_URL}item/search?searchText=${encodeURIComponent(q)}&pageSize=10`, { headers: authHeaders() });
+                const r = await fetch(`${variables.API_URL}item/search?searchText=${encodeURIComponent(q)}&pageSize=25`, { headers: authHeaders() });
                 const d = await r.json();
-                setResults(d.data || d || []);
+                const list = d.data || d || [];
+                setResults(list);
+                setTotalRows(d.totalRows ?? list.length);
                 setOpen(true);
-            } catch { setResults([]); }
+            } catch { setResults([]); setTotalRows(0); }
         }, 300);
     };
 
@@ -230,6 +233,11 @@ const ItemSearch = ({ value, label, onSelect }) => {
                             <span>{item.itemName}</span>
                         </div>
                     ))}
+                    {totalRows > results.length && (
+                        <div style={{ padding: '6px 10px', fontSize: 11, color: '#94a3b8', fontStyle: 'italic', background: '#f8fafc' }}>
+                            Showing {results.length} of {totalRows} matches — keep typing to narrow down
+                        </div>
+                    )}
                 </div>,
                 document.body
             )}
@@ -247,7 +255,7 @@ const LineForm = ({ line, sections, bomDetailStatuses, onSave, onCancel, saving,
         jobId:               line?.jobId               ?? '',
         bomSectionId:        line?.bomSectionId        ?? (sections[0]?.bomSectionId ?? 0),
         itemId:              line?.itemId              ?? 0,
-        itemLabel:           line ? `${line.itemCode || ''} — ${line.itemName || ''}` : '',
+        itemLabel:           line?.itemCode ? `${line.itemCode} — ${line.itemName || ''}` : '',
         uomId:               line?.uomId               ?? 0,
         uomCode:             line?.uomCode             ?? '',
         bomRequestedQty:     line?.bomRequestedQty     ?? '',
@@ -973,6 +981,7 @@ const BomDetailPage = () => {
     const { bomId: id } = useParams();
     const navigate    = useNavigate();
     const currentUser = useCurrentUser();
+    const userId      = useCurrentUserId();
     const { vlist }   = useLookup();
     const { canDo }   = usePermission();
     const canDelete   = canDo('/bom', 'DELETE');
@@ -1039,6 +1048,18 @@ const BomDetailPage = () => {
     }, []);
 
     useEffect(() => { load(); }, [load]);
+
+    // Load approval status up front (not just when the Approval tab is opened) so
+    // the header bar can show the right primary action — "Submit for Approval" /
+    // "Approve BOM" / a pending badge — without the user having to find the tab first.
+    useEffect(() => {
+        if (!header?.bomHeaderId) return;
+        fetch(`${variables.API_URL}approval/status/BOM/${header.bomHeaderId}?userId=${userId}`, { headers: authHeaders() })
+            .then(r => r.ok ? r.json() : null)
+            .then(d => setApprovalTx(d?.transaction || null))
+            .catch(() => {});
+    }, [header?.bomHeaderId, userId]);
+
     useEffect(() => {
         if (header) {
             loadSections(header.jobTypeId || header.jobJobTypeId || null);
@@ -1072,41 +1093,36 @@ const BomDetailPage = () => {
             map.get(key).lines.push(line);
         });
 
-        // Fill in master sections that have no lines yet — but NOT for in-house
-        // jobs, which are tied to a single cost header (show only that section).
-        const costedJob = (header?.isCostingRequired ?? true) !== false;
-        if (costedJob) {
-            sections.forEach(s => {
-                const key = s.bomSectionId;
-                if (!map.has(key)) {
-                    map.set(key, {
-                        bomSectionId:     s.bomSectionId,
-                        sectionCode:      s.sectionCode,
-                        sectionName:      s.sectionName,
-                        sectionSortOrder: s.sortOrder,
-                        lines:            [],
-                    });
-                }
-            });
-        }
+        // Fill in master sections that have no lines yet, so empty sections still
+        // show up and can be added to. In-house jobs are no longer tied to a
+        // single cost-header section (budget header is optional/decoupled from
+        // BOM now) — they get the same full section list as costed jobs.
+        sections.forEach(s => {
+            const key = s.bomSectionId;
+            if (!map.has(key)) {
+                map.set(key, {
+                    bomSectionId:     s.bomSectionId,
+                    sectionCode:      s.sectionCode,
+                    sectionName:      s.sectionName,
+                    sectionSortOrder: s.sortOrder,
+                    lines:            [],
+                });
+            }
+        });
 
         return Array.from(map.values()).sort((a, b) => a.sectionSortOrder - b.sectionSortOrder);
-    }, [details, sections, header]);
+    }, [details, sections]);
 
-    // For in-house jobs, restrict the Add-Line section picker to the section(s)
-    // actually used by this BOM (its single cost-header section).
-    const inHouseBom = (header?.isCostingRequired ?? true) === false;
-    const sectionChoices = inHouseBom
-        ? sections.filter(s => details.some(d => d.bomSectionId === s.bomSectionId))
-        : sections;
+    // In-house jobs get the same full section list as costed jobs — no longer
+    // restricted to a single cost-header section (see groupedSections above).
+    const sectionChoices = sections;
 
     const totalValue = details.reduce((s, r) => s + (r.lineTotal || 0), 0);
     const isApproved = header?.bomStatus === 'Approved';
-    // Costed (standard) jobs: BOM is generated from the approved budget and is
-    // READ-ONLY here — materials change via a budget revision. In-house jobs
-    // (CostingRequired=0) keep the BOM directly editable.
-    const isCostingRequired = (header?.isCostingRequired ?? true) !== false;
-    const linesLocked       = isApproved || isCostingRequired;
+    // BOMs are created directly once the job is approved and edited directly
+    // here — there's no budget-driven generation/lock. Only an Approved BOM
+    // itself is read-only (use Revise BOM to make further changes).
+    const linesLocked = isApproved;
 
     // ── Status KPI counts (always over full dataset) ────────────────
     const statusCounts = React.useMemo(() => {
@@ -1262,18 +1278,10 @@ const BomDetailPage = () => {
                     )}
                 </div>
                 <div style={{ display: 'flex', gap: 8, marginLeft: 'auto', alignItems: 'center' }}>
-                    {isApproved && canRevise && inHouseBom && (
-                        <button className="inv-btn inv-btn-ghost" onClick={openReviseModal} disabled={revising}
-                            style={{ color: '#7c3aed', borderColor: '#c4b5fd' }}>
+                    {isApproved && canRevise && (
+                        <button className="inv-btn" onClick={openReviseModal} disabled={revising}
+                            style={{ background: '#7c3aed', color: '#fff', border: '1px solid #7c3aed', fontWeight: 700 }}>
                             🔄 Revise BOM
-                        </button>
-                    )}
-                    {!isApproved && canDelete && (
-                        <button className="inv-btn inv-btn-ghost"
-                            onClick={() => { setDeleteError(''); setShowDeleteModal(true); }}
-                            disabled={deleting}
-                            style={{ color: '#dc2626', borderColor: '#fca5a5' }}>
-                            {deleting ? 'Deleting…' : 'Delete BOM'}
                         </button>
                     )}
                 </div>
@@ -1353,23 +1361,10 @@ const BomDetailPage = () => {
                             </div>
                         )}
 
-                        {isApproved && inHouseBom && (
+                        {isApproved && (
                             <div style={{ background: '#dcfce7', border: '1px solid #86efac', borderRadius: 8,
                                           padding: '10px 16px', marginBottom: 14, fontSize: 13, color: '#166534', fontWeight: 600 }}>
                                 ✅ This BOM is Approved — lines are read-only. Click <strong>Revise BOM</strong> to make changes.
-                            </div>
-                        )}
-                        {isApproved && !inHouseBom && (
-                            <div style={{ background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: 8,
-                                          padding: '10px 16px', marginBottom: 14, fontSize: 13, color: '#1e40af', fontWeight: 600 }}>
-                                ✅ This BOM is Approved — lines are read-only. To change quantities, raise a <strong>Budget Revision</strong> on the job.
-                            </div>
-                        )}
-                        {!isApproved && isCostingRequired && (
-                            <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8,
-                                          padding: '10px 16px', marginBottom: 14, fontSize: 13, color: '#1e40af', fontWeight: 600 }}>
-                                🧾 This BOM is generated from the <strong>approved budget</strong> and is read-only.
-                                To change materials, create a <strong>budget revision</strong> — the BOM regenerates (new version) when the revision is approved.
                             </div>
                         )}
 

@@ -38,7 +38,7 @@ const FlagChip = ({ on, label }) => (
 );
 
 // ── Main component ────────────────────────────────────────────
-const PoPrintModal = ({ po, onClose, preview }) => {
+const PoPrintModal = ({ po, onClose, preview, overBudget }) => {
     const { company, loading: coLoading } = useOwnerCompany();
     const [lines,     setLines]     = useState([]);
     const [annexures, setAnnexures] = useState([]);
@@ -135,8 +135,12 @@ const PoPrintModal = ({ po, onClose, preview }) => {
             {/* ── Printable document ── */}
             <div className="po-print-doc" ref={docRef} style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}>
 
-                {preview && <DraftWatermark />}
-                {preview && <PreviewBanner />}
+                {preview && <DraftWatermark label={overBudget ? 'NO BUDGET' : 'DRAFT'} />}
+                {preview && (
+                    <PreviewBanner text={overBudget
+                        ? 'NO BUDGET IN THIS CATEGORY — NOT VALID FOR ISSUE TO SUPPLIER'
+                        : undefined} />
+                )}
 
                 {/* ══ 1. Company Header ════════════════════════════════════ */}
                 <CompanyHeaderBand company={company} loading={coLoading} hideLogo={preview} nameOnly={preview} />
@@ -182,6 +186,7 @@ const PoPrintModal = ({ po, onClose, preview }) => {
                             (po.paymentTermCode === 'OTHER' && po.paymentTermsOther)
                                 ? po.paymentTermsOther : po.paymentTermName
                         } />
+                        <InfoRow label="Delivery Date" value={fmtDate(po.deliveryDate)} />
                         {po.deliveryTerms  && <InfoRow label="Del. Terms"  value={po.deliveryTerms} />}
                         {po.deliveryAddr   && <InfoRow label="Del. Address" value={po.deliveryAddr} />}
                     </div>
@@ -404,7 +409,11 @@ const PoPrintModal = ({ po, onClose, preview }) => {
 
                 <div style={{ flex: 1 }} />
 
-                {preview && <PreviewBanner />}
+                {preview && (
+                    <PreviewBanner text={overBudget
+                        ? 'NO BUDGET IN THIS CATEGORY — NOT VALID FOR ISSUE TO SUPPLIER'
+                        : undefined} />
+                )}
 
                 {/* ══ 9. Signature footer ══════════════════════════════════ */}
                 <div className="pop-footer">

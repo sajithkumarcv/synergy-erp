@@ -248,7 +248,7 @@ const Step2 = ({ targetJob, onNext, onBack }) => {
     const doSearch = useCallback(async (text, typeId) => {
         setLoading(true);
         try {
-            const q = new URLSearchParams({ page: 1, pageSize: 60, sortColumn: 'BomDate', sortDirection: 'DESC' });
+            const q = new URLSearchParams({ page: 1, pageSize: 200, sortColumn: 'BomDate', sortDirection: 'DESC' });
             if (text) q.set('searchText', text);
             const r = await fetch(`${variables.API_URL}bom/search?${q}`, { headers: authHeaders() });
             const d = await r.json();

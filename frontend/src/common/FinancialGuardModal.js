@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 
 /**
  * Reusable guard for financial edits (budget / PO / invoice / expense).
@@ -16,18 +16,17 @@ import React, { useState, useRef } from 'react';
 const FinancialGuardModal = ({ title, message, busy, error, minReason = 10, onCancel, onConfirm }) => {
     const [pwd, setPwd]       = useState('');
     const [reason, setReason] = useState('');
-    const mouseDownBackdrop   = useRef(false);
 
     const reasonOk = reason.trim().length >= minReason;
     const canSubmit = !busy && pwd && reasonOk;
     const submit = () => { if (canSubmit) onConfirm(pwd, reason.trim()); };
 
     return (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}
-            onMouseDown={e => { mouseDownBackdrop.current = (e.target === e.currentTarget); }}
-            onClick={e => { if (mouseDownBackdrop.current && e.target === e.currentTarget && !busy) onCancel(); }}>
-            <div style={{ background: '#fff', borderRadius: 10, width: 430, padding: 22, boxShadow: '0 8px 24px rgba(0,0,0,.25)' }}
-                onClick={e => e.stopPropagation()}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
+            {/* Financial approval modal — does not close on an outside click,
+                so a stray click (e.g. a browser password-manager popup) can't
+                silently discard the typed password/reason. */}
+            <div style={{ background: '#fff', borderRadius: 10, width: 430, padding: 22, boxShadow: '0 8px 24px rgba(0,0,0,.25)' }}>
                 <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', marginBottom: 8 }}>🔐 {title}</div>
                 {message && <div style={{ fontSize: 12.5, color: '#475569', marginBottom: 14, lineHeight: 1.5 }}>{message}</div>}
 

@@ -8,7 +8,7 @@ import { usePermission } from '../../PermissionContext';
 import '../../procurement/Procurement.css';
 import RowLink from '../../common/RowLink';
 
-const PAGE_SIZES = [10, 20, 50];
+const PAGE_SIZES = [50, 100, 200, 500, 1000];
 const DEFAULT_FILTERS = { itemTypeId: '', categoryId: '', subCategoryId: '', itemId: '', searchText: '', status: '', reason: '', dateFrom: '', dateTo: '' };
 
 const fmt     = n => (n == null ? '—' : Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
@@ -47,7 +47,7 @@ export const Adjustment = () => {
     const [totalRows, setTotal] = useState(0);
     const [totalPages, setPages] = useState(1);
     const [page, setPage]       = useState(1);
-    const [pageSize, setPageSize] = useState(20);
+    const [pageSize, setPageSize] = useState(200);
     const [sortCol, setSortCol] = useState('AdjustmentDate');
     const [sortDir, setSortDir] = useState('DESC');
     const [applied, setApplied] = useState({ ...DEFAULT_FILTERS });
@@ -56,7 +56,7 @@ export const Adjustment = () => {
     const [newForm,    setNewForm]    = useState({ adjustmentDate: '', reason: '', notes: '' });
     const [error,      setError]      = useState('');
 
-    const gridRef = useRef({ pageSize: 20, sortCol: 'AdjustmentDate', sortDir: 'DESC', applied: DEFAULT_FILTERS });
+    const gridRef = useRef({ pageSize: 200, sortCol: 'AdjustmentDate', sortDir: 'DESC', applied: DEFAULT_FILTERS });
     useEffect(() => { gridRef.current = { pageSize, sortCol, sortDir, applied }; }, [pageSize, sortCol, sortDir, applied]);
 
     const reasons = getVList('Inventory', 'AdjustmentReason');

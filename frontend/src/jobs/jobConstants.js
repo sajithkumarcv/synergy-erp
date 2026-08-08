@@ -140,11 +140,6 @@ export const canApproveExpenses = (userRole) => {
   return roleMatches(userRole, ['ADMIN', 'FINANCE', 'MANAGER']);
 };
 
-// Can user edit financial values (order value, advance amount)?
-export const canEditFinance = (userRole) => {
-  return roleMatches(userRole, ['ADMIN', 'FINANCE', 'MANAGER']);
-};
-
 // Can user set/edit job budgets?
 export const canEditBudget = (userRole) => {
   return roleMatches(userRole, ['ADMIN', 'FINANCE', 'MANAGER']);

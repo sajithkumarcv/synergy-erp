@@ -96,7 +96,7 @@ const PoDocumentsTab = ({ po }) => {
 
         fetch(`${variables.API_URL}document/PO/${po.poId}`, {
             method: 'POST',
-            headers: { Authorization: `Bearer ${localStorage.getItem('erp_token') || ''}` },
+            headers: { Authorization: `Bearer ${sessionStorage.getItem('erp_token') || ''}` },
             body: fd,
         })
             .then(r => r.json().then(d => ({ ok: r.ok, d })))

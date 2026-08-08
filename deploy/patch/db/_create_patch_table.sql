@@ -1,9 +1,8 @@
 /* ─────────────────────────────────────────────────────────────────────────
-   _create_patch_table.sql  —  run ONCE per company DB, right after the base.
-   Creates proj.TBL_DB_PATCH, the ledger that records which numbered patches
-   have been applied to THIS database. Idempotent: safe to re-run.
-   Schema note: uses the `proj` schema (matches deploy/clients appsettings
-   DbSchema). If a DB uses a different schema, change `proj` below.
+   _create_patch_table.sql  —  run ONCE per SYNERP-based DB (dev + production),
+   right after the base. Creates proj.TBL_DB_PATCH, the ledger that records
+   which numbered patches have been applied to THIS database. Idempotent:
+   safe to re-run.
    ───────────────────────────────────────────────────────────────────────── */
 IF NOT EXISTS (
     SELECT 1 FROM sys.tables t
@@ -24,6 +23,5 @@ ELSE
     PRINT 'proj.TBL_DB_PATCH already exists — nothing to do.';
 GO
 
-/* Show this DB''s current patch level. */
 SELECT ISNULL(MAX(PatchNo), 0) AS CurrentPatchLevel FROM proj.TBL_DB_PATCH;
 GO

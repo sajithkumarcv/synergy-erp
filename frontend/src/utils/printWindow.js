@@ -56,7 +56,17 @@ export const openPrintWindow = (docSelector, title) => {
 }
 
 /* ── Base reset ─────────────────────────────────────────────── */
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+  /* Browsers strip background colors when printing/saving as PDF by
+     default (to save ink) unless told to keep them — without this,
+     colored banners (e.g. the PO header) silently render as plain
+     white, taking any white/light text styled for that background
+     down with them. */
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+  color-adjust: exact;
+}
 body {
   margin: 0;
   padding: 0;   /* all page margin comes from @page — no double margin */
@@ -82,14 +92,29 @@ ${screenStyles}
   padding: 0 !important;
 }
 
+/* .po3-banner bleeds full-width via a negative margin that cancels out
+   .po3-doc's own (screen-only) padding — a trick that only works when
+   that padding still exists. Since .po3-doc is forced to padding:0 just
+   above, the negative margin instead overshoots and drags the banner's
+   content flush against the true page edge. Neutralize it here so the
+   banner just fills the (already zero-padding) doc width directly. */
+.po3-banner {
+  margin: 0 0 16px !important;
+  width: 100% !important;
+}
+
 /* ── Spacer divs that push footer to bottom of A4 on-screen ──
-   In a multi-page flow they would create huge blank gaps. */
+   In a multi-page flow they would create huge blank gaps. The
+   attribute-substring selectors below are fragile (depend on the
+   browser serializing the inline style as exactly "flex: 1"), so
+   .po3-spacer also gets an explicit class-based rule that can't miss. */
 .po-print-doc > div[style*="flex: 1"],
 .po3-doc      > div[style*="flex: 1"],
 .ip2-doc      > div[style*="flex: 1"],
 .ip2-body     > div[style*="flex: 1"],
 .ip3-doc      > div[style*="flex: 1"],
-.ip3-body     > div[style*="flex: 1"] {
+.ip3-body     > div[style*="flex: 1"],
+.po3-spacer {
   display: none !important;
 }
 
@@ -99,7 +124,7 @@ ${screenStyles}
    doesn't leave the footer floating with blank space beneath it.
    For a multi-page invoice the free space is 0, so it flows normally.
    The small -8px guard keeps 100vh from spilling onto a blank page 2. */
-.ip2-doc, .ip3-doc {
+.ip2-doc, .ip3-doc, .po3-doc {
   min-height: calc(100vh - 8px) !important;
   display: flex !important;
   flex-direction: column !important;
@@ -114,7 +139,8 @@ ${screenStyles}
 .ip2-body > .print-bank-block,
 .ip3-body > .print-bank-block,
 .ip2-footer,
-.ip3-footer { margin-top: auto; }
+.ip3-footer,
+.po3-footer { margin-top: auto !important; }
 
 /* Voucher / note signatures block (inline marginTop → needs !important). */
 .ip2-body > .print-signatures { margin-top: auto !important; }
