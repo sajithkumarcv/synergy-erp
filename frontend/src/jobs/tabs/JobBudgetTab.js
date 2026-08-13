@@ -365,6 +365,7 @@ const JobBudgetEditor = ({ job }) => {
     const [headerFilter, setHeaderFilter] = useState('');
     const [searchText,   setSearchText]   = useState('');
     const [createdBy,    setCreatedBy]    = useState('');
+    const [onlyWithEntries, setOnlyWithEntries] = useState(true);  // hide cost headers with no budget/items set yet, by default
     const [showLog,      setShowLog]      = useState(false);
     const [logRows,      setLogRows]      = useState([]);
 
@@ -625,7 +626,7 @@ const JobBudgetEditor = ({ job }) => {
             if (!res.ok) return d?.message || 'Operation failed.';
             setPwdAction(null);
             showBanner(d?.message || 'Done.');
-            setSearchText(''); setHeaderFilter(''); setCreatedBy('');
+            setSearchText(''); setHeaderFilter(''); setCreatedBy(''); setOnlyWithEntries(false);
             load();
             return true;
         } catch {
@@ -657,6 +658,16 @@ const JobBudgetEditor = ({ job }) => {
     const totalActual    = rows.reduce((s, r) => s + (r.actualAmount  || 0), 0);
     const totalVar       = totalBudget - totalActual;
     const budgetUsedPct  = totalBudget > 0 ? Math.min((totalActual / totalBudget) * 100, 999) : 0;
+    // Job Order Value KPI: every sibling tile on this strip (Total Budget, Total
+    // Actual, Variance) is already in BASE currency, so this tile must convert too
+    // instead of printing job.orderValue (job's own currency) under a base-currency
+    // label — that silently mislabels a job-currency number as base on any job whose
+    // currency differs from base. Original amount stays visible as a sub-line.
+    const jobCcy         = job?.currencyName || baseCurrencyCode || '';
+    const jobRate        = Number(job?.jobExcRate || 1);
+    const isForeignJob   = !!baseCurrencyCode && jobCcy !== baseCurrencyCode && jobRate !== 1;
+    const orderValue     = Number(job?.orderValue || 0);
+    const orderValueBase = orderValue * jobRate;
     const setBudgetCount = rows.filter(r => r.budgetedAmount > 0).length;
     // For in-house jobs with item-based budgets, category totals may be 0 until prices
     // are entered — count items as evidence that budget work has begun.
@@ -672,10 +683,14 @@ const JobBudgetEditor = ({ job }) => {
     // Distinct "created by" values across budgeted headers (for the filter).
     const creators = Array.from(new Set(visibleRows.map(r => r.createdBy).filter(Boolean)));
 
-    // Filters: header dropdown + free-text search (header or its items) + created-by.
+    // Filters: header dropdown + free-text search (header or its items) + created-by
+    // + "only headers with an entry" (a lump-sum amount set, or at least one item line —
+    // the full header list otherwise shows every cost header the job type defines, most
+    // of which nobody has touched yet).
     const filteredRows = visibleRows.filter(r => {
         if (headerFilter && String(r.costCategoryId) !== String(headerFilter)) return false;
         if (createdBy && r.createdBy !== createdBy) return false;
+        if (onlyWithEntries && !(r.budgetedAmount > 0 || (itemsByCat[r.costCategoryId] || []).length > 0)) return false;
         if (searchText) {
             const q = searchText.toLowerCase();
             const inHeader = `${r.categoryName || ''} ${r.categoryCode || ''}`.toLowerCase().includes(q);
@@ -685,7 +700,7 @@ const JobBudgetEditor = ({ job }) => {
         }
         return true;
     });
-    const isFiltering = !!(headerFilter || createdBy || searchText);
+    const isFiltering = !!(headerFilter || createdBy || searchText || onlyWithEntries);
 
     if (loading) return <div style={{ padding: 32, textAlign: 'center', color: '#64748b' }}>Loading…</div>;
 
@@ -804,7 +819,10 @@ const JobBudgetEditor = ({ job }) => {
             {/* ── Summary KPIs ── */}
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
                 {[
-                    { label: `Job Order Value${baseCurrencyCode ? ` (${baseCurrencyCode})` : ''}`, value: fmt(job.orderValue), color: '#0f4c75', bg: '#f0f9ff' },
+                    { label: `Job Order Value${baseCurrencyCode ? ` (${baseCurrencyCode})` : ''}`,
+                      value: orderValue > 0 ? fmt(orderValueBase) : '—',
+                      sub: isForeignJob && orderValue > 0 ? `${fmt(orderValue)} ${jobCcy}` : null,
+                      color: '#0f4c75', bg: '#f0f9ff' },
                     { label: `Total Budget${baseCurrencyCode ? ` (${baseCurrencyCode})` : ''}`, value: fmt(totalBudget), color: '#1e40af', bg: '#eff6ff' },
                     { label: `Total Actual${baseCurrencyCode ? ` (${baseCurrencyCode})` : ''}`, value: fmt(totalActual), color: totalActual > totalBudget ? '#dc2626' : '#0f766e', bg: totalActual > totalBudget ? '#fef2f2' : '#f0fdfa' },
                     { label: `Variance${baseCurrencyCode ? ` (${baseCurrencyCode})` : ''}`,     value: (totalVar >= 0 ? '' : '− ') + fmt(Math.abs(totalVar)), color: totalVar >= 0 ? '#16a34a' : '#dc2626', bg: totalVar >= 0 ? '#f0fdf4' : '#fef2f2' },
@@ -813,6 +831,7 @@ const JobBudgetEditor = ({ job }) => {
                     <div key={k.label} style={{ flex: '1 1 150px', background: k.bg, border: `1px solid ${k.color}22`, borderRadius: 8, padding: '10px 16px' }}>
                         <div style={{ fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 3 }}>{k.label}</div>
                         <div style={{ fontSize: 18, fontWeight: 700, color: k.color, fontFamily: 'Courier New' }}>{k.value}</div>
+                        {k.sub && <div style={{ fontSize: 10.5, color: '#94a3b8', marginTop: 2 }}>{k.sub}</div>}
                     </div>
                 ))}
             </div>
@@ -863,12 +882,16 @@ const JobBudgetEditor = ({ job }) => {
                         {creators.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                 )}
+                <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12.5, color: onlyWithEntries ? '#1e40af' : '#475569', fontWeight: onlyWithEntries ? 600 : 400, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    <input type="checkbox" checked={onlyWithEntries} onChange={e => setOnlyWithEntries(e.target.checked)} />
+                    Only headers with entries
+                </label>
                 {isFiltering && (
                     <>
                         <span style={{ fontSize: 12, color: filteredRows.length === 0 ? '#dc2626' : '#1e40af', fontWeight: 600 }}>
                             {filteredRows.length} of {visibleRows.length}
                         </span>
-                        <button onClick={() => { setSearchText(''); setHeaderFilter(''); setCreatedBy(''); }}
+                        <button onClick={() => { setSearchText(''); setHeaderFilter(''); setCreatedBy(''); setOnlyWithEntries(false); }}
                             style={{ padding: '5px 12px', border: '1px solid #cbd5e1', borderRadius: 6, background: '#fff', fontSize: 12, cursor: 'pointer', color: '#64748b' }}>
                             Clear
                         </button>
@@ -934,7 +957,9 @@ const JobBudgetEditor = ({ job }) => {
                                         {row.categoryCode && <span style={{ color: '#94a3b8', fontWeight: 400 }}> ({row.categoryCode})</span>}
                                     </div>
                                     <div style={{ fontSize: 10.5, color: '#94a3b8' }}>
-                                        {items.length} item{items.length !== 1 ? 's' : ''}{src.tip ? ` · ${src.tip}` : ''}
+                                        {items.length > 0
+                                            ? `${items.length} item${items.length !== 1 ? 's' : ''}${src.tip ? ` · ${src.tip}` : ''}`
+                                            : (src.tip || '')}
                                     </div>
                                 </div>
                             </div>
@@ -1172,6 +1197,10 @@ const JobBudgetSummaryTab = ({ job }) => {
     const [header,  setHeader]  = useState({ currentRvNo: 0, isApproved: false });
     const [rows,    setRows]    = useState([]);
     const [loading, setLoading] = useState(true);
+    // Read-only overview — default to just the headers that actually have a
+    // budget, since most cost headers on a job type go untouched. Toggle off
+    // to see the full header list (matches the "X of Y headers budgeted" count).
+    const [onlyWithEntries, setOnlyWithEntries] = useState(true);
 
     useEffect(() => {
         setLoading(true);
@@ -1188,9 +1217,13 @@ const JobBudgetSummaryTab = ({ job }) => {
     const usedPct     = totalBudget > 0 ? Math.min((totalActual / totalBudget) * 100, 999) : 0;
     const setRowsN    = rows.filter(r => r.budgetedAmount > 0).length;
     // In-house jobs: scope the summary to the single linked cost header.
-    const visibleRows = (job.isCostingRequired === false && job.budgetCategoryId)
+    const scopedRows = (job.isCostingRequired === false && job.budgetCategoryId)
         ? rows.filter(r => String(r.costCategoryId) === String(job.budgetCategoryId))
         : rows;
+    // "Only headers with entries" filters on top of the in-house scoping above —
+    // kept separate from scopedRows so the "X of Y" count below still reflects the
+    // true header total regardless of whether the entries filter is on.
+    const visibleRows = onlyWithEntries ? scopedRows.filter(r => r.budgetedAmount > 0) : scopedRows;
 
     if (loading) return <div style={{ padding: 32, textAlign: 'center', color: '#64748b' }}>Loading…</div>;
 
@@ -1202,8 +1235,12 @@ const JobBudgetSummaryTab = ({ job }) => {
                     {header.isApproved
                         ? <span style={{ marginLeft: 8, background: '#dcfce7', color: '#166534', padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600 }}>🔒 Approved</span>
                         : <span style={{ marginLeft: 8, background: '#fef9c3', color: '#854d0e', padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600 }}>Draft</span>}
-                    <span style={{ marginLeft: 10, color: '#94a3b8' }}>{setRowsN} of {visibleRows.length} headers budgeted</span>
+                    <span style={{ marginLeft: 10, color: '#94a3b8' }}>{setRowsN} of {scopedRows.length} headers budgeted</span>
                 </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12.5, color: onlyWithEntries ? '#1e40af' : '#475569', fontWeight: onlyWithEntries ? 600 : 400, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    <input type="checkbox" checked={onlyWithEntries} onChange={e => setOnlyWithEntries(e.target.checked)} />
+                    Only headers with entries
+                </label>
                 {job.approvalStatus === 'Approved' && (
                     <button onClick={() => navigate(`/jobs/${encodeURIComponent(job.jobId)}/budget`)}
                         style={{ background: '#1e40af', color: '#fff', border: 0, borderRadius: 7, padding: '8px 16px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>

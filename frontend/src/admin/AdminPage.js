@@ -56,11 +56,29 @@ const Checkbox = ({ label, checked, onChange, name }) => (
     </label>
 );
 
+// Turns a free-typed name into an UPPER_SNAKE_CASE code, capped to the
+// nvarchar(20) width most Code columns in this admin-lookup framework use.
+const slugifyCode = (s) => (s || '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 20);
+
 // ── Table configs ─────────────────────────────────────────────────────────────
 
 const BOOL_CHIP = (val) => val
     ? <span className="adm-chip-yes">Yes</span>
     : <span className="adm-chip-no">No</span>;
+
+// Truthiness test for the generic extra1/extra2/extra3 slots.
+// These are NOT booleans: AdminLookupController.AdminLookupRow types them as
+// `string?`, and sp_AdminLookupList CASTs each source bit to NVARCHAR (or INT,
+// which Dapper then coerces to string anyway). So a set flag arrives as '1' —
+// occasionally 'True' — and never as a real `true`/`1`. Comparing against a
+// boolean or a number alone silently renders every row as "No", which is what
+// this helper exists to prevent. Only use it for extra* fields; real bool
+// columns (isActive, isBaseCurrency, …) arrive as proper JSON booleans.
+const isFlag = (v) => v === true || v === 1 || v === '1' || v === 'true' || v === 'True';
 
 const SECTIONS = [
     // ── Financial ────────────────────────────────────────────────────────────
@@ -156,8 +174,8 @@ const SECTIONS = [
         columns: [
             { key: 'name', label: 'Type Name' },
             { key: 'code', label: 'Code' },
-            { key: 'extra1', label: 'Stockable', render: r => BOOL_CHIP(r.extra1==='True'||r.extra1===true) },
-            { key: 'extra2', label: 'Service',   render: r => BOOL_CHIP(r.extra2==='True'||r.extra2===true) },
+            { key: 'extra1', label: 'Stockable', render: r => BOOL_CHIP(isFlag(r.extra1)) },
+            { key: 'extra2', label: 'Service',   render: r => BOOL_CHIP(isFlag(r.extra2)) },
             { key: 'isActive', label: 'Active',  render: r => badge(r.isActive) },
             { key: 'sortOrder', label: 'Sort' },
         ],
@@ -239,8 +257,20 @@ const SECTIONS = [
             // e.g. "Steel Materials" exists once for Enclosure and once for In House Jobs.
             { name: 'extra1',      label: 'Job Type', type: 'select', required: true,
               optionsListBase: 'adminjob/jobtype', valueKey: 'jobTypeId', labelKey: 'jobTypeName' },
-            { name: 'name',        label: 'Section Name', required: true },
-            { name: 'code',        label: 'Code' },
+            // Section Name is picked from the Job Expense Category master rather than
+            // free-typed, so it can never drift from the category list (no typos like
+            // "Subcotarct-2") and always lines up with TBL_JOB_EXPENSE_CATEGORY. Picking
+            // one auto-fills Code from that category's own code (see autoFillCode in
+            // handle()). excludeUsedFor hides categories already added for whichever
+            // Job Type is currently selected above, so the same category can't be added
+            // twice under one job type — but still shows the row's own current category
+            // while editing it (see the excludeUsedFor filter below).
+            { name: 'name',        label: 'Section Name', type: 'select', required: true,
+              optionsListBase: 'adminlookup/list/jobExpenseCategory',
+              valueKey: 'name', labelKey: 'name',
+              autoFillCode: 'code', excludeUsedFor: 'extra1',
+              requireTrue: 'extra1' },  // extra1 on jobExpenseCategory = "Used For Budget" — only budget-flagged categories are valid BOM sections
+            { name: 'code',        label: 'Code', readOnly: true },
             { name: 'description', label: 'Description', type: 'textarea' },
             { name: 'isActive',    label: 'Active', type: 'checkbox' },
             { name: 'sortOrder',   label: 'Sort Order', type: 'number' },
@@ -367,7 +397,7 @@ const SECTIONS = [
         idField: 'id',
         columns: [
             { key: 'name',   label: 'Status Name' },
-            { key: 'extra1', label: 'Closed', render: r => BOOL_CHIP(r.extra1===1||r.extra1===true) },
+            { key: 'extra1', label: 'Closed', render: r => BOOL_CHIP(isFlag(r.extra1)) },
             { key: 'isActive', label: 'Active', render: r => badge(r.isActive) },
             { key: 'sortOrder', label: 'Sort' },
         ],
@@ -484,8 +514,8 @@ const SECTIONS = [
         columns: [
             { key: 'name',    label: 'Category Name' },
             { key: 'code',    label: 'Code' },
-            { key: 'extra1',  label: 'Budget',  render: r => BOOL_CHIP(r.extra1==='True'||r.extra1===true) },
-            { key: 'extra2',  label: 'Expense', render: r => BOOL_CHIP(r.extra2==='True'||r.extra2===true) },
+            { key: 'extra1',  label: 'Budget',  render: r => BOOL_CHIP(isFlag(r.extra1)) },
+            { key: 'extra2',  label: 'Expense', render: r => BOOL_CHIP(isFlag(r.extra2)) },
             { key: 'extra3',  label: 'MH Type', render: r => r.extra3
                 ? <span style={{ background:'#dbeafe', color:'#1e40af', borderRadius:10, padding:'2px 8px', fontSize:11, fontWeight:600 }}>{r.extra3}</span>
                 : <span style={{ color:'#94a3b8' }}>—</span> },
@@ -493,7 +523,11 @@ const SECTIONS = [
             { key: 'sortOrder', label: 'Sort' },
         ],
         fields: [
-            { name: 'name',        label: 'Category Name',    required: true },
+            // autoCodeTarget: while Code is still empty, typing here generates it
+            // automatically (UPPER_SNAKE_CASE from the name, capped at 20 chars —
+            // TBL_JOB_EXPENSE_CATEGORY.CategoryCode's max length). Once the user
+            // edits Code by hand it stops being overwritten, so it stays editable.
+            { name: 'name',        label: 'Category Name',    required: true, autoCodeTarget: 'code' },
             { name: 'code',        label: 'Code' },
             { name: 'description', label: 'Description',      type: 'textarea' },
             { name: 'extra1',      label: 'Used For Budget',  type: 'checkbox' },
@@ -651,7 +685,7 @@ const SECTIONS = [
         columns: [
             { key: 'code',   label: 'Form Key' },
             { key: 'name',   label: 'Field Key' },
-            { key: 'extra1', label: 'Required',  render: r => BOOL_CHIP(r.extra1==='True'||r.extra1===true||r.extra1==='1'||r.extra1===1) },
+            { key: 'extra1', label: 'Required',  render: r => BOOL_CHIP(isFlag(r.extra1)) },
             { key: 'isActive', label: 'Active',  render: r => badge(r.isActive) },
         ],
         fields: [
@@ -873,7 +907,26 @@ const SmartLookupTable = ({ section }) => {
 
     const handle = (e) => {
         const { name, value, type, checked } = e.target;
-        setForm(p => ({ ...p, [name]: type==='checkbox' ? checked : value }));
+        setForm(p => {
+            const next = { ...p, [name]: type==='checkbox' ? checked : value };
+            // Select fields flagged autoFillCode copy the matched option's own `code`
+            // into a sibling field (e.g. picking a Section Name/Expense Category also
+            // fills Code, so Code always mirrors the category instead of being retyped).
+            const f = section.fields.find(x => x.name === name);
+            if (f?.autoFillCode) {
+                const opts = f.options || fieldOptions[name] || [];
+                const vk = f.valueKey || 'id';
+                const opt = opts.find(o => String(o[vk] ?? o.id ?? o.value) === String(value));
+                next[f.autoFillCode] = opt ? (opt.code ?? '') : '';
+            }
+            // autoCodeTarget: derive the target field from this one's value, but only
+            // while the target is still empty — once the user's typed their own code,
+            // further edits to this field leave it alone.
+            if (f?.autoCodeTarget && !p[f.autoCodeTarget]) {
+                next[f.autoCodeTarget] = slugifyCode(value);
+            }
+            return next;
+        });
     };
 
     const validate = () => {
@@ -1069,22 +1122,57 @@ const SmartLookupTable = ({ section }) => {
                                     name={f.name} value={form[f.name]??''}
                                     onChange={handle}>
                                     <option value="">— Select —</option>
-                                    {(f.options || fieldOptions[f.name] || []).map(o => {
-                                        const vk = f.valueKey || 'id';
-                                        const lk = f.labelKey || 'name';
-                                        const val = o[vk] ?? o.id ?? o.value;
-                                        const lbl = o[lk] ?? o.name ?? o.label;
-                                        return (
-                                            <option key={val} value={val}>
-                                                {o.code ? `${o.code} — ` : ''}{lbl}
-                                            </option>
-                                        );
-                                    })}
+                                    {(() => {
+                                        let opts = f.options || fieldOptions[f.name] || [];
+                                        // Drop inactive master rows from the picker.
+                                        opts = opts.filter(o => o.isActive !== false);
+                                        // requireTrue: only keep options whose own named flag is
+                                        // truthy (e.g. jobExpenseCategory's extra1 = "Used For
+                                        // Budget" — a category not flagged for budget isn't a
+                                        // valid BOM section, even though it's a valid category
+                                        // elsewhere).
+                                        if (f.requireTrue) {
+                                            opts = opts.filter(o => {
+                                                const v = o[f.requireTrue];
+                                                return v === true || v === 'True' || v === 'true' || v === 1 || v === '1';
+                                            });
+                                        }
+                                        // excludeUsedFor: hide options already used by another
+                                        // row sharing the same value in the named field (e.g.
+                                        // don't offer a category already added for the Job Type
+                                        // currently selected) — but keep this row's own current
+                                        // value visible/selectable while editing it.
+                                        if (f.excludeUsedFor) {
+                                            const dep = form[f.excludeUsedFor];
+                                            const vk = f.valueKey || 'id';
+                                            const usedVals = new Set(
+                                                rows.filter(r =>
+                                                    String(r[f.excludeUsedFor] ?? '') === String(dep ?? '')
+                                                    && r[section.idField] !== form[section.idField]
+                                                ).map(r => r.name)
+                                            );
+                                            opts = opts.filter(o =>
+                                                !usedVals.has(o[vk] ?? o.id ?? o.value)
+                                                || (o[vk] ?? o.id ?? o.value) === form[f.name]
+                                            );
+                                        }
+                                        return opts.map(o => {
+                                            const vk = f.valueKey || 'id';
+                                            const lk = f.labelKey || 'name';
+                                            const val = o[vk] ?? o.id ?? o.value;
+                                            const lbl = o[lk] ?? o.name ?? o.label;
+                                            return (
+                                                <option key={val} value={val}>
+                                                    {o.code ? `${o.code} — ` : ''}{lbl}
+                                                </option>
+                                            );
+                                        });
+                                    })()}
                                 </select>
                             ) : (
                                 <Input name={f.name} value={form[f.name]} onChange={handle}
                                     type={f.type||'text'} placeholder={f.placeholder}
-                                    disabled={f.idAlias && !!form._originalId}
+                                    disabled={(f.idAlias && !!form._originalId) || !!f.readOnly}
                                     className={errors[f.name] ? 'ds-input-err' : ''} />
                             )}
                         </Field>

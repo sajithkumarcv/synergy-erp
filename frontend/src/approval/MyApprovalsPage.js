@@ -76,7 +76,13 @@ const MODULES = [
     { code: 'PR',  label: 'Purchase Requests', icon: '🛒', color: '#1e40af', bg: '#eff6ff', route: id => `/purchase-requests/${id}` },
     { code: 'PO',  label: 'Purchase Orders',   icon: '📦', color: '#065f46', bg: '#f0fdfa', route: id => `/purchase-orders/${id}/review`, newTab: true },
     { code: 'INV', label: 'Invoices',          icon: '🧾', color: '#4c1d95', bg: '#faf5ff', route: id => `/invoices/${id}` },
-    { code: 'JOB', label: 'Jobs',              icon: '🔧', color: '#7c2d12', bg: '#fff7ed', route: id => `/jobs/${id}` },
+    // Jobs are the one module whose detail-page route is keyed by the string
+    // JobId (e.g. "IH26-500006"), not a numeric surrogate — but documentId
+    // here is JobNumId (the numeric key approval transactions use). useDocNo
+    // tells openDocument() to build the route from item.documentNo (already
+    // the JobId string, same value the Document No column already shows)
+    // instead of item.documentId.
+    { code: 'JOB', label: 'Jobs',              icon: '🔧', color: '#7c2d12', bg: '#fff7ed', route: id => `/jobs/${id}`, useDocNo: true },
     { code: 'BOM', label: 'BOMs',              icon: '📋', color: '#0f766e', bg: '#f0fdfa', route: id => `/bom/${id}` },
     { code: 'MH',  label: 'Manhour Sheets',    icon: '⏱', color: '#9a3412', bg: '#fff7ed', route: id => `/manhour/${id}` },
     { code: 'ADJ', label: 'Stock Adjustments', icon: '⚖',  color: '#7c3aed', bg: '#f5f3ff', route: id => `/inventory-adjustment/${id}` },
@@ -930,7 +936,7 @@ const MyApprovalsPage = () => {
     function openDocument(item) {
         const meta = moduleMeta(item.moduleCode);
         if (!meta.route) return;
-        const url = meta.route(item.documentId);
+        const url = meta.route(meta.useDocNo ? item.documentNo : item.documentId);
         // PO (and any other module flagged newTab) opens its read-only full
         // page in a separate browser tab, so approvers can review the whole
         // document without losing their place in the approvals list.

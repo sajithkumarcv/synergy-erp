@@ -30,6 +30,7 @@ namespace ERPWEB.Controllers.Job
         public async Task<IActionResult> Search(
             [FromQuery] string? searchText = null,
             [FromQuery] string? jobTypeId = null,
+            [FromQuery] string? jobTypeIds = null,
             [FromQuery] string? jobStageId = null,
             [FromQuery] int? customerId = null,
             [FromQuery] int? jobStatusId = null,
@@ -49,6 +50,7 @@ namespace ERPWEB.Controllers.Job
                 {
                     SearchText = string.IsNullOrWhiteSpace(searchText) ? null : searchText.Trim(),
                     JobTypeId = string.IsNullOrWhiteSpace(jobTypeId) ? null : jobTypeId,
+                    JobTypeIds = string.IsNullOrWhiteSpace(jobTypeIds) ? null : jobTypeIds.Trim(),
                     JobStageId = string.IsNullOrWhiteSpace(jobStageId) ? null : jobStageId,
                     CustomerId = customerId,
                     JobStatusId  = jobStatusId,
@@ -97,6 +99,36 @@ namespace ERPWEB.Controllers.Job
             catch (Exception ex)
             {
                 await _dbcon.WriteLog(ex, controller: "Job", action: "GetJob", requestPath: HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Error retrieving job details." });
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════
+        // GET JOB BY NUMERIC SURROGATE (JobNumId) — approval workflows
+        // (TBL_APPROVAL_TRANSACTION.DocumentId) reference jobs by this numeric
+        // id, not the JobId string, so callers that only have a documentId
+        // (e.g. the My Approvals preview drawer) need this instead of GetJob.
+        // ═══════════════════════════════════════════════════════
+        [HttpGet("by-num/{jobNumId:int}")]
+        public async Task<IActionResult> GetJobByNumId(int jobNumId)
+        {
+            try
+            {
+                var rows = await _dbcon.QueryAsync<ERPWEB.Models.Job.Job>("sp_SearchJobs", new
+                {
+                    JobNumId = jobNumId,
+                    PageNumber = 1,
+                    PageSize = 1,
+                    SortColumn = "JobId",
+                    SortDirection = "ASC"
+                });
+                var job = rows?.FirstOrDefault();
+                if (job == null) return NotFound(new { message = "Job not found." });
+                return Ok(job);
+            }
+            catch (Exception ex)
+            {
+                await _dbcon.WriteLog(ex, controller: "Job", action: "GetJobByNumId", requestPath: HttpContext.Request.Path);
                 return StatusCode(500, new { message = "Error retrieving job details." });
             }
         }

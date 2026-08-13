@@ -6,24 +6,39 @@ import AlertModal from '../../common/AlertModal';
 
 const COL_MAP = {
     'budgetheader': 'budgetHeader', 'header': 'budgetHeader', 'costheader': 'budgetHeader',
-    'itemcode': 'itemCode', 'item': 'itemCode',
+    'uom': 'uom', 'unitofmeasure': 'uom', 'unit': 'uom',
     'qty': 'qty', 'quantity': 'qty',
     'unitprice': 'unitPrice', 'price': 'unitPrice', 'rate': 'unitPrice',
 };
 
 const norm = (s) => String(s ?? '').trim().toLowerCase().replace(/\s+/g, '');
 
-// Self-contained budget-item Excel importer (mirrors the Item Master importer).
+// Self-contained budget Excel importer — imports lump-sum budget lines per cost
+// header (BudgetHeader + UOM + Qty + UnitPrice → BudgetedAmount = Qty × UnitPrice),
+// matching the same fields the on-page Qty/Price editor (EditableCell) saves via
+// jobbudget/save. There is no item-level detail here — items are tracked
+// separately (BOM page) and are not part of the budget-line structure this
+// template feeds.
 const BudgetImportModal = ({ job, rvNo, onClose, onImported }) => {
     const currentUser = useCurrentUser();
-    const inHouse = job?.isCostingRequired === false;
+    // Matches JobBudgetTab.js's own visibleRows/scopedRows scoping exactly: a job is
+    // single-category-locked only when its type doesn't require costing AND it has
+    // an actual fixed category set (TBL_JOB.BudgetCategoryId). isCostingRequired
+    // alone isn't enough — most "In House Jobs"-type jobs have no BudgetCategoryId
+    // at all and behave like any other multi-category job.
+    const inHouse = job?.isCostingRequired === false && !!job?.budgetCategoryId;
 
-    const [headers, setHeaders] = useState([]);   // budget header reference
+    const [headers, setHeaders] = useState([]);   // budget header (cost category) reference
+    const [uomList, setUomList] = useState([]);   // UOM reference — fetched directly (not via
+                                                    // the shared lookup context) so both uomCode
+                                                    // and uomName are available to match against;
+                                                    // the shared lookups.uoms collapses them into one field.
     const [step, setStep]       = useState('upload');
     const [fileName, setFileName] = useState('');
     const [rows, setRows]       = useState([]);
     const [parseError, setParseError] = useState('');
     const [importing, setImporting] = useState(false);
+    const [importProgress, setImportProgress] = useState(0);
     const [results, setResults] = useState(null);
     const [alertMsg, setAlertMsg] = useState(null);
     const fileRef = useRef(null);
@@ -33,6 +48,10 @@ const BudgetImportModal = ({ job, rvNo, onClose, onImported }) => {
             .then(r => r.ok ? r.json() : [])
             .then(d => setHeaders(Array.isArray(d) ? d : []))
             .catch(() => setHeaders([]));
+        fetch(`${variables.API_URL}item/uoms`, { headers: authHeaders() })
+            .then(r => r.ok ? r.json() : [])
+            .then(d => setUomList(Array.isArray(d) ? d : []))
+            .catch(() => setUomList([]));
     }, []);
 
     const validRows   = rows.filter(r => r._errors.length === 0);
@@ -40,33 +59,39 @@ const BudgetImportModal = ({ job, rvNo, onClose, onImported }) => {
 
     const downloadTemplate = () => {
         const wb = XLSX.utils.book_new();
-        const hdr = ['BudgetHeader', 'ItemCode', 'Qty', 'UnitPrice'];
+        const hdr = ['BudgetHeader', 'UOM', 'Qty', 'UnitPrice'];
         const sampleHeader = inHouse ? (job?.budgetCategoryCode || job?.budgetCategoryName || '') : (headers[0]?.code || headers[0]?.name || 'STEEL');
+        const sampleUom = uomList[0]?.uomCode || uomList[0]?.uomName || 'NOS';
         const samples = [
-            [sampleHeader, 'ITM-001', 10, 25.5],
-            [sampleHeader, 'ITM-002', 4, 120],
+            [sampleHeader, sampleUom, 5, 3113906],
+            [sampleHeader, sampleUom, 10, 25.5],
         ];
         const ws = XLSX.utils.aoa_to_sheet([hdr, ...samples]);
-        ws['!cols'] = [22, 18, 10, 12].map(w => ({ wch: w }));
-        XLSX.utils.book_append_sheet(wb, ws, 'Budget Items');
+        ws['!cols'] = [22, 12, 10, 14].map(w => ({ wch: w }));
+        XLSX.utils.book_append_sheet(wb, ws, 'Budget Lines');
 
         const refRows = [['Budget Header Code', 'Budget Header Name'], ...headers.map(h => [h.code, h.name])];
         const refWs = XLSX.utils.aoa_to_sheet(refRows);
         refWs['!cols'] = [24, 32].map(w => ({ wch: w }));
         XLSX.utils.book_append_sheet(wb, refWs, 'Budget Headers');
 
-        XLSX.writeFile(wb, 'Budget_Items_Import_Template.xlsx');
+        const uomRows = [['UOM Code', 'UOM Name'], ...uomList.map(u => [u.uomCode, u.uomName])];
+        const uomWs = XLSX.utils.aoa_to_sheet(uomRows);
+        uomWs['!cols'] = [14, 22].map(w => ({ wch: w }));
+        XLSX.utils.book_append_sheet(wb, uomWs, 'UOMs');
+
+        XLSX.writeFile(wb, 'Budget_Lines_Import_Template.xlsx');
     };
 
     const parseWb = (wb) => {
-        const ws = wb.Sheets[wb.SheetNames.includes('Budget Items') ? 'Budget Items' : wb.SheetNames[0]];
+        const ws = wb.Sheets[wb.SheetNames.includes('Budget Lines') ? 'Budget Lines' : wb.SheetNames[0]];
         const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
         let headerIdx = -1;
         for (let i = 0; i < Math.min(aoa.length, 5); i++) {
             const r = aoa[i].map(norm);
-            if (r.includes('itemcode') || r.includes('item')) { headerIdx = i; break; }
+            if (r.includes('budgetheader') || r.includes('header') || r.includes('qty') || r.includes('quantity')) { headerIdx = i; break; }
         }
-        if (headerIdx === -1) return { error: 'Could not find a header row with an ItemCode column.' };
+        if (headerIdx === -1) return { error: 'Could not find a header row with a BudgetHeader or Qty column.' };
         const cols = aoa[headerIdx].map(c => COL_MAP[norm(c)] || null);
         const out = [];
         for (let i = headerIdx + 1; i < aoa.length; i++) {
@@ -75,9 +100,29 @@ const BudgetImportModal = ({ job, rvNo, onClose, onImported }) => {
             const o = {};
             cols.forEach((k, ci) => { if (k) o[k] = String(raw[ci] ?? '').trim(); });
             const errors = [];
-            if (!o.itemCode) errors.push('ItemCode required');
+
+            // Resolve BudgetHeader text (code or name) → costCategoryId.
+            if (inHouse) {
+                o._costCategoryId = job?.budgetCategoryId;
+            } else if (!o.budgetHeader) {
+                errors.push('BudgetHeader required');
+            } else {
+                const match = headers.find(h =>
+                    norm(h.code) === norm(o.budgetHeader) || norm(h.name) === norm(o.budgetHeader));
+                if (!match) errors.push(`Unknown BudgetHeader "${o.budgetHeader}"`);
+                else o._costCategoryId = match.id;
+            }
+
+            // UOM is optional, but if given it must resolve by either code or name.
+            if (o.uom) {
+                const um = uomList.find(u => norm(u.uomCode) === norm(o.uom) || norm(u.uomName) === norm(o.uom));
+                if (!um) errors.push(`Unknown UOM "${o.uom}"`);
+                else o._uomId = um.uomId;
+            }
+
             if (!o.qty || isNaN(Number(o.qty)) || Number(o.qty) <= 0) errors.push('Qty must be > 0');
-            if (!inHouse && !o.budgetHeader) errors.push('BudgetHeader required');
+            if (o.unitPrice && isNaN(Number(o.unitPrice))) errors.push('UnitPrice must be a number');
+
             out.push({ ...o, _errors: errors, _rowNum: i + 1 });
         }
         return { rows: out };
@@ -99,31 +144,47 @@ const BudgetImportModal = ({ job, rvNo, onClose, onImported }) => {
         reader.readAsArrayBuffer(file);
     };
 
+    // No bulk backend endpoint for this lump-sum structure exists (the old
+    // items/import endpoint is item-level, a different shape entirely) — so this
+    // imports by calling the same jobbudget/save endpoint the on-page Qty/Price
+    // editor already uses, once per valid row, sequentially so progress can be
+    // shown and one bad row doesn't abort the rest.
     const doImport = async () => {
         if (!validRows.length) return;
-        setImporting(true);
-        try {
-            const res = await fetch(`${variables.API_URL}jobbudget/items/import`, {
-                method: 'POST', headers: authHeaders(),
-                body: JSON.stringify({
-                    jobId: job.jobId, rvNo: rvNo || 0, importedBy: currentUser,
-                    rows: validRows.map(r => ({
-                        budgetHeader: r.budgetHeader || null,
-                        itemCode: r.itemCode,
-                        qty: Number(r.qty),
-                        unitPrice: Number(r.unitPrice) || 0,
-                    })),
-                }),
-            });
-            const d = await res.json();
-            if (!res.ok) { setAlertMsg(d?.message || 'Import failed.'); return; }
-            setResults(d); setStep('done');
-            if (d.successCount > 0 && onImported) onImported();
-        } catch { setAlertMsg('Network error.'); }
-        finally { setImporting(false); }
+        setImporting(true); setImportProgress(0);
+        const results = [];
+        let ok = 0, fail = 0;
+        for (const r of validRows) {
+            const qty = Number(r.qty);
+            const unitPrice = Number(r.unitPrice) || 0;
+            try {
+                const res = await fetch(`${variables.API_URL}jobbudget/save`, {
+                    method: 'POST', headers: authHeaders(),
+                    body: JSON.stringify({
+                        jobId: job.jobId,
+                        costCategoryId: r._costCategoryId,
+                        rvNo: rvNo || 0,
+                        budgetedAmount: qty * unitPrice,
+                        qty, unitPrice,
+                        uomId: r._uomId || null,
+                        createdBy: currentUser, modifiedBy: currentUser,
+                    }),
+                });
+                const d = await res.json().catch(() => ({}));
+                if (res.ok) { ok++; results.push({ rowNumber: r._rowNum, budgetHeader: r.budgetHeader, success: true, message: d?.message || 'Saved.' }); }
+                else { fail++; results.push({ rowNumber: r._rowNum, budgetHeader: r.budgetHeader, success: false, message: d?.message || 'Save failed.' }); }
+            } catch {
+                fail++; results.push({ rowNumber: r._rowNum, budgetHeader: r.budgetHeader, success: false, message: 'Network error.' });
+            }
+            setImportProgress(p => p + 1);
+        }
+        setResults({ successCount: ok, failCount: fail, results });
+        setStep('done');
+        if (ok > 0 && onImported) onImported();
+        setImporting(false);
     };
 
-    const reset = () => { setStep('upload'); setFileName(''); setRows([]); setParseError(''); setResults(null); if (fileRef.current) fileRef.current.value = ''; };
+    const reset = () => { setStep('upload'); setFileName(''); setRows([]); setParseError(''); setResults(null); setImportProgress(0); if (fileRef.current) fileRef.current.value = ''; };
 
     const ov = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' };
     const pan = { background: '#fff', borderRadius: 12, width: '92%', maxWidth: 760, maxHeight: '88vh', display: 'flex', flexDirection: 'column' };
@@ -138,7 +199,7 @@ const BudgetImportModal = ({ job, rvNo, onClose, onImported }) => {
             <div style={pan} onMouseDown={e => e.stopPropagation()}>
                 <div style={{ padding: '16px 22px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
-                        <div style={{ fontWeight: 700, fontSize: 16, color: '#1e293b' }}>Import Budget Items from Excel</div>
+                        <div style={{ fontWeight: 700, fontSize: 16, color: '#1e293b' }}>Import Budget Lines from Excel</div>
                         <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Job {job?.jobId}{inHouse ? ` · header ${job?.budgetCategoryName || ''}` : ''}</div>
                     </div>
                     <button onClick={onClose} style={{ background: 'none', border: 0, fontSize: 20, cursor: 'pointer', color: '#64748b' }}>✕</button>
@@ -151,7 +212,7 @@ const BudgetImportModal = ({ job, rvNo, onClose, onImported }) => {
                             <div style={{ fontSize: 36 }}>📊</div>
                             <div style={{ fontWeight: 600, margin: '8px 0' }}>Select your Excel file</div>
                             <div style={{ fontSize: 12.5, color: '#64748b', marginBottom: 14 }}>
-                                Columns: <strong>BudgetHeader, ItemCode, Qty, UnitPrice</strong>.
+                                Columns: <strong>BudgetHeader, UOM, Qty, UnitPrice</strong> — one row per cost header, no item breakdown.
                                 {inHouse && <> For this in-house job the header is fixed — BudgetHeader is optional.</>}
                             </div>
                             <button onClick={() => fileRef.current?.click()} style={btnPri}>Browse File…</button>
@@ -172,15 +233,16 @@ const BudgetImportModal = ({ job, rvNo, onClose, onImported }) => {
                                 </div>
                             )}
                             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                <thead><tr><th style={th}>#</th><th style={th}>Header</th><th style={th}>Item Code</th><th style={{ ...th, textAlign: 'right' }}>Qty</th><th style={{ ...th, textAlign: 'right' }}>Unit Price</th></tr></thead>
+                                <thead><tr><th style={th}>#</th><th style={th}>Header</th><th style={th}>UOM</th><th style={{ ...th, textAlign: 'right' }}>Qty</th><th style={{ ...th, textAlign: 'right' }}>Unit Price</th><th style={{ ...th, textAlign: 'right' }}>Amount</th></tr></thead>
                                 <tbody>
                                     {validRows.map(r => (
                                         <tr key={r._rowNum}>
                                             <td style={td}>{r._rowNum}</td>
                                             <td style={td}>{inHouse ? (job?.budgetCategoryName || '—') : (r.budgetHeader || '—')}</td>
-                                            <td style={td}>{r.itemCode}</td>
+                                            <td style={td}>{r.uom || '—'}</td>
                                             <td style={{ ...td, textAlign: 'right' }}>{r.qty}</td>
                                             <td style={{ ...td, textAlign: 'right' }}>{r.unitPrice || '0'}</td>
+                                            <td style={{ ...td, textAlign: 'right', fontWeight: 600 }}>{(Number(r.qty) * (Number(r.unitPrice) || 0)).toLocaleString()}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -197,7 +259,7 @@ const BudgetImportModal = ({ job, rvNo, onClose, onImported }) => {
                             </div>
                             {results.failCount > 0 && (
                                 <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: 8, fontSize: 12, marginTop: 8 }}>
-                                    {results.results.filter(r => !r.success).map(r => <div key={r.rowNumber}>Row {r.rowNumber} ({r.itemCode}): {r.message}</div>)}
+                                    {results.results.filter(r => !r.success).map(r => <div key={r.rowNumber}>Row {r.rowNumber} ({r.budgetHeader}): {r.message}</div>)}
                                 </div>
                             )}
                         </div>
@@ -211,7 +273,7 @@ const BudgetImportModal = ({ job, rvNo, onClose, onImported }) => {
                         {step === 'preview' && <>
                             <button onClick={reset} style={btnSec}>← Back</button>
                             <button onClick={doImport} disabled={importing || !validRows.length} style={btnPri}>
-                                {importing ? 'Importing…' : `Import ${validRows.length} item${validRows.length !== 1 ? 's' : ''}`}
+                                {importing ? `Importing… (${importProgress}/${validRows.length})` : `Import ${validRows.length} line${validRows.length !== 1 ? 's' : ''}`}
                             </button>
                         </>}
                         {step === 'done' && <>

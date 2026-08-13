@@ -20,7 +20,7 @@ const fmtAmt   = (v) => { const n = parseFloat(stripAmt(v)); return isNaN(n) ? v
 const parseAmt = (v) => parseFloat(stripAmt(String(v))) || 0;
 
 const PAGE_SIZES = [50, 100, 200, 500, 1000];
-const DEFAULT_FILTERS = { searchText: '', customerId: '', jobTypeId: '', jobStatusIds: '', jobStageId: '', dateFrom: '', dateTo: '' };
+const DEFAULT_FILTERS = { searchText: '', customerId: '', jobTypeIds: '', jobStatusIds: '', jobStageId: '', dateFrom: '', dateTo: '' };
 
 const STATUS_MAP = {
   1: { label: 'Active',    bg: '#dcfce7', color: '#166534' },
@@ -721,7 +721,7 @@ export const Job = () => {
     const q = new URLSearchParams({ page: pg, pageSize: ps, sortCol: sc, sortDir: sd });
     if (af.searchText)   q.set('searchText',   af.searchText);
     if (af.customerId)   q.set('customerId',   af.customerId);
-    if (af.jobTypeId)    q.set('jobTypeId',    af.jobTypeId);
+    if (af.jobTypeIds)   q.set('jobTypeIds',   af.jobTypeIds);
     if (af.jobStatusIds) q.set('jobStatusIds', af.jobStatusIds);
     if (af.jobStageId)   q.set('jobStageId',   af.jobStageId);
     if (af.dateFrom)     q.set('dateFrom',     af.dateFrom);
@@ -744,7 +744,7 @@ export const Job = () => {
     registerFilters('job', {
       searchText:   { label: 'Search',    type: 'text',        placeholder: 'Job ID, customer, project…' },
       customerId:   { label: 'Customer',  type: 'select',      placeholder: 'All Customers', options: [] },
-      jobTypeId:    { label: 'Job Type',  type: 'select',      placeholder: 'All Types',     options: [] },
+      jobTypeIds:   { label: 'Job Type',  type: 'multiselect', options: [] },
       jobStatusIds: { label: 'Status',    type: 'multiselect',
                       options: Object.entries(STATUS_MAP).map(([k, v]) => ({ value: k, label: v.label })) },
       jobStageId:   { label: 'Stage',     type: 'select',      placeholder: 'All Stages',    options: [] },
@@ -760,7 +760,7 @@ export const Job = () => {
       searchText:   { label: 'Search',    type: 'text',        placeholder: 'Job ID, customer, project…' },
       customerId:   { label: 'Customer',  type: 'select',      placeholder: 'All Customers',
                       options: customers.map(c => ({ value: String(c.customerId), label: c.customerName })) },
-      jobTypeId:    { label: 'Job Type',  type: 'select',      placeholder: 'All Types',
+      jobTypeIds:   { label: 'Job Type',  type: 'multiselect',
                       options: jobTypes.map(t => ({ value: t.jobTypeId, label: t.jobTypeName })) },
       jobStatusIds: { label: 'Status',    type: 'multiselect',
                       options: Object.entries(STATUS_MAP).map(([k, v]) => ({ value: k, label: v.label })) },
@@ -810,7 +810,10 @@ export const Job = () => {
           <div className="job-title-row">
             <div>
               <h2 className="job-page-title">Jobs</h2>
-              <div className="job-page-sub">{totalRows} record{totalRows !== 1 ? 's' : ''}</div>
+              <div className="job-page-sub">
+                <strong style={{ color: 'var(--primary,#1e3a5f)', fontWeight: 700, fontSize: 13 }}>{totalRows}</strong>{' '}
+                record{totalRows !== 1 ? 's' : ''}
+              </div>
             </div>
             <div className="job-toolbar">
               <select className="job-select" style={{ width: 110 }} value={pageSize}

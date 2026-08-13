@@ -140,8 +140,12 @@ const MODULE_CONFIG = {
     },
 
     JOB: {
+        // Approval transactions reference jobs by the numeric JobNumId
+        // (TBL_APPROVAL_TRANSACTION.DocumentId), not the JobId string — GET
+        // job/{jobId} looks up by the string and always 404s here, silently
+        // leaving every field blank. by-num/{jobNumId} is the correct lookup.
         fetch: async (id) => {
-            const h = await fetch(`${variables.API_URL}job/${encodeURIComponent(id)}`, { headers: authHeaders() }).then(r => r.json());
+            const h = await fetch(`${variables.API_URL}job/by-num/${encodeURIComponent(id)}`, { headers: authHeaders() }).then(r => r.json());
             return { header: h };
         },
         render: ({ header: j }) => (
@@ -152,7 +156,7 @@ const MODULE_CONFIG = {
                 <F label="Status"><StatusBadge label={j.jobStatusName || j.jobStatusId} /></F>
                 <F label="Type">{j.jobTypeName || j.jobTypeCode || '—'}</F>
                 <F label="Job Date">{fmtD(j.jobDate)}</F>
-                <F label="Order Value" mono>{fmt(j.jobOrderValue)}</F>
+                <F label="Order Value" mono>{fmt(j.orderValue)}</F>
                 <F label="Currency">{j.currencyName || '—'}</F>
                 {j.jobDescription && <F label="Description" wide>{j.jobDescription}</F>}
             </Section>
