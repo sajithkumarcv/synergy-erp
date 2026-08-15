@@ -563,7 +563,22 @@ const MyApprovalsPage = () => {
     const [applied,    setApplied]  = useState({ ...DEFAULT_FILTERS });
     const [expandedId, setExpanded] = useState(null);
     const [acting,     setActing]   = useState(null);
-    const [toast,      setToast]    = useState('');
+    const [toast,      setToast]    = useState(null);   // { text, isError }
+    const toastTimer = useRef(null);
+
+    // Success messages self-dismiss; FAILURES STAY until dismissed. A budget
+    // block reports numbers the user needs to actually read ("Budgeted / Already
+    // committed / This PO / Over by"), and a 6s auto-clear made it flash past.
+    // Previously the colour was chosen with toast.startsWith('✓'), so the bulk
+    // summary "✓ 0 approved · ⚠ 1 failed" rendered GREEN — a failure styled as
+    // success. Kind is now explicit rather than sniffed from the text.
+    const showToast = useCallback((text, isError = false) => {
+        if (toastTimer.current) { clearTimeout(toastTimer.current); toastTimer.current = null; }
+        setToast({ text, isError });
+        if (!isError) toastTimer.current = setTimeout(() => setToast(null), 4000);
+    }, []);
+
+    useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
 
     // ── Bulk selection state ─────────────────────────────────────
     const [selected,     setSelected]     = useState(new Set());   // Set<transactionId>
@@ -714,19 +729,18 @@ const MyApprovalsPage = () => {
                 if (action === 'Approve' && !override && isBudgetBlock(msg)) {
                     setBudgetOverride({ item, remarks: remarks || '', message: msg, loginPassword });
                 } else {
-                    setToast(`⚠ ${msg}`);
+                    showToast(`⚠ ${msg}`, true);
                 }
             } else {
-                setToast(`✓ ${item.documentNo} ${action.toLowerCase()}d${d?.isComplete ? ' — fully approved' : ''}${override ? ' (budget override)' : ''}.`);
+                showToast(`✓ ${item.documentNo} ${action.toLowerCase()}d${d?.isComplete ? ' — fully approved' : ''}${override ? ' (budget override)' : ''}.`);
                 setExpanded(null);
                 setBudgetOverride(null);
                 load();
             }
         } catch {
-            setToast('⚠ Network error.');
+            showToast('⚠ Network error.', true);
         } finally {
             setActing(null);
-            setTimeout(() => setToast(''), 4000);
         }
     };
 
@@ -734,6 +748,16 @@ const MyApprovalsPage = () => {
     const doBulkApprove = async (remarks, loginPassword = null) => {
         const toApprove = allActionableItems.filter(i => selected.has(i.transactionId));
         if (toApprove.length === 0) return;
+
+        // Ticking ONE checkbox and approving is not a "bulk" action from the
+        // user's point of view — but it used to run through the loop below,
+        // which cannot offer the budget-override prompt, so a single blocked
+        // document looked unapprovable from here. Delegate to doAction so it
+        // behaves exactly like the row's own Review → Approve.
+        if (toApprove.length === 1) {
+            await doAction(toApprove[0], 'Approve', remarks, null, false, loginPassword);
+            return;
+        }
 
         setBulkActing(true);
         setBulkProgress({ done: 0, total: toApprove.length });
@@ -769,11 +793,16 @@ const MyApprovalsPage = () => {
         setBulkProgress(null);
 
         if (errors.length === 0) {
-            setToast(`✓ ${succeeded} item${succeeded !== 1 ? 's' : ''} approved successfully.`);
+            showToast(`✓ ${succeeded} item${succeeded !== 1 ? 's' : ''} approved successfully.`);
         } else {
-            setToast(`✓ ${succeeded} approved · ⚠ ${errors.length} failed:\n${errors.join('\n')}`);
+            // Only reachable with 2+ selected (a single selection is delegated to
+            // doAction above). Approving many at once can't offer a per-document
+            // override prompt, so point at the path that can.
+            const hint = errors.some(e => isBudgetBlock(e))
+                ? '\n\nTo override a budget block, approve that document by itself — either from its Review button, or by selecting only that one document.'
+                : '';
+            showToast(`✓ ${succeeded} approved · ⚠ ${errors.length} failed:\n${errors.join('\n')}${hint}`, true);
         }
-        setTimeout(() => setToast(''), 6000);
         load();  // clears selection via setSelected(new Set())
     };
 
@@ -833,12 +862,24 @@ const MyApprovalsPage = () => {
                     {toast && (
                         <div style={{
                             marginBottom: 12, padding: '9px 14px', borderRadius: 8, fontSize: 13, fontWeight: 500,
-                            background: toast.startsWith('✓') ? '#dcfce7' : '#fee2e2',
-                            color:      toast.startsWith('✓') ? '#166534' : '#991b1b',
-                            border: `1px solid ${toast.startsWith('✓') ? '#86efac' : '#fca5a5'}`,
+                            background: toast.isError ? '#fee2e2' : '#dcfce7',
+                            color:      toast.isError ? '#991b1b' : '#166534',
+                            border: `1px solid ${toast.isError ? '#fca5a5' : '#86efac'}`,
                             whiteSpace: 'pre-line',
+                            display: 'flex', alignItems: 'flex-start', gap: 12,
                         }}>
-                            {toast}
+                            <span style={{ flex: 1 }}>{toast.text}</span>
+                            {toast.isError && (
+                                <button
+                                    onClick={() => setToast(null)}
+                                    title="Dismiss"
+                                    style={{
+                                        flexShrink: 0, background: 'transparent', border: 'none',
+                                        color: '#991b1b', cursor: 'pointer', fontSize: 16,
+                                        lineHeight: 1, padding: 0, fontWeight: 700,
+                                    }}
+                                >×</button>
+                            )}
                         </div>
                     )}
 
