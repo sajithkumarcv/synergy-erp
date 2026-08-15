@@ -1,10 +1,10 @@
-# apply-frontend-patch.ps1
+﻿# apply-frontend-patch.ps1
 # Copies a fresh frontend build over a company's IIS web folder WITHOUT touching
 # that company's per-deployment files: config.json (BRAND + API_URL) and
 # web.config (SPA routing). Static files, so no app-stop needed.
 #
 # MANDATORY, NON-SKIPPABLE: before touching anything, this script makes a full
-# copy of the CURRENT target into C:\ERP\_backups\. Not optional — a 2026-07-28
+# copy of the CURRENT target into C:\ERP\_backups\. Not optional - a 2026-07-28
 # incident on the backend script (same /MIR pattern) deleted live customer data
 # because there was no backup step. Never ship a /MIR-based patch without one.
 #
@@ -20,7 +20,7 @@ param(
 if (-not (Test-Path $Source)) { Write-Error "Source not found: $Source"; exit 1 }
 if (-not (Test-Path $Target)) { Write-Error "Target not found: $Target"; exit 1 }
 
-# ── MANDATORY backup of the target, taken BEFORE any change. Always runs. ──
+# -- MANDATORY backup of the target, taken BEFORE any change. Always runs. --
 $backupRoot = "C:\ERP\_backups"
 $stamp      = Get-Date -Format 'yyyyMMdd_HHmmss'
 $leaf       = Split-Path $Target -Leaf
@@ -31,7 +31,7 @@ Write-Host "Backing up $Target -> $backupDir" -ForegroundColor Yellow
 New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
 robocopy $Target $backupDir /E /NFL /NDL /NP /R:2 /W:2 | Out-Null
 if ($LASTEXITCODE -ge 8) {
-    Write-Error "Backup failed (robocopy exit $LASTEXITCODE) — ABORTING before touching $Target. Nothing was patched."
+    Write-Error "Backup failed (robocopy exit $LASTEXITCODE) - ABORTING before touching $Target. Nothing was patched."
     exit 1
 }
 Write-Host "Backup complete." -ForegroundColor Yellow

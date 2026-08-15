@@ -1,17 +1,17 @@
-# apply-backend-patch.ps1
+﻿# apply-backend-patch.ps1
 # Copies a fresh API publish over a company's IIS api folder WITHOUT touching
 # that company's per-deployment files: appsettings*.json (connection string + JWT),
-# web.config, and license.json (per-client signed license — NOT part of the build
+# web.config, and license.json (per-client signed license - NOT part of the build
 # output, so /MIR would otherwise delete it and LicenseMiddleware blocks every
 # request with 402); and runtime data folders: Docs/ (uploaded document
-# attachments — LPO copies etc, saved under ContentRootPath/Docs, NOT part of the
+# attachments - LPO copies etc, saved under ContentRootPath/Docs, NOT part of the
 # build output either), wwwroot/uploads/ (see below) and logs/. Drops
 # app_offline.htm first so the ASP.NET Core process releases ERPWEB.dll
 # (otherwise the DLL is locked and the copy fails), then removes it.
 #
-# wwwroot/uploads/ — ADDED 2026-08-15. This one fails DIFFERENTLY from the
+# wwwroot/uploads/ - ADDED 2026-08-15. This one fails DIFFERENTLY from the
 # 2026-07-28 case and is easy to miss: CompanyController.UploadLogo writes to
-# ContentRootPath/wwwroot/uploads/company-logo{ext} — a FIXED filename — and
+# ContentRootPath/wwwroot/uploads/company-logo{ext} - a FIXED filename - and
 # backend/wwwroot/uploads/company-logo.{png,jpeg} are COMMITTED TO THE REPO, so
 # they DO appear in the publish output. /MIR therefore does not delete the
 # target's logo, it OVERWRITES it with the repo's logo. Every company would
@@ -23,13 +23,13 @@
 # /XD list below, or /MIR silently deletes it as "not in source". And anything
 # that IS in the build but is per-company at runtime (wwwroot/uploads) must be
 # excluded too, or /MIR overwrites it. That exclusion list is a "we thought of
-# everything" claim, and history says that claim is sometimes wrong — which is
+# everything" claim, and history says that claim is sometimes wrong - which is
 # why the unconditional backup below exists as the real safety net, not the
 # exclusion list.
 #
 # MANDATORY, NON-SKIPPABLE: before touching anything, this script makes a full
 # copy of the CURRENT target into C:\ERP\_backups\. This cannot be disabled by a
-# flag on purpose — 2026-07-28 taught us that skippable safety steps get skipped.
+# flag on purpose - 2026-07-28 taught us that skippable safety steps get skipped.
 #
 #   .\apply-backend-patch.ps1 -Source D:\Projects\WebErp\deploy\api -Target C:\inetpub\erp-api-c1
 #
@@ -43,7 +43,7 @@ param(
 if (-not (Test-Path $Source)) { Write-Error "Source not found: $Source"; exit 1 }
 if (-not (Test-Path $Target)) { Write-Error "Target not found: $Target"; exit 1 }
 
-# ── MANDATORY backup of the target, taken BEFORE any change. Always runs. ──
+# -- MANDATORY backup of the target, taken BEFORE any change. Always runs. --
 $backupRoot = "C:\ERP\_backups"
 $stamp      = Get-Date -Format 'yyyyMMdd_HHmmss'
 $leaf       = Split-Path $Target -Leaf
@@ -54,7 +54,7 @@ Write-Host "Backing up $Target -> $backupDir" -ForegroundColor Yellow
 New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
 robocopy $Target $backupDir /E /NFL /NDL /NP /R:2 /W:2 | Out-Null
 if ($LASTEXITCODE -ge 8) {
-    Write-Error "Backup failed (robocopy exit $LASTEXITCODE) — ABORTING before touching $Target. Nothing was patched."
+    Write-Error "Backup failed (robocopy exit $LASTEXITCODE) - ABORTING before touching $Target. Nothing was patched."
     exit 1
 }
 Write-Host "Backup complete." -ForegroundColor Yellow
