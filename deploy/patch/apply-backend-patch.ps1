@@ -5,16 +5,27 @@
 # output, so /MIR would otherwise delete it and LicenseMiddleware blocks every
 # request with 402); and runtime data folders: Docs/ (uploaded document
 # attachments — LPO copies etc, saved under ContentRootPath/Docs, NOT part of the
-# build output either) and logs/. Drops app_offline.htm first so the ASP.NET Core
-# process releases ERPWEB.dll (otherwise the DLL is locked and the copy fails),
-# then removes it.
+# build output either), wwwroot/uploads/ (see below) and logs/. Drops
+# app_offline.htm first so the ASP.NET Core process releases ERPWEB.dll
+# (otherwise the DLL is locked and the copy fails), then removes it.
+#
+# wwwroot/uploads/ — ADDED 2026-08-15. This one fails DIFFERENTLY from the
+# 2026-07-28 case and is easy to miss: CompanyController.UploadLogo writes to
+# ContentRootPath/wwwroot/uploads/company-logo{ext} — a FIXED filename — and
+# backend/wwwroot/uploads/company-logo.{png,jpeg} are COMMITTED TO THE REPO, so
+# they DO appear in the publish output. /MIR therefore does not delete the
+# target's logo, it OVERWRITES it with the repo's logo. Every company would
+# silently get the same wrong branding. Excluded via /XD uploads so each site
+# keeps its own.
 #
 # IMPORTANT: anything that lives in the api root but is NOT part of the published
 # build (license.json, Docs/, future runtime data) MUST be added to the /XF or
-# /XD list below, or /MIR silently deletes it as "not in source". That exclusion
-# list is a "we thought of everything" claim, and history says that claim is
-# sometimes wrong — which is why the unconditional backup below exists as the
-# real safety net, not the exclusion list.
+# /XD list below, or /MIR silently deletes it as "not in source". And anything
+# that IS in the build but is per-company at runtime (wwwroot/uploads) must be
+# excluded too, or /MIR overwrites it. That exclusion list is a "we thought of
+# everything" claim, and history says that claim is sometimes wrong — which is
+# why the unconditional backup below exists as the real safety net, not the
+# exclusion list.
 #
 # MANDATORY, NON-SKIPPABLE: before touching anything, this script makes a full
 # copy of the CURRENT target into C:\ERP\_backups\. This cannot be disabled by a
@@ -49,7 +60,7 @@ if ($LASTEXITCODE -ge 8) {
 Write-Host "Backup complete." -ForegroundColor Yellow
 
 Write-Host "Patching backend: $Target" -ForegroundColor Cyan
-Write-Host "  (preserving appsettings*.json + web.config + license.json + Docs/ + logs/)"
+Write-Host "  (preserving appsettings*.json + web.config + license.json + Docs/ + logs/ + wwwroot/uploads/)"
 
 # Take the app offline so it releases the DLL lock.
 $offline = Join-Path $Target 'app_offline.htm'
@@ -57,9 +68,9 @@ Set-Content -Path $offline -Value '<h1>Updating. Back shortly.</h1>' -Encoding U
 Start-Sleep -Seconds 2
 
 # /MIR mirrors; exclude the per-company files and app_offline.htm from copy+delete,
-# and the Docs (uploaded document attachments) + logs folders from mirroring
-# entirely so existing runtime data survives.
-robocopy $Source $Target /MIR /XF web.config "appsettings*.json" license.json app_offline.htm /XD logs Docs /NFL /NDL /NP /R:2 /W:2 | Out-Null
+# and the Docs (uploaded document attachments) + logs + wwwroot/uploads (company
+# logo) folders from mirroring entirely so existing runtime data survives.
+robocopy $Source $Target /MIR /XF web.config "appsettings*.json" license.json app_offline.htm /XD logs Docs uploads /NFL /NDL /NP /R:2 /W:2 | Out-Null
 $rc = $LASTEXITCODE
 
 # Bring the app back online whatever happened.
