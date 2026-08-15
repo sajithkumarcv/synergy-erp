@@ -160,6 +160,7 @@ namespace ERPWEB.Controllers.General
                 return Ok(new {
                     kpis = kpis == null ? null : new {
                         activeJobs        = (int?)kpis.ActiveJobs,
+                        activeJobsInHouse = (int?)kpis.ActiveJobsInHouse,
                         openPRs           = (int?)kpis.OpenPRs,
                         openPOs           = (int?)kpis.OpenPOs,
                         pendingApprovals  = (int?)kpis.PendingApprovals,

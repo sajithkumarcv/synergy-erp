@@ -13,6 +13,7 @@ import IssueReturnPrintModal   from '../inventory/issuereturn/IssueReturnPrintMo
 import InvoicePrintModal       from '../invoice/InvoicePrintModal';
 import DeliveryPrintModal      from '../delivery/DeliveryPrintModal';
 import { openPrintWindow }     from '../utils/printWindow';
+import JobTypeMultiSelect      from './JobTypeMultiSelect';
 import '../procurement/Procurement.css';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -756,6 +757,10 @@ const JobOverview = () => {
     const [budgetHeader,  setBudgetHeader] = useState({ currentRvNo: 0, isApproved: false, approvedBy: null, approvedDate: null, totalRevisions: 0 });
     const [budgetRows,    setBudgetRows]   = useState([]);
     const [budgetLoading, setBudgetLoading]= useState(false);
+    // Same "only headers with entries" default used on the Job Budget page
+    // (editor + summary) — most cost headers on a job type go untouched, so
+    // default to just the budgeted ones here too, with a toggle to see all.
+    const [budgetOnlyWithEntries, setBudgetOnlyWithEntries] = useState(true);
     const [pwdAction,     setPwdAction]    = useState(null); // 'approve' | 'revise' | null
     const [pwdBusy,       setPwdBusy]      = useState(false);
     const [budgetBanner,  setBudgetBanner] = useState('');
@@ -816,7 +821,18 @@ const JobOverview = () => {
 
     useEffect(() => {
         fetch(`${variables.API_URL}job/types`, { headers: authHeaders() })
-            .then(r => r.json()).then(d => setJobTypes(Array.isArray(d) ? d : [])).catch(console.error);
+            .then(r => r.json()).then(d => {
+                const list = Array.isArray(d) ? d : [];
+                setJobTypes(list);
+                // Default to every job type except In House Jobs
+                // (isCostingRequired = false) — in-house is a distinct,
+                // high-volume workflow most people browsing the overview
+                // aren't looking for by default. Only applies on a plain
+                // load — jobTypeFilter starts empty, so this only ever
+                // fires once, before the user has touched the filter.
+                const ids = list.filter(t => t.isCostingRequired !== false).map(t => t.jobTypeId).join(',');
+                if (ids) setJobTypeFilter(ids);
+            }).catch(console.error);
         fetch(`${variables.API_URL}customer/search?pageSize=1000&page=1&sortCol=CustomerName&sortDir=ASC`, { headers: authHeaders() })
             .then(r => r.ok ? r.json() : { data: [] })
             .then(d => setCustomers(d.data || [])).catch(console.error);
@@ -827,7 +843,7 @@ const JobOverview = () => {
         setSelectedJobId('');
         setData(null);
         const q = new URLSearchParams();
-        if (jobTypeFilter) q.set('jobTypeId',  jobTypeFilter);
+        if (jobTypeFilter) q.set('jobTypeIds', jobTypeFilter);
         if (statusFilter)  q.set('statusId',   statusFilter);
         if (custId)        q.set('customerId', custId);
         fetch(`${variables.API_URL}job-overview/jobs?${q}`, { headers: authHeaders() })
@@ -996,6 +1012,7 @@ const JobOverview = () => {
     const budTotalVar       = budTotalBudget - budTotalActual;
     const budUsedPct        = budTotalBudget > 0 ? Math.min((budTotalActual / budTotalBudget) * 100, 999) : 0;
     const setBudgetCount    = budgetRows.filter(r => r.budgetedAmount > 0).length;
+    const visibleBudgetRows = budgetOnlyWithEntries ? budgetRows.filter(r => r.budgetedAmount > 0) : budgetRows;
     const currentRvNo       = budgetHeader.currentRvNo;
     const budgetApproved    = budgetHeader.isApproved;
     // All closed statuses (Freezed=3, Completed=4, Cancelled=5) block every
@@ -1025,10 +1042,10 @@ const JobOverview = () => {
                         </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 10, flexWrap: 'wrap' }}>
-                        <select style={sel} value={jobTypeFilter} onChange={e => setJobTypeFilter(e.target.value)}>
-                            <option value="">All Job Types</option>
-                            {jobTypes.map(jt => <option key={jt.jobTypeId} value={jt.jobTypeId}>{jt.jobTypeName}</option>)}
-                        </select>
+                        <JobTypeMultiSelect
+                            options={jobTypes.map(t => ({ value: t.jobTypeId, label: t.jobTypeName }))}
+                            value={jobTypeFilter} onChange={setJobTypeFilter}
+                            placeholder="Select Job Type" allLabel="All Types" />
                         <select style={sel} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
                             <option value="">All Statuses</option>
                             {jobStatuses.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -1668,9 +1685,15 @@ const JobOverview = () => {
                         )}
 
                         {/* Budget table */}
+                        {!budgetLoading && budgetRows.length > 0 && (
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, fontSize: 12.5, color: budgetOnlyWithEntries ? '#1e40af' : '#475569', fontWeight: budgetOnlyWithEntries ? 600 : 400, cursor: 'pointer', width: 'fit-content' }}>
+                                <input type="checkbox" checked={budgetOnlyWithEntries} onChange={e => setBudgetOnlyWithEntries(e.target.checked)} />
+                                Only headers with entries
+                            </label>
+                        )}
                         {budgetLoading
                             ? <div style={{ padding: 24, textAlign: 'center', color: '#64748b' }}>Loading…</div>
-                            : budgetRows.length > 0 && (
+                            : visibleBudgetRows.length > 0 && (
                                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
                                     <thead>
                                         <tr style={{ background: '#f1f5f9' }}>
@@ -1682,7 +1705,7 @@ const JobOverview = () => {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {budgetRows.map(row => {
+                                        {visibleBudgetRows.map(row => {
                                             const src      = SOURCE_INFO[row.categoryCode] || {};
                                             const spendPct = row.budgetedAmount > 0
                                                 ? Math.min((row.actualAmount / row.budgetedAmount) * 100, 100).toFixed(0)

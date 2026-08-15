@@ -186,30 +186,14 @@ namespace ERPWEB.Controllers.Approval
                     }
                 }
 
-                // ── Budget-overrun override: validate the budget password first ──
-                // Use the module's own menu so permission is checked against what the
-                // submitter can already do (e.g. a purchaser has EDIT on /purchase-orders
-                // but has no /jobs permission, which is what APPROVE checks against by default).
-                bool overrideBudget = false;
-                if (!string.IsNullOrWhiteSpace(req.BudgetPassword))
-                {
-                    var menuUrl    = ModuleMenuUrl(req.ModuleCode);
-                    var actionCode = ModuleSubmitAction(req.ModuleCode);
-                    var vr = await _dbcon.QueryFirstOrDefaultAsync<dynamic>(
-                        "sp_ValidateBudgetPassword",
-                        new { UserName = req.SubmittedBy, PasswordHash = Sha256Hex(req.BudgetPassword), ActionCode = actionCode, MenuUrl = menuUrl });
-
-                    bool ok = vr != null && Convert.ToBoolean(vr.Success);
-                    if (!ok)
-                    {
-                        var vmsg = (string?)vr?.Message ?? "Budget password validation failed.";
-                        await _dbcon.WriteRawLog(vmsg, controller: "Approval", action: "Submit",
-                            requestPath: HttpContext.Request.Path, userId: req.SubmittedBy, logLevel: "Warning");
-                        return BadRequest(new { message = vmsg });
-                    }
-
-                    overrideBudget = true;
-                }
+                // ── Budget-overrun override: confirmation + reason, no password ──
+                // The budget password was removed deliberately (2026-08-15): it only ever
+                // controlled WHO could proceed past the overrun warning — it never affected
+                // any amount, tax or budget figure. Submitters now confirm the overrun in
+                // the UI and type a reason, which is recorded on the approval log.
+                // The reason IS the override signal: no reason means no override, so a
+                // normal submit still hits the budget guard exactly as before.
+                bool overrideBudget = !string.IsNullOrWhiteSpace(req.OverrideReason);
 
                 var p = new
                 {
@@ -296,26 +280,13 @@ namespace ERPWEB.Controllers.Approval
                             : credit.StatusMessage });
                 }
 
-                // ── Budget-overrun override: validate the budget password first ──
-                bool overrideBudget = false;
-                if (string.Equals(req.Action, "Approve", System.StringComparison.OrdinalIgnoreCase)
-                    && !string.IsNullOrWhiteSpace(req.BudgetPassword))
-                {
-                    var vr = await _dbcon.QueryFirstOrDefaultAsync<dynamic>(
-                        "sp_ValidateBudgetPassword",
-                        new { UserName = req.ActionByName, PasswordHash = Sha256Hex(req.BudgetPassword), ActionCode = "APPROVE" });
-
-                    bool ok = vr != null && Convert.ToBoolean(vr.Success);
-                    if (!ok)
-                    {
-                        var vmsg = (string?)vr?.Message ?? "Budget password validation failed.";
-                        await _dbcon.WriteRawLog(vmsg, controller: "Approval", action: "Action",
-                            requestPath: HttpContext.Request.Path, userId: req.ActionByName, logLevel: "Warning");
-                        return BadRequest(new { message = vmsg });
-                    }
-
-                    overrideBudget = true;
-                }
+                // ── Budget-overrun override: confirmation + reason, no password ──
+                // See the note in Submit() above — the password gate was removed on
+                // 2026-08-15. The reason is the override signal and is folded into the
+                // approval-log remarks just below, so the audit trail is unchanged.
+                bool overrideBudget =
+                    string.Equals(req.Action, "Approve", System.StringComparison.OrdinalIgnoreCase)
+                    && !string.IsNullOrWhiteSpace(req.OverrideReason);
 
                 // When overriding, fold the reason into the remarks so it lands in the approval log
                 string? remarks = req.Remarks;
@@ -426,33 +397,35 @@ namespace ERPWEB.Controllers.Approval
         // Admin view — all approval transactions with filters + pagination
         [HttpGet("all")]
         public async Task<IActionResult> GetAll(
-            [FromQuery] string? status        = null,
-            [FromQuery] string? moduleCode    = null,
-            [FromQuery] string? searchText    = null,
-            [FromQuery] string? submittedBy   = null,
-            [FromQuery] string? finalActionBy = null,
-            [FromQuery] string? dateFrom      = null,
-            [FromQuery] string? dateTo        = null,
-            [FromQuery] int     page          = 1,
-            [FromQuery] int     pageSize      = 50,
-            [FromQuery] string  sortCol       = "SubmittedDate",
-            [FromQuery] string  sortDir       = "DESC")
+            [FromQuery] string? status         = null,
+            [FromQuery] string? moduleCode     = null,
+            [FromQuery] string? documentStatus = null,
+            [FromQuery] string? searchText     = null,
+            [FromQuery] string? submittedBy    = null,
+            [FromQuery] string? finalActionBy  = null,
+            [FromQuery] string? dateFrom       = null,
+            [FromQuery] string? dateTo         = null,
+            [FromQuery] int     page           = 1,
+            [FromQuery] int     pageSize       = 50,
+            [FromQuery] string  sortCol        = "SubmittedDate",
+            [FromQuery] string  sortDir        = "DESC")
         {
             try
             {
                 var rows = await _dbcon.QueryAsync<dynamic>("sp_GetAllApprovals", new
                 {
-                    Status        = string.IsNullOrWhiteSpace(status)        ? null : status.Trim(),
-                    ModuleCode    = string.IsNullOrWhiteSpace(moduleCode)    ? null : moduleCode.Trim(),
-                    SearchText    = string.IsNullOrWhiteSpace(searchText)    ? null : searchText.Trim(),
-                    SubmittedBy   = string.IsNullOrWhiteSpace(submittedBy)   ? null : submittedBy.Trim(),
-                    FinalActionBy = string.IsNullOrWhiteSpace(finalActionBy) ? null : finalActionBy.Trim(),
-                    DateFrom      = string.IsNullOrWhiteSpace(dateFrom)      ? (DateTime?)null : DateTime.Parse(dateFrom),
-                    DateTo        = string.IsNullOrWhiteSpace(dateTo)        ? (DateTime?)null : DateTime.Parse(dateTo),
-                    PageNumber    = page < 1 ? 1 : page,
-                    PageSize      = pageSize is < 1 or > 500 ? 50 : pageSize,
-                    SortCol       = sortCol,
-                    SortDir       = sortDir,
+                    Status         = string.IsNullOrWhiteSpace(status)         ? null : status.Trim(),
+                    ModuleCode     = string.IsNullOrWhiteSpace(moduleCode)     ? null : moduleCode.Trim(),
+                    DocumentStatus = string.IsNullOrWhiteSpace(documentStatus) ? null : documentStatus.Trim(),
+                    SearchText     = string.IsNullOrWhiteSpace(searchText)     ? null : searchText.Trim(),
+                    SubmittedBy    = string.IsNullOrWhiteSpace(submittedBy)    ? null : submittedBy.Trim(),
+                    FinalActionBy  = string.IsNullOrWhiteSpace(finalActionBy)  ? null : finalActionBy.Trim(),
+                    DateFrom       = string.IsNullOrWhiteSpace(dateFrom)       ? (DateTime?)null : DateTime.Parse(dateFrom),
+                    DateTo         = string.IsNullOrWhiteSpace(dateTo)        ? (DateTime?)null : DateTime.Parse(dateTo),
+                    PageNumber     = page < 1 ? 1 : page,
+                    PageSize       = pageSize is < 1 or > 500 ? 50 : pageSize,
+                    SortCol        = sortCol,
+                    SortDir        = sortDir,
                 });
                 var list  = rows?.ToList() ?? new List<dynamic>();
                 int total = list.Count > 0 ? (int)list[0].TotalRows : 0;
@@ -477,6 +450,10 @@ namespace ERPWEB.Controllers.Approval
                     finalActionBy  = (string?)r.FinalActionBy,
                     finalRemarks   = (string?)r.FinalRemarks,
                     daysElapsed    = (int?)r.DaysElapsed,
+                    documentStatus      = (string?)r.DocumentStatus,
+                    documentStatusLabel = (string?)r.DocumentStatusLabel,
+                    documentStatusBg    = (string?)r.DocumentStatusBg,
+                    documentStatusColor = (string?)r.DocumentStatusColor,
                 }).ToList();
                 return Ok(new
                 {

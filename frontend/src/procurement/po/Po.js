@@ -18,7 +18,7 @@ const PAGE_SIZES = [50, 100, 200, 500, 1000];
 // supplier list runs into the hundreds and the dropdown scrolls.
 const LOOKUP_PAGE_SIZE = 25;
 
-const DEFAULT_FILTERS = { searchText: '', status: '', supplierId: '', jobId: '', priority: '', createdBy: '', dateFrom: '', dateTo: '' };
+const DEFAULT_FILTERS = { searchText: '', status: '', supplierId: '', jobTypeIds: '', jobId: '', priority: '', createdBy: '', dateFrom: '', dateTo: '' };
 
 
 const SortIcon = ({ col, sortCol, sortDir }) => {
@@ -764,16 +764,20 @@ export const Po = () => {
     const gridRef = useRef({ pageSize: 200, sortCol: 'PoDate', sortDir: 'DESC', applied: DEFAULT_FILTERS });
     useEffect(() => { gridRef.current = { pageSize, sortCol, sortDir, applied }; }, [pageSize, sortCol, sortDir, applied]);
 
-    // Fetch active jobs for the Job ID filter dropdown
+    // Fetch active jobs for the Job ID filter dropdown — re-fetched whenever
+    // the applied Job Type selection changes, so picking a Job Type narrows
+    // which jobs the Job ID dropdown offers (cascading filter). On mount
+    // (before jobTypes has loaded / nothing selected yet) this runs with no
+    // jobTypeIds param, same as before — the full active-job list.
+    const [jobTypes,        setJobTypes]        = useState([]);
     const [jobOptions,      setJobOptions]      = useState([]);
     const [supplierOptions, setSupplierOptions] = useState([]);
+
     useEffect(() => {
-        fetch(`${variables.API_URL}job/search?pageSize=500&page=1&excludeClosedStatus=true`, { headers: authHeaders() })
+        fetch(`${variables.API_URL}job/types`, { headers: authHeaders() })
             .then(r => r.json())
-            .then(d => setJobOptions((d.data || []).map(j => ({
-                value: j.jobId,
-                label: j.jobId + (j.projectName ? ' — ' + j.projectName : ''),
-            })))).catch(console.error);
+            .then(d => setJobTypes(Array.isArray(d) ? d : []))
+            .catch(console.error);
 
         fetch(`${variables.API_URL}supplier/search?pageSize=500&page=1`, { headers: authHeaders() })
             .then(r => r.json())
@@ -782,6 +786,19 @@ export const Po = () => {
                 label: s.supplierCode ? `${s.supplierCode} — ${s.supplierName}` : s.supplierName,
             })))).catch(console.error);
     }, []);
+
+    const loadJobOptions = useCallback((jobTypeIds) => {
+        const q = new URLSearchParams({ pageSize: 500, page: 1, excludeClosedStatus: true });
+        if (jobTypeIds) q.set('jobTypeIds', jobTypeIds);
+        fetch(`${variables.API_URL}job/search?${q}`, { headers: authHeaders() })
+            .then(r => r.json())
+            .then(d => setJobOptions((d.data || []).map(j => ({
+                value: j.jobId,
+                label: j.jobId + (j.projectName ? ' — ' + j.projectName : ''),
+            })))).catch(console.error);
+    }, []);
+
+    useEffect(() => { loadJobOptions(initialFilters.jobTypeIds); }, []); // eslint-disable-line
 
     const load = useCallback((pg, ps, sc, sd, af) => {
         setLoading(true);
@@ -804,11 +821,12 @@ export const Po = () => {
     useEffect(() => { load(1, pageSize, sortCol, sortDir, initialFilters); }, [load]); // eslint-disable-line
 
     // Build filter defs — called with latest options snapshots
-    const buildDefs = (jobOpts, supplierOpts) => ({
+    const buildDefs = (jobTypeOpts, jobOpts, supplierOpts) => ({
         searchText:  { label: 'Search',     type: 'text',   placeholder: 'PO #, vendor, ref…' },
         status:      { label: 'Status',     type: 'multiselect',
                        options: getModuleStatuses('PO').map(s => ({ value: s.statusCode, label: s.statusLabel })) },
         supplierId:  { label: 'Supplier',   type: 'select', placeholder: 'All Suppliers', options: supplierOpts },
+        jobTypeIds:  { label: 'Job Type',   type: 'chip-multiselect', options: jobTypeOpts },
         jobId:       { label: 'Job ID',     type: 'select', placeholder: 'All Jobs',      options: jobOpts },
         priority:    { label: 'Priority',   type: 'select', placeholder: 'All Priorities', options: getVList('Procurement', 'Priority') },
         createdBy:   { label: 'Created By', type: 'text',   placeholder: 'Username…' },
@@ -819,18 +837,29 @@ export const Po = () => {
     // Register filter panel on mount
     useEffect(() => {
         const onApply = (vals) => {
-            const { pageSize: ps, sortCol: sc, sortDir: sd } = gridRef.current;
+            const { pageSize: ps, sortCol: sc, sortDir: sd, applied: prevApplied } = gridRef.current;
             setApplied({ ...vals }); setPage(1);
             load(1, ps, sc, sd, vals);
+            // Job Type changed → reload the Job ID dropdown's options to match
+            // (cascading filter). Also drop a now-invalid jobId selection —
+            // e.g. Job Type narrowed to Enclosure while an In House job was
+            // still picked in Job ID — rather than silently keep filtering by
+            // a job that no longer matches the visible dropdown options.
+            if (vals.jobTypeIds !== prevApplied.jobTypeIds) {
+                loadJobOptions(vals.jobTypeIds);
+            }
         };
-        registerFilters('purchaseorder', buildDefs([], []), initialFilters, onApply);
+        registerFilters('purchaseorder', buildDefs([], [], []), initialFilters, onApply);
         return () => unregisterFilters('purchaseorder');
     }, []); // eslint-disable-line
 
-    // Patch options whenever jobs or suppliers finish loading (does NOT reset applied filters)
+    // Patch options whenever jobs, job types, or suppliers finish loading (does NOT reset applied filters)
     useEffect(() => {
-        updateFilterDefs('purchaseorder', buildDefs(jobOptions, supplierOptions));
-    }, [jobOptions, supplierOptions, getModuleStatuses, getVList]); // eslint-disable-line
+        updateFilterDefs('purchaseorder', buildDefs(
+            jobTypes.map(t => ({ value: t.jobTypeId, label: t.jobTypeName })),
+            jobOptions, supplierOptions
+        ));
+    }, [jobTypes, jobOptions, supplierOptions, getModuleStatuses, getVList]); // eslint-disable-line
 
     const handleSort = col => {
         const dir = sortCol === col && sortDir === 'ASC' ? 'DESC' : 'ASC';

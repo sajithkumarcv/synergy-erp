@@ -29,7 +29,6 @@ const ApprovalActionModal = ({ transactionId, allowedActions = ['Approve','Rejec
     const [saving,        setSaving]      = useState(false);
     const [error,         setError]       = useState('');
     const [budgetBlock,   setBudgetBlock] = useState('');   // message when server blocks for budget
-    const [ovPassword,    setOvPassword]  = useState('');
     const [ovReason,      setOvReason]    = useState('');
     const [ovErr,         setOvErr]       = useState('');
 
@@ -46,7 +45,7 @@ const ApprovalActionModal = ({ transactionId, allowedActions = ['Approve','Rejec
         Cancel:   'Cancelling',
     };
 
-    const submit = async (budgetPassword = null, overrideReason = null) => {
+    const submit = async (overrideReason = null) => {
         if (!action) { setError('Please select an action.'); return; }
         if (meta?.requiresRemarks && !remarks.trim()) {
             setError('Remarks are required for this action.');
@@ -66,7 +65,6 @@ const ApprovalActionModal = ({ transactionId, allowedActions = ['Approve','Rejec
                 remarks:       remarks.trim() || null,
                 loginPassword: action === 'Approve' ? loginPassword.trim() : null,
             };
-            if (budgetPassword) body.budgetPassword = budgetPassword;
             if (overrideReason)  body.overrideReason  = overrideReason;
 
             const res = await fetch(`${variables.API_URL}approval/action`, {
@@ -92,12 +90,13 @@ const ApprovalActionModal = ({ transactionId, allowedActions = ['Approve','Rejec
         }
     };
 
+    // No budget password (removed 2026-08-15) — the typed reason is the override
+    // signal and is folded into the approval-log remarks server-side.
     const submitOverride = async () => {
-        if (!ovPassword.trim()) { setOvErr('Budget password is required.'); return; }
-        if (!ovReason.trim())   { setOvErr('Override reason is required.');  return; }
+        if (!ovReason.trim()) { setOvErr('Override reason is required.'); return; }
         setOvErr('');
         setBudgetBlock('');
-        await submit(ovPassword.trim(), ovReason.trim());
+        await submit(ovReason.trim());
     };
 
     // ── Budget-override modal ─────────────────────────────────────────────
@@ -115,23 +114,16 @@ const ApprovalActionModal = ({ transactionId, allowedActions = ['Approve','Rejec
                             ⚠ {budgetBlock}
                         </div>
                         {ovErr && <div className="pf-err" style={{ marginBottom: 12 }}>{ovErr}</div>}
-                        <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>
-                            Budget Password <span style={{ color: '#dc2626' }}>*</span>
+                        <div style={{ fontSize: 12.5, color: '#475569', marginBottom: 14, lineHeight: 1.55 }}>
+                            Approving this will exceed the budget. Confirm below to proceed — your reason is recorded against the approval log.
                         </div>
-                        <input
-                            type="password" autoComplete="new-password"
-                            className="pf-input"
-                            placeholder="Enter budget override password…"
-                            value={ovPassword}
-                            onChange={e => setOvPassword(e.target.value)}
-                            style={{ marginBottom: 14 }}
-                        />
                         <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>
                             Override Reason <span style={{ color: '#dc2626' }}>*</span>
                         </div>
                         <textarea
                             className="pf-input pf-textarea"
                             rows={3}
+                            autoFocus
                             placeholder="Explain why this approval should proceed over budget…"
                             value={ovReason}
                             onChange={e => setOvReason(e.target.value)}

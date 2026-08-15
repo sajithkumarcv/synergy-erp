@@ -69,7 +69,6 @@ const ApprovalHistoryTab = ({
     const [success,     setSuccess]     = useState('');
     const [budgetBlock, setBudgetBlock] = useState(null);   // budget-overrun message → opens override modal
     const [alertMsg, setAlertMsg] = useState(null);
-    const [ovPassword,  setOvPassword]  = useState('');
     const [ovReason,    setOvReason]    = useState('');
     const [ovErr,       setOvErr]       = useState('');
 
@@ -129,7 +128,6 @@ const ApprovalHistoryTab = ({
                     documentAmount,
                     currencyId,
                     submittedBy: currentUser,
-                    budgetPassword: override?.budgetPassword || null,
                     overrideReason: override?.overrideReason || null,
                 }),
             });
@@ -138,7 +136,7 @@ const ApprovalHistoryTab = ({
                 const msg = d.message || 'Submit failed.';
                 // First budget block (no override yet): open the override modal
                 if (!override && isBudgetBlock(msg)) {
-                    setBudgetBlock(msg); setOvPassword(''); setOvReason(''); setOvErr('');
+                    setBudgetBlock(msg); setOvReason(''); setOvErr('');
                 } else {
                     setError(msg);
                 }
@@ -155,10 +153,11 @@ const ApprovalHistoryTab = ({
         }
     };
 
+    // No budget password (removed 2026-08-15) — the typed reason is the override
+    // signal and is what gets recorded on the approval log.
     const confirmOverride = () => {
-        if (!ovPassword.trim()) { setOvErr('Budget password is required.'); return; }
-        if (!ovReason.trim())   { setOvErr('A reason is required.'); return; }
-        submitForApproval({ budgetPassword: ovPassword, overrideReason: ovReason.trim() });
+        if (!ovReason.trim()) { setOvErr('A reason is required.'); return; }
+        submitForApproval({ overrideReason: ovReason.trim() });
     };
 
     const handleActionDone = (result) => {
@@ -371,22 +370,13 @@ const ApprovalHistoryTab = ({
                             {budgetBlock}
                         </div>
                         <div style={{ fontSize: 12.5, color: '#475569', marginBottom: 14, lineHeight: 1.55 }}>
-                            Submitting will exceed the budget. Enter your <strong>budget password</strong> to authorise and record the override (logged with your reason).
-                        </div>
-                        <div style={{ marginBottom: 12 }}>
-                            <label style={{ fontSize: 11, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.04em' }}>
-                                Budget Password <span style={{ color: '#dc2626' }}>*</span>
-                            </label>
-                            <input type="password" autoComplete="new-password" value={ovPassword} autoFocus disabled={submitting}
-                                onChange={e => { setOvPassword(e.target.value); setOvErr(''); }}
-                                onKeyDown={e => { if (e.key === 'Enter') confirmOverride(); }}
-                                style={{ width: '100%', padding: '7px 10px', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }} />
+                            Submitting will exceed the budget. Confirm below to proceed — your reason is recorded against the approval log.
                         </div>
                         <div style={{ marginBottom: 14 }}>
                             <label style={{ fontSize: 11, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.04em' }}>
                                 Reason <span style={{ color: '#dc2626' }}>*</span>
                             </label>
-                            <textarea rows={2} value={ovReason} disabled={submitting}
+                            <textarea rows={2} value={ovReason} disabled={submitting} autoFocus
                                 onChange={e => { setOvReason(e.target.value); setOvErr(''); }}
                                 placeholder="Why is the overrun being authorised?"
                                 style={{ width: '100%', padding: '7px 10px', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 13, resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }} />

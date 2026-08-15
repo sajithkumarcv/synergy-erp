@@ -18,6 +18,7 @@ import CustomerDetailPage from './customer/CustomerDetailPage';
 import SupplierList       from './supplier/SupplierList';
 import SupplierDetailPage from './supplier/SupplierDetailPage';
 import { Job } from './jobs/Job';
+import JobTypeMultiSelect from './jobs/JobTypeMultiSelect';
 import JobDetailPage from './jobs/JobDetailPage';
 import JobBudgetPage from './jobs/JobBudgetPage';
 import JobOverview  from './jobs/JobOverview';
@@ -87,6 +88,7 @@ import Payables from './payables/Payables';
 import SupplierPayables from './payables/SupplierPayables';
 import MyApprovalsPage       from './approval/MyApprovalsPage';
 import ApprovalsAdminPage    from './approval/ApprovalsAdminPage';
+import PrPoApprovalsPage     from './procurement/PrPoApprovalsPage';
 import ApprovalPoliciesPage  from './approval/ApprovalPoliciesPage';
 import JobMom                from './mom/JobMom';
 import NotificationBell     from './common/NotificationBell';
@@ -373,6 +375,15 @@ const FilterPanel = () => {
                       value={values[key] || ''}
                       onChange={val => setFilter(page, key, val)}
                       placeholder={def.placeholder}
+                    />
+                  )}
+                  {def.type === 'chip-multiselect' && (
+                    <JobTypeMultiSelect
+                      options={def.options || []}
+                      value={values[key] || ''}
+                      onChange={val => setFilter(page, key, val)}
+                      placeholder={def.placeholder || `Select ${def.label}`}
+                      allLabel={def.allLabel || `All ${def.label}`}
                     />
                   )}
                 </div>
@@ -757,6 +768,7 @@ const Layout = () => {
             <Route path="/manhour-rate"               element={<ManhourRate />} />
             <Route path="/my-approvals"               element={<MyApprovalsPage />} />
             <Route path="/approvals-admin"            element={<ApprovalsAdminPage />} />
+            <Route path="/procurement/pr-po-approvals" element={<PrPoApprovalsPage />} />
             <Route path="/settings/approval-policies" element={<ApprovalPoliciesPage />} />
             <Route path="/user-management/menus"               element={<MenuManagement />} />
             {/* ── Reports ── */}

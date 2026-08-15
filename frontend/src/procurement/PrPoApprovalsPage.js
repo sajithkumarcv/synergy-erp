@@ -2,13 +2,46 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { variables, authHeaders } from '../Variable';
 import { useFilters } from '../FilterContext';
-import ApprovalHistoryTab from './ApprovalHistoryTab';
-import '../procurement/Procurement.css';
+import ApprovalHistoryTab from '../approval/ApprovalHistoryTab';
+import './Procurement.css';
+
+// Scoped variant of ApprovalsAdminPage.js — same data source (approval/all),
+// same visual pieces, but locked to PR + PO only and placed under
+// Procurement so buyers don't have to go through the all-modules admin
+// view (or open each PR/PO one at a time) just to see who's holding up
+// which document at which approval level.
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const PAGE_SIZES = [50, 100, 200, 500, 1000];
+const MODULE_CODES = 'PR,PO';   // fallback if the checkbox filter is somehow cleared to nothing
 
 const STATUSES = ['Pending', 'Approved', 'Rejected', 'Cancelled'];
+
+// Document's own lifecycle status per module (from TBL_DOCUMENT_STATUS,
+// ModuleName='PR'/'PO') — distinct from the approval-transaction STATUSES
+// above. PO has stages (Sent/Partial/Received/Hold) PR doesn't, and PR has
+// its own (Submitted/Ordered) PO doesn't; shared codes (Draft, Approved,
+// PendingApproval, Rejected, Cancelled, Closed, PendingL1-4) only listed
+// once. Colors come from the API response (documentStatusBg/Color), this
+// list is only used to populate the filter checkboxes.
+const DOCUMENT_STATUSES = [
+    { value: 'Draft',           label: 'Draft' },
+    { value: 'Submitted',       label: 'Submitted (PR)' },
+    { value: 'PendingApproval', label: 'Pending Approval' },
+    { value: 'PendingL1',       label: 'Pending Level 1' },
+    { value: 'PendingL2',       label: 'Pending Level 2' },
+    { value: 'PendingL3',       label: 'Pending Level 3' },
+    { value: 'PendingL4',       label: 'Pending Level 4' },
+    { value: 'Approved',        label: 'Approved' },
+    { value: 'Sent',            label: 'Sent (PO)' },
+    { value: 'Partial',         label: 'Partial' },
+    { value: 'Received',        label: 'Received (PO)' },
+    { value: 'Hold',            label: 'Hold (PO)' },
+    { value: 'Ordered',         label: 'Ordered (PR)' },
+    { value: 'Closed',          label: 'Closed' },
+    { value: 'Rejected',        label: 'Rejected' },
+    { value: 'Cancelled',       label: 'Cancelled' },
+];
 
 const STATUS_CFG = {
     Pending:   { bg: '#fef3c7', color: '#92400e', dot: '#f59e0b', label: 'Pending'   },
@@ -17,49 +50,25 @@ const STATUS_CFG = {
     Cancelled: { bg: '#f1f5f9', color: '#475569', dot: '#94a3b8', label: 'Cancelled' },
 };
 
-const MODULES = [
-    { code: 'PR',  label: 'Purchase Requests', icon: '🛒', color: '#1e40af' },
-    { code: 'PO',  label: 'Purchase Orders',   icon: '📦', color: '#065f46' },
-    { code: 'INV', label: 'Invoices',          icon: '🧾', color: '#4c1d95' },
-    { code: 'JOB', label: 'Jobs',              icon: '🔧', color: '#7c2d12' },
-    { code: 'BOM', label: 'BOMs',              icon: '📋', color: '#0f766e' },
-    { code: 'MH',  label: 'Manhour Sheets',    icon: '⏱', color: '#9a3412' },
-    { code: 'ADJ', label: 'Stock Adjustments', icon: '⚖',  color: '#7c3aed' },
-    { code: 'SRV', label: 'Service Receipts',  icon: '🔧', color: '#0369a1' },
-    { code: 'IRN', label: 'Issue Returns',     icon: '↩',  color: '#9d174d' },
-    { code: 'RV',  label: 'Receipt Vouchers',  icon: '💵', color: '#166534' },
-    { code: 'PV',  label: 'Payment Vouchers',  icon: '💳', color: '#1e40af' },
-    { code: 'CN',  label: 'Credit Notes',      icon: '➖', color: '#6d28d9' },
-    { code: 'DN',  label: 'Debit Notes',       icon: '➕', color: '#b91c1c' },
-];
-
-const MODULE_ROUTES = {
-    PR:  id => `/purchase-requests/${id}`,
-    PO:  id => `/purchase-orders/${id}`,
-    INV: id => `/invoices/${id}`,
-    JOB: id => `/jobs/${id}`,
-    BOM: id => `/bom/${id}`,
-    MH:  id => `/manhour/${id}`,
-    ADJ: id => `/inventory-adjustment/${id}`,
-    SRV: id => `/service-receipts/${id}`,
-    IRN: id => `/inventory-issue-return/${id}`,
-    RV:  id => `/receipt-vouchers/${id}`,
-    PV:  id => `/payment-vouchers/${id}`,
-    CN:  id => `/credit-notes/${id}`,
-    DN:  id => `/debit-notes/${id}`,
+const MODULES = {
+    PR: { label: 'Purchase Request', icon: '🛒', color: '#1e40af' },
+    PO: { label: 'Purchase Order',   icon: '📦', color: '#065f46' },
 };
 
-const moduleMeta = code => MODULES.find(m => m.code === code)
-    || { code, label: code, icon: '📄', color: '#475569' };
+const MODULE_ROUTES = {
+    PR: id => `/purchase-requests/${id}`,
+    PO: id => `/purchase-orders/${id}`,
+};
 
 const DEFAULT_FILTERS = {
-    searchText:    '',
-    status:        '',   // comma-joined multiselect
-    moduleCode:    '',   // comma-joined multiselect
-    submittedBy:   '',
-    finalActionBy: '',
-    dateFrom:      '',
-    dateTo:        '',
+    searchText:     '',
+    moduleCode:     MODULE_CODES,   // both PR and PO checked by default
+    status:         'Pending',   // only pending-approval PR/PO shown by default
+    documentStatus: '',   // comma-joined multiselect (PO stage / PR status)
+    submittedBy:    '',
+    finalActionBy:  '',
+    dateFrom:       '',
+    dateTo:         '',
 };
 
 // ── Formatters ────────────────────────────────────────────────────────────────
@@ -90,7 +99,7 @@ const StatusBadge = ({ status }) => {
 };
 
 const ModuleBadge = ({ code }) => {
-    const m = moduleMeta(code);
+    const m = MODULES[code] || { label: code, icon: '📄', color: '#475569' };
     return (
         <span style={{
             display: 'inline-flex', alignItems: 'center', gap: 4,
@@ -128,17 +137,12 @@ const SortIcon = ({ col, sortCol, sortDir }) =>
 // ── History drawer ─────────────────────────────────────────────────────────────
 const HistoryDrawer = ({ row, onClose, onNavigate }) => (
     <>
-        {/* Backdrop */}
-        <div onClick={onClose} style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,.35)', zIndex: 1000,
-        }} />
-        {/* Panel */}
+        <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.35)', zIndex: 1000 }} />
         <div style={{
             position: 'fixed', top: 0, right: 0, bottom: 0, width: 560, maxWidth: '95vw',
             background: '#fff', boxShadow: '-4px 0 24px rgba(0,0,0,.18)',
             zIndex: 1001, display: 'flex', flexDirection: 'column',
         }}>
-            {/* Drawer header */}
             <div style={{
                 padding: '16px 20px', borderBottom: '1px solid #e2e8f0',
                 display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexShrink: 0,
@@ -153,7 +157,7 @@ const HistoryDrawer = ({ row, onClose, onNavigate }) => (
                     </div>
                     {row.documentAmount != null && (
                         <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
-                            Amount: <strong>AED {fmt(row.documentAmount)}</strong>
+                            Amount: <strong>{fmt(row.documentAmount)}</strong>
                             &nbsp;·&nbsp;Submitted by <strong>{row.submittedBy}</strong>
                         </div>
                     )}
@@ -174,7 +178,6 @@ const HistoryDrawer = ({ row, onClose, onNavigate }) => (
                     }}>×</button>
                 </div>
             </div>
-            {/* Drawer body — reuse the existing ApprovalHistoryTab */}
             <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }}>
                 <ApprovalHistoryTab
                     moduleCode={row.moduleCode}
@@ -188,7 +191,7 @@ const HistoryDrawer = ({ row, onClose, onNavigate }) => (
 );
 
 // ── Main page ─────────────────────────────────────────────────────────────────
-const ApprovalsAdminPage = () => {
+const PrPoApprovalsPage = () => {
     const navigate = useNavigate();
     const { registerFilters, unregisterFilters } = useFilters();
 
@@ -201,30 +204,30 @@ const ApprovalsAdminPage = () => {
     const [sortCol,     setSortCol]    = useState('SubmittedDate');
     const [sortDir,     setSortDir]    = useState('DESC');
     const [applied,     setApplied]    = useState({ ...DEFAULT_FILTERS });
-    const [selectedRow, setSelectedRow]= useState(null);   // row whose history drawer is open
+    const [selectedRow, setSelectedRow]= useState(null);
 
-    // Close drawer on Escape
     useEffect(() => {
         const handler = e => { if (e.key === 'Escape') setSelectedRow(null); };
         document.addEventListener('keydown', handler);
         return () => document.removeEventListener('keydown', handler);
     }, []);
 
-    // Keep latest grid state accessible inside callbacks without re-creating them
     const gridRef = useRef({ page: 1, pageSize: 200, sortCol: 'SubmittedDate', sortDir: 'DESC', applied: DEFAULT_FILTERS });
     useEffect(() => { gridRef.current = { page, pageSize, sortCol, sortDir, applied }; }, [page, pageSize, sortCol, sortDir, applied]);
 
-    // ── Fetch ─────────────────────────────────────────────────────────────
+    // ── Fetch — moduleCode is checkbox-driven, but always falls back to
+    // both PR+PO if somehow cleared to nothing (this page has no reason to
+    // ever show zero modules) ──
     const load = useCallback((pg, ps, sc, sd, af) => {
         setLoading(true);
-        const q = new URLSearchParams({ page: pg, pageSize: ps, sortCol: sc, sortDir: sd });
-        if (af.searchText)    q.set('searchText',    af.searchText);
-        if (af.status)        q.set('status',        af.status);
-        if (af.moduleCode)    q.set('moduleCode',    af.moduleCode);
-        if (af.submittedBy)   q.set('submittedBy',   af.submittedBy);
-        if (af.finalActionBy) q.set('finalActionBy', af.finalActionBy);
-        if (af.dateFrom)      q.set('dateFrom',      af.dateFrom);
-        if (af.dateTo)        q.set('dateTo',        af.dateTo);
+        const q = new URLSearchParams({ page: pg, pageSize: ps, sortCol: sc, sortDir: sd, moduleCode: af.moduleCode || MODULE_CODES });
+        if (af.searchText)     q.set('searchText',     af.searchText);
+        if (af.status)         q.set('status',         af.status);
+        if (af.documentStatus) q.set('documentStatus', af.documentStatus);
+        if (af.submittedBy)    q.set('submittedBy',    af.submittedBy);
+        if (af.finalActionBy)  q.set('finalActionBy',  af.finalActionBy);
+        if (af.dateFrom)       q.set('dateFrom',       af.dateFrom);
+        if (af.dateTo)         q.set('dateTo',         af.dateTo);
         fetch(`${variables.API_URL}approval/all?${q}`, { headers: authHeaders() })
             .then(r => r.json())
             .then(d => {
@@ -236,18 +239,20 @@ const ApprovalsAdminPage = () => {
             .finally(() => setLoading(false));
     }, []);
 
-    useEffect(() => { load(1, 50, 'SubmittedDate', 'DESC', DEFAULT_FILTERS); }, [load]);
+    useEffect(() => { load(1, 200, 'SubmittedDate', 'DESC', DEFAULT_FILTERS); }, [load]);
 
-    // ── Filter panel registration ─────────────────────────────────────────
+    // ── Filter panel registration ──────────────────────────────────────────
     useEffect(() => {
         const defs = {
-            searchText:    { label: 'Search',        type: 'text', placeholder: 'Doc no…' },
-            status:        { label: 'Status',        type: 'multiselect', options: STATUSES.map(s => ({ value: s, label: s })) },
-            moduleCode:    { label: 'Module',        type: 'multiselect', options: MODULES.map(m => ({ value: m.code, label: `${m.icon} ${m.label}` })) },
-            submittedBy:   { label: 'Submitted By',  type: 'text', placeholder: 'Username…' },
-            finalActionBy: { label: 'Approved By',   type: 'text', placeholder: 'Username…' },
-            dateFrom:      { label: 'Submitted From', type: 'date' },
-            dateTo:        { label: 'Submitted To',   type: 'date' },
+            searchText:     { label: 'Search',          type: 'text', placeholder: 'PR/PO no…' },
+            moduleCode:     { label: 'Document Type',   type: 'multiselect',
+                              options: [{ value: 'PR', label: '🛒 Purchase Requests' }, { value: 'PO', label: '📦 Purchase Orders' }] },
+            status:         { label: 'Approval Status', type: 'multiselect', options: STATUSES.map(s => ({ value: s, label: s })) },
+            documentStatus: { label: 'Document Stage',  type: 'multiselect', options: DOCUMENT_STATUSES },
+            submittedBy:    { label: 'Submitted By',    type: 'text', placeholder: 'Username…' },
+            finalActionBy:  { label: 'Approved By',     type: 'text', placeholder: 'Username…' },
+            dateFrom:       { label: 'Submitted From',  type: 'date' },
+            dateTo:         { label: 'Submitted To',    type: 'date' },
         };
         const onApply = (vals) => {
             const { pageSize: ps, sortCol: sc, sortDir: sd } = gridRef.current;
@@ -255,18 +260,16 @@ const ApprovalsAdminPage = () => {
             setPage(1);
             load(1, ps, sc, sd, vals);
         };
-        registerFilters('approvals-admin', defs, DEFAULT_FILTERS, onApply);
-        return () => unregisterFilters('approvals-admin');
+        registerFilters('pr-po-approvals', defs, DEFAULT_FILTERS, onApply);
+        return () => unregisterFilters('pr-po-approvals');
     }, []); // eslint-disable-line
 
-    // ── Sort ──────────────────────────────────────────────────────────────
     const handleSort = (col) => {
         const dir = sortCol === col && sortDir === 'ASC' ? 'DESC' : 'ASC';
         setSortCol(col); setSortDir(dir); setPage(1);
         load(1, pageSize, col, dir, applied);
     };
 
-    // ── Pagination ────────────────────────────────────────────────────────
     const goPage = (pg) => {
         const p = Math.max(1, Math.min(pg, totalPages));
         setPage(p);
@@ -285,11 +288,12 @@ const ApprovalsAdminPage = () => {
         return Array.from({ length: end - start + 1 }, (_, i) => start + i);
     };
 
-    // ── KPI summary from current page data ───────────────────────────────
     const statusCounts = rows.reduce((acc, r) => {
         acc[r.currentStatus] = (acc[r.currentStatus] || 0) + 1;
         return acc;
     }, {});
+    const prCount = rows.filter(r => r.moduleCode === 'PR').length;
+    const poCount = rows.filter(r => r.moduleCode === 'PO').length;
 
     const Th = ({ col, children, right }) => (
         <th className="po-th-sortable" onClick={() => handleSort(col)}
@@ -306,13 +310,12 @@ const ApprovalsAdminPage = () => {
         <div className="po-page">
             <div className="po-grid-wrap">
 
-                {/* ── Header ── */}
                 <div className="po-grid-header">
                     <div className="po-title-row">
                         <div>
-                            <div className="po-page-title">Approvals — Admin View</div>
+                            <div className="po-page-title">PR &amp; PO Approvals</div>
                             <div className="po-page-sub">
-                                {loading ? 'Loading…' : `${totalRows.toLocaleString()} record${totalRows !== 1 ? 's' : ''}`}
+                                {loading ? 'Loading…' : `${totalRows.toLocaleString()} record${totalRows !== 1 ? 's' : ''} — ${prCount} PR, ${poCount} PO on this page`}
                             </div>
                         </div>
                         <div className="po-toolbar">
@@ -323,7 +326,6 @@ const ApprovalsAdminPage = () => {
                         </div>
                     </div>
 
-                    {/* Status KPI chips */}
                     {!loading && totalRows > 0 && (
                         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 14 }}>
                             {STATUSES.map(s => {
@@ -351,7 +353,6 @@ const ApprovalsAdminPage = () => {
                     )}
                 </div>
 
-                {/* ── Table ── */}
                 <div className="po-table-wrap">
                     {loading && (
                         <div className="po-loading-overlay">
@@ -367,13 +368,14 @@ const ApprovalsAdminPage = () => {
                             <tr>
                                 <Th col="DocumentNo">Document</Th>
                                 <th>Module</th>
-                                <Th col="CurrentStatus">Status</Th>
+                                <Th col="CurrentStatus">Approval Status</Th>
+                                <th>Stage</th>
                                 <th>Level</th>
                                 <th>Waiting On</th>
                                 <Th col="DocumentAmount" right>Amount</Th>
                                 <th>Submitted By</th>
                                 <Th col="SubmittedDate">Submitted</Th>
-                                        <Th col="DaysElapsed" right>Days</Th>
+                                <Th col="DaysElapsed" right>Days</Th>
                                 <th>Final Action</th>
                                 <th>Completed</th>
                             </tr>
@@ -381,8 +383,8 @@ const ApprovalsAdminPage = () => {
                         <tbody>
                             {rows.length === 0 && !loading ? (
                                 <tr>
-                                    <td colSpan={11} className="po-empty">
-                                        No approval transactions match the current filters.
+                                    <td colSpan={12} className="po-empty">
+                                        No PR/PO approval transactions match the current filters.
                                     </td>
                                 </tr>
                             ) : rows.map((r, i) => {
@@ -397,35 +399,37 @@ const ApprovalsAdminPage = () => {
                                             outline: isSelected ? '2px solid #3b82f6' : 'none',
                                             outlineOffset: -2,
                                         }}>
-
-                                        {/* Document No */}
                                         <td style={{ padding: '9px 12px' }}>
                                             <span style={{ fontWeight: 700, color: '#1e40af', fontSize: 13, fontFamily: 'monospace' }}>
                                                 {r.documentNo}
                                             </span>
                                         </td>
-
-                                        {/* Module */}
                                         <td style={{ padding: '9px 12px' }}>
                                             <ModuleBadge code={r.moduleCode} />
                                         </td>
-
-                                        {/* Status */}
                                         <td style={{ padding: '9px 12px' }}>
                                             <StatusBadge status={r.currentStatus} />
                                         </td>
-
-                                        {/* Level pips */}
+                                        <td style={{ padding: '9px 12px' }}>
+                                            {r.documentStatusLabel
+                                                ? <span style={{
+                                                    display: 'inline-block', padding: '3px 9px', borderRadius: 20,
+                                                    fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap',
+                                                    background: r.documentStatusBg || '#f1f5f9',
+                                                    color: r.documentStatusColor || '#475569',
+                                                  }}>{r.documentStatusLabel}</span>
+                                                : <span style={{ color: '#94a3b8', fontSize: 11 }}>—</span>}
+                                        </td>
                                         <td style={{ padding: '9px 12px' }}>
                                             <LevelPips current={r.currentLevelNo} total={r.totalLevels} />
                                         </td>
-
-                                        {/* Current approver — Procurement.css sets `white-space: nowrap` on
-                                            every .po-table td, so the chip cannot wrap; maxWidth on the <td>
-                                            alone does not clip it (no overflow:hidden), letting a long
-                                            resolved approver list overflow into Amount / Submitted By.
-                                            Fixed-width inner div + overflow:hidden + ellipsis clips it;
-                                            the full list stays available via the title tooltip. */}
+                                        {/* Procurement.css sets `white-space: nowrap` on every .po-table td, so
+                                            the chip cannot wrap; maxWidth on the <td> alone does not clip it
+                                            (no overflow:hidden), and a long resolved approver list
+                                            ("Dhanish, Pandurang D Chaudhary, Ujwal Ramdas Chaudhari, …")
+                                            measured 447px inside a 194px cell and overlapped Amount /
+                                            Submitted By. Fixed-width inner div + overflow:hidden + ellipsis
+                                            clips it instead; full list stays available via the title tooltip. */}
                                         <td style={{ padding: '9px 12px', fontSize: 11.5, color: isPending ? '#92400e' : '#94a3b8' }}>
                                             {isPending && r.currentApprover
                                                 ? <div title={r.currentApprover} style={{
@@ -438,23 +442,15 @@ const ApprovalsAdminPage = () => {
                                                 : <span style={{ color: '#94a3b8' }}>—</span>
                                             }
                                         </td>
-
-                                        {/* Amount */}
                                         <td className="po-num-cell" style={{ padding: '9px 12px', fontWeight: 600 }}>
                                             {r.documentAmount != null ? fmt(r.documentAmount) : '—'}
                                         </td>
-
-                                        {/* Submitted By */}
                                         <td style={{ padding: '9px 12px', fontSize: 12, color: '#475569' }}>
                                             {r.submittedBy || '—'}
                                         </td>
-
-                                        {/* Submitted Date */}
                                         <td style={{ padding: '9px 12px', fontSize: 11.5, color: '#64748b', whiteSpace: 'nowrap' }}>
                                             {fmtDateTime(r.submittedDate)}
                                         </td>
-
-                                        {/* Days elapsed */}
                                         <td style={{ padding: '9px 12px', textAlign: 'right' }}>
                                             {r.daysElapsed != null
                                                 ? <span style={{
@@ -465,8 +461,6 @@ const ApprovalsAdminPage = () => {
                                                   }}>{r.daysElapsed}d</span>
                                                 : '—'}
                                         </td>
-
-                                        {/* Final Action */}
                                         <td style={{ padding: '9px 12px', fontSize: 11.5 }}>
                                             {r.finalAction ? (
                                                 <div>
@@ -492,8 +486,6 @@ const ApprovalsAdminPage = () => {
                                                 <span style={{ color: '#94a3b8' }}>—</span>
                                             )}
                                         </td>
-
-                                        {/* Completed Date */}
                                         <td style={{ padding: '9px 12px', fontSize: 11.5, color: '#64748b', whiteSpace: 'nowrap' }}>
                                             {fmtDate(r.completedDate)}
                                         </td>
@@ -504,7 +496,6 @@ const ApprovalsAdminPage = () => {
                     </table>
                 </div>
 
-                {/* ── Pagination ── */}
                 {totalPages > 1 && (
                     <div className="po-pagination">
                         <div className="po-page-info">
@@ -527,7 +518,6 @@ const ApprovalsAdminPage = () => {
             </div>
         </div>
 
-        {/* ── History drawer ── */}
         {selectedRow && (
             <HistoryDrawer
                 row={selectedRow}
@@ -542,4 +532,4 @@ const ApprovalsAdminPage = () => {
     );
 };
 
-export default ApprovalsAdminPage;
+export default PrPoApprovalsPage;

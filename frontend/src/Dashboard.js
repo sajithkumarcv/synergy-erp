@@ -511,7 +511,8 @@ const Dashboard = () => {
             {/* ── TOP KPI STRIP ── */}
             <div className="db-kpi-strip">
                 {[
-                    { key: 'activeJobs',      label: 'Active Jobs',      icon: '🏗',  val: fmtN(kpis?.activeJobs),       accent: '#16a34a', soft: '#dcfce7', route: '/jobs',              filters: { jobStatusIds: '1' } },
+                    { key: 'activeJobs',      label: 'Active Jobs',      icon: '🏗',  val: fmtN(kpis?.activeJobs),       accent: '#16a34a', soft: '#dcfce7', route: '/jobs',              filters: { jobStatusIds: '1' },
+                      sub: kpis?.activeJobsInHouse > 0 ? `+${fmtN(kpis.activeJobsInHouse)} In House Jobs` : null },
                     { key: 'openPRs',         label: 'Open PRs',         icon: '📝',  val: fmtN(kpis?.openPRs),          accent: '#2563eb', soft: '#dbeafe', route: '/purchase-requests', filters: () => ({ status: openPrStatuses() }) },
                     { key: 'openPOs',         label: 'Open POs',         icon: '📦',  val: fmtN(kpis?.openPOs),          accent: '#059669', soft: '#d1fae5', route: '/purchase-orders',   filters: () => ({ status: openPoStatuses() }) },
                     { key: 'pendingApprovals',label: 'Pending Approvals',icon: '⏳',  val: fmtN(kpis?.pendingApprovals), accent: '#d97706', soft: '#fef3c7', route: '/my-approvals' },
@@ -526,6 +527,7 @@ const Dashboard = () => {
                         </div>
                         <div className="db-kpi-val" style={{ color: k.accent }}>{k.val}</div>
                         <div className="db-kpi-label">{k.label}</div>
+                        {k.sub && <div style={{ fontSize: 10.5, color: '#94a3b8', marginTop: 2 }}>{k.sub}</div>}
                     </div>
                 ))}
             </div>

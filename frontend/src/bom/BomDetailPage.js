@@ -1010,6 +1010,13 @@ const BomDetailPage = () => {
     const [filterStatus,   setFilterStatus]   = useState('');   // status key or '_balance'
     const [filterSection,  setFilterSection]  = useState('');   // bomSectionId string
     const [filterCritical, setFilterCritical] = useState(false);
+    // Same "only headers with entries" default used on the Job Budget and
+    // Job Overview pages — a job type's full section list (~28 on this
+    // fork's data) is mostly untouched for any given BOM, so default to
+    // just the sections that actually have line items. Independent of the
+    // search-style filters above (searchText/status/section/critical) —
+    // not reset by "Clear all", same convention as the other 3 pages.
+    const [onlyWithEntries, setOnlyWithEntries] = useState(true);
 
     const clearFilters = () => { setFilterText(''); setFilterStatus(''); setFilterSection(''); setFilterCritical(false); };
 
@@ -1154,6 +1161,14 @@ const BomDetailPage = () => {
             })
             .filter(sec => sec.lines.length > 0);
     }, [groupedSections, filterText, filterStatus, filterSection, filterCritical, isFiltering]);
+
+    // Applies on top of whichever base list is active (filtered or not) —
+    // independent of isFiltering so it works the same whether or not a
+    // search/status/section/critical filter is also active.
+    const visibleSections = React.useMemo(() => {
+        const base = isFiltering ? filteredGroupedSections : groupedSections;
+        return onlyWithEntries ? base.filter(sec => sec.lines.length > 0) : base;
+    }, [isFiltering, filteredGroupedSections, groupedSections, onlyWithEntries]);
 
     const totalMatched = isFiltering
         ? filteredGroupedSections.reduce((s, sec) => s + sec.lines.length, 0)
@@ -1463,6 +1478,15 @@ const BomDetailPage = () => {
                                     ⚑ Critical only
                                 </label>
 
+                                {/* Only sections with entries */}
+                                <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12,
+                                                cursor: 'pointer', color: onlyWithEntries ? '#1e40af' : '#64748b',
+                                                fontWeight: onlyWithEntries ? 700 : 400 }}>
+                                    <input type="checkbox" checked={onlyWithEntries}
+                                        onChange={e => setOnlyWithEntries(e.target.checked)} />
+                                    Only sections with entries
+                                </label>
+
                                 {/* Match count + clear */}
                                 {isFiltering && (
                                     <>
@@ -1482,7 +1506,7 @@ const BomDetailPage = () => {
                         )}
 
                         {/* ── Section groups ── */}
-                        {(isFiltering ? filteredGroupedSections : groupedSections).map(sec => (
+                        {visibleSections.map(sec => (
                             <SectionGroup
                                 key={sec.bomSectionId}
                                 bomSectionId={sec.bomSectionId}
@@ -1524,6 +1548,20 @@ const BomDetailPage = () => {
                                 <div className="inv-empty-icon">📋</div>
                                 <div className="inv-empty-title">No sections loaded</div>
                                 <div className="inv-empty-sub">Sections are driven by the job type master data.</div>
+                            </div>
+                        )}
+
+                        {!isFiltering && groupedSections.length > 0 && visibleSections.length === 0 && (
+                            <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94a3b8' }}>
+                                <div style={{ fontSize: 32, marginBottom: 10 }}>📋</div>
+                                <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4, color: '#64748b' }}>No sections have any line items yet</div>
+                                <div style={{ fontSize: 12 }}>
+                                    <button onClick={() => setOnlyWithEntries(false)}
+                                        style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer',
+                                                 fontSize: 12, padding: 0, textDecoration: 'underline' }}>
+                                        Show all {groupedSections.length} sections
+                                    </button>
+                                </div>
                             </div>
                         )}
                     </div>

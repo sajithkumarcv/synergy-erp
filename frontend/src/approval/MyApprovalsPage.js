@@ -10,14 +10,14 @@ import DocPreviewDrawer from './DocPreviewDrawer';
 import '../procurement/Procurement.css';
 
 // ── Budget-override modal — authorise approving past a budget ceiling ──────
+// No budget password (removed 2026-08-15) — the typed reason is the override
+// signal and is what gets recorded on the approval log.
 const BudgetOverrideModal = ({ info, busy, onConfirm, onCancel }) => {
-    const [password, setPassword] = useState('');
     const [reason,   setReason]   = useState('');
     const [err,      setErr]      = useState('');
     const submit = () => {
-        if (!password.trim()) { setErr('Budget password is required.'); return; }
-        if (!reason.trim())   { setErr('A reason is required.'); return; }
-        onConfirm({ budgetPassword: password, overrideReason: reason.trim() });
+        if (!reason.trim()) { setErr('A reason is required.'); return; }
+        onConfirm({ overrideReason: reason.trim() });
     };
     return ReactDOM.createPortal(
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
@@ -29,22 +29,13 @@ const BudgetOverrideModal = ({ info, busy, onConfirm, onCancel }) => {
                     {info.message}
                 </div>
                 <div style={{ fontSize: 12.5, color: '#475569', marginBottom: 14, lineHeight: 1.55 }}>
-                    Approving this will exceed the budget. Enter your <strong>budget password</strong> to authorise and record the override (logged with your reason).
-                </div>
-                <div style={{ marginBottom: 12 }}>
-                    <label style={{ fontSize: 11, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.04em' }}>
-                        Budget Password <span style={{ color: '#dc2626' }}>*</span>
-                    </label>
-                    <input type="password" autoComplete="new-password" value={password} autoFocus disabled={busy}
-                        onChange={e => { setPassword(e.target.value); setErr(''); }}
-                        onKeyDown={e => { if (e.key === 'Enter') submit(); }}
-                        style={{ width: '100%', padding: '7px 10px', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }} />
+                    Approving this will exceed the budget. Confirm below to proceed — your reason is recorded against the approval log.
                 </div>
                 <div style={{ marginBottom: 14 }}>
                     <label style={{ fontSize: 11, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.04em' }}>
                         Reason <span style={{ color: '#dc2626' }}>*</span>
                     </label>
-                    <textarea rows={2} value={reason} disabled={busy}
+                    <textarea rows={2} value={reason} disabled={busy} autoFocus
                         onChange={e => { setReason(e.target.value); setErr(''); }}
                         placeholder="Why is the overrun being authorised?"
                         style={{ width: '100%', padding: '7px 10px', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 13, resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }} />
@@ -690,7 +681,7 @@ const MyApprovalsPage = () => {
     const isBudgetBlock = (msg) => !!msg && /budget/i.test(msg) && /(exceed|over\s*by)/i.test(msg);
 
     // ── Single action (used by individual rows) ──────────────────
-    // `override` = { budgetPassword, overrideReason } when re-trying past a budget block
+    // `override` = { overrideReason } when re-trying past a budget block
     const doAction = async (item, action, remarks, override = null, skipRejectGuard = false, loginPassword = null) => {
         if (action === 'Reject' && !remarks?.trim() && !skipRejectGuard) {
             setConfirm({
@@ -713,7 +704,6 @@ const MyApprovalsPage = () => {
                     actionByName:   currentUser,
                     remarks:        remarks?.trim() || null,
                     loginPassword:  action === 'Approve' ? (loginPassword || null) : null,
-                    budgetPassword: override?.budgetPassword || null,
                     overrideReason: override?.overrideReason || null,
                 }),
             });

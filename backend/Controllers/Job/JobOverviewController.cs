@@ -35,6 +35,7 @@ namespace ERPWEB.Controllers.Job
         [HttpGet("jobs")]
         public async Task<IActionResult> GetJobs(
             [FromQuery] string? jobTypeId  = null,
+            [FromQuery] string? jobTypeIds = null,
             [FromQuery] int?    statusId   = null,
             [FromQuery] int?    customerId = null,
             [FromQuery] string? searchText = null)
@@ -46,6 +47,7 @@ namespace ERPWEB.Controllers.Job
                     new
                     {
                         JobTypeId  = string.IsNullOrWhiteSpace(jobTypeId) ? null : jobTypeId,
+                        JobTypeIds = string.IsNullOrWhiteSpace(jobTypeIds) ? null : jobTypeIds.Trim(),
                         StatusId   = statusId,
                         CustomerId = customerId,
                         SearchText = string.IsNullOrWhiteSpace(searchText) ? null : searchText.Trim()

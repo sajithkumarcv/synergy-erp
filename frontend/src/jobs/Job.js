@@ -706,16 +706,6 @@ export const Job = () => {
   const gridRef = useRef({ pageSize: 200, sortCol: 'JobTypeName', sortDir: 'ASC', applied: DEFAULT_FILTERS });
   useEffect(() => { gridRef.current = { pageSize, sortCol, sortDir, applied }; }, [pageSize, sortCol, sortDir, applied]);
 
-  useEffect(() => {
-    const h = authHeaders();
-    fetch(`${variables.API_URL}job/types`,  { headers: h }).then(r => r.json()).then(d => setJobTypes(Array.isArray(d)  ? d : [])).catch(console.error);
-    fetch(`${variables.API_URL}job/stages`, { headers: h }).then(r => r.json()).then(d => setJobStages(Array.isArray(d) ? d : [])).catch(console.error);
-    fetch(`${variables.API_URL}customer/search?pageSize=500&page=1&sortCol=CustomerName&sortDir=ASC`, { headers: h })
-      .then(r => r.ok ? r.json() : { data: [] })
-      .then(d => setCustomers(d.data || []))
-      .catch(console.error);
-  }, []);
-
   const load = useCallback((pg, ps, sc, sd, af) => {
     setLoading(true);
     const q = new URLSearchParams({ page: pg, pageSize: ps, sortCol: sc, sortDir: sd });
@@ -732,25 +722,75 @@ export const Job = () => {
       .catch(console.error).finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { load(1, pageSize, sortCol, sortDir, initialFilters); }, [load]); // eslint-disable-line
+  // Job Type stays in the sidebar FilterPanel — just rendered with the
+  // chip/dropdown widget (type: 'chip-multiselect', see Layout.js) instead
+  // of the plain always-expanded checkbox list every other multiselect here
+  // uses. Same registerFilters/onApply plumbing as any other sidebar field.
+  const onApply = useCallback((vals) => {
+    const { pageSize: ps, sortCol: sc, sortDir: sd } = gridRef.current;
+    setApplied({ ...vals }); setPage(1);
+    load(1, ps, sc, sd, vals);
+  }, [load]);
+
+  const jobFilterDefs = useCallback((typeOptions, stageOptions, customerOptions) => ({
+    searchText:   { label: 'Search',    type: 'text',        placeholder: 'Job ID, customer, project…' },
+    customerId:   { label: 'Customer',  type: 'select',      placeholder: 'All Customers', options: customerOptions },
+    jobTypeIds:   { label: 'Job Type',  type: 'chip-multiselect', options: typeOptions },
+    jobStatusIds: { label: 'Status',    type: 'multiselect',
+                    options: Object.entries(STATUS_MAP).map(([k, v]) => ({ value: k, label: v.label })) },
+    jobStageId:   { label: 'Stage',     type: 'select',      placeholder: 'All Stages',    options: stageOptions },
+    dateFrom:     { label: 'Date From', type: 'date' },
+    dateTo:       { label: 'Date To',   type: 'date' },
+  }), []);
+
+  useEffect(() => {
+    const h = authHeaders();
+    // The very first grid load has to wait for job/types before it can know
+    // whether to apply the "exclude In House Jobs" default — firing an
+    // unconditioned load in parallel (the old approach) races this one and
+    // wins whenever it happens to resolve second, silently discarding the
+    // default. So there is exactly ONE initial load, triggered from here,
+    // either with the computed default or (if job/types itself fails) a
+    // plain fallback so the page still isn't stuck empty.
+    fetch(`${variables.API_URL}job/types`,  { headers: h }).then(r => r.json()).then(d => {
+      const list = Array.isArray(d) ? d : [];
+      setJobTypes(list);
+      // Default the Job Type filter to everything except In House Jobs on a
+      // plain page load — only when nothing already specified a Job Type
+      // (e.g. a dashboard tile's initialFilters, which must win untouched).
+      // In-house jobs are a distinct, high-volume workflow most people
+      // browsing this list aren't looking for by default.
+      let vals = initialFilters;
+      if (!initialFilters.jobTypeIds) {
+        const ids = list.filter(t => t.jobTypeId !== 'IH').map(t => t.jobTypeId).join(',');
+        if (ids) {
+          vals = { ...initialFilters, jobTypeIds: ids };
+          // Re-register with the computed default so FilterContext's
+          // applied[page] (not just the pending filterValues) reflects it —
+          // a plain setFilter() call only patches the pending value and
+          // leaves applied[page] stale, which breaks the panel's "Clear"
+          // link (activeCount reads 0 even with Job Type filtered).
+          registerFilters('job', jobFilterDefs(
+            list.map(t => ({ value: t.jobTypeId, label: t.jobTypeName })), [], []
+          ), vals, onApply);
+        }
+      }
+      setApplied(vals); setPage(1);
+      load(1, gridRef.current.pageSize, gridRef.current.sortCol, gridRef.current.sortDir, vals);
+    }).catch(err => {
+      console.error(err);
+      load(1, gridRef.current.pageSize, gridRef.current.sortCol, gridRef.current.sortDir, initialFilters);
+    });
+    fetch(`${variables.API_URL}job/stages`, { headers: h }).then(r => r.json()).then(d => setJobStages(Array.isArray(d) ? d : [])).catch(console.error);
+    fetch(`${variables.API_URL}customer/search?pageSize=500&page=1&sortCol=CustomerName&sortDir=ASC`, { headers: h })
+      .then(r => r.ok ? r.json() : { data: [] })
+      .then(d => setCustomers(d.data || []))
+      .catch(console.error);
+  }, []); // eslint-disable-line
 
   // Mount-only: register with empty options to avoid re-render loop
   useEffect(() => {
-    const onApply = (vals) => {
-      const { pageSize: ps, sortCol: sc, sortDir: sd } = gridRef.current;
-      setApplied({ ...vals }); setPage(1);
-      load(1, ps, sc, sd, vals);
-    };
-    registerFilters('job', {
-      searchText:   { label: 'Search',    type: 'text',        placeholder: 'Job ID, customer, project…' },
-      customerId:   { label: 'Customer',  type: 'select',      placeholder: 'All Customers', options: [] },
-      jobTypeIds:   { label: 'Job Type',  type: 'multiselect', options: [] },
-      jobStatusIds: { label: 'Status',    type: 'multiselect',
-                      options: Object.entries(STATUS_MAP).map(([k, v]) => ({ value: k, label: v.label })) },
-      jobStageId:   { label: 'Stage',     type: 'select',      placeholder: 'All Stages',    options: [] },
-      dateFrom:     { label: 'Date From', type: 'date' },
-      dateTo:       { label: 'Date To',   type: 'date' },
-    }, initialFilters, onApply);
+    registerFilters('job', jobFilterDefs([], [], []), initialFilters, onApply);
     return () => unregisterFilters('job');
   }, []); // eslint-disable-line
 
@@ -760,7 +800,7 @@ export const Job = () => {
       searchText:   { label: 'Search',    type: 'text',        placeholder: 'Job ID, customer, project…' },
       customerId:   { label: 'Customer',  type: 'select',      placeholder: 'All Customers',
                       options: customers.map(c => ({ value: String(c.customerId), label: c.customerName })) },
-      jobTypeIds:   { label: 'Job Type',  type: 'multiselect',
+      jobTypeIds:   { label: 'Job Type',  type: 'chip-multiselect',
                       options: jobTypes.map(t => ({ value: t.jobTypeId, label: t.jobTypeName })) },
       jobStatusIds: { label: 'Status',    type: 'multiselect',
                       options: Object.entries(STATUS_MAP).map(([k, v]) => ({ value: k, label: v.label })) },
