@@ -1,50 +1,122 @@
 # Production deployment — Synergy ERP (as of 2026-08-15)
 
-Everything below is applied to **dev SYNERP only**. Nothing in this list has
-been run against production yet.
+## Baseline: what is actually in production
 
-Run the DB scripts **in the order listed**, then deploy backend, then frontend.
+**Last prod deployment: 2026-08-06 ~22:00.** Corroborated three ways — the user's
+own recollection, the Release build `backend/bin/Release/net8.0/ERPWEB.dll`
+dated **06/08/2026 22:06**, and the last commit before it, **`4f15134`
+(06/08 21:24)**.
+
+So the deployment scope is **everything after `4f15134`**, which is:
+
+| | Count |
+|---|---|
+| Commits | 4 (`ece7c18`, `79c18ef`, `e748634`, `1d76070`) |
+| DB scripts | **11 — all of them**, `2026-08-07*` through `2026-08-15b` |
+| Backend files | 8 (incl. 1 new model) |
+| Frontend files | 113 (incl. 4 new) |
+
+> ⚠️ An earlier revision of this document listed only the 7 scripts from
+> 2026-08-13 onward and only the files uncommitted at the time. That was
+> **wrong** — it measured from the last *commit*, not the last *deployment*.
+> The 2026-08-07 and 2026-08-08 work (procurement tasks, job sort, dashboard
+> role config, PR line status history — including **two new tables**) has
+> never been deployed either.
+
+### Completeness check (how this list was verified)
+
+Queried dev SYNERP for every object changed since the deploy:
+
+```sql
+SELECT o.type_desc, o.name, o.create_date, o.modify_date
+FROM sys.objects o
+WHERE o.is_ms_shipped = 0 AND o.type IN ('P','U','V','FN','IF','TF','TR')
+  AND o.modify_date > '2026-08-06 22:06';
+```
+
+That returned **23 objects**, and every one is covered by real `CREATE`/`ALTER`
+DDL in one of the 11 scripts — no orphans. Re-run that query against prod after
+deploying; it should return the same 23.
 
 ---
 
 ## 1. Database scripts
 
-Run against the production Synergy database. Each script is idempotent or
-aborts safely if the target has drifted.
+Run against the production Synergy database **in this exact order** (name order
+is correct order). Each is idempotent or aborts safely if the target has drifted.
 
 | # | Script | What it changes | Risk |
 |---|--------|-----------------|------|
-| 1 | `2026-08-13_job_type_multiselect_filter.sql` | `sp_SearchJobs` — adds `@JobTypeIds` and `@JobNumId` filters | Low — new optional params, existing calls unaffected |
-| 2 | `2026-08-13b_job_overview_type_multiselect.sql` | Job Overview job-type multiselect support | Low |
-| 3 | `2026-08-13c_dashboard_active_jobs_exclude_inhouse.sql` | `sp_GetDashboard` — "Active Jobs" KPI now excludes In-House jobs; adds `ActiveJobsInHouse` column | Low — **KPI number on the dashboard will visibly drop** (in-house jobs move to a sub-count). Expected, not a regression. |
-| 4 | `2026-08-13d_pr_po_approvals_document_status.sql` | `sp_GetAllApprovals` — adds `@DocumentStatus` param; `CurrentApprover` now resolves roles to real user names | Low |
-| 5 | `2026-08-13e_pr_po_approvals_menu.sql` | Menu row 1120 "PR & PO Approvals" + role grants (ADMIN, DEPARTMENT HEAD) | Low — **check MenuId 1120 is free in prod first**; the script aborts if it is taken by a different page |
-| 6 | `2026-08-15_po_submit_budget_check_exclude_gst.sql` | `sp_SubmitForApproval` — **GST excluded from PO budget guard** | **Behaviour change — see §3** |
-| 7 | `2026-08-15b_po_approve_budget_check_exclude_gst.sql` | `sp_ProcessApproval` — **GST excluded from PO budget guard** | **Behaviour change — see §3** |
+| 1 | `2026-08-07_pr_approval_procurement_task.sql` | **`ALTER TABLE TBL_MOM_TASK` (2 new columns)**; `sp_GetMOMTaskList`, `sp_SetMOMTask`, `sp_SetPOLine`, `sp_GetPRApprovalNotify`; **new** `sp_CreateProcurementPOTasks`, `sp_CloseProcurementPOTasks` | Medium — schema change + `sp_SetPOLine` (PO line save path) |
+| 2 | `2026-08-07b_job_default_sort_by_type.sql` | `VW_JOB`, `sp_SearchJobs` — default sort by job type | Low |
+| 3 | `2026-08-07c_dashboard_role_config.sql` | **`CREATE TABLE TBL_DASHBOARD_ROLE_CONFIG`** (+FK to `TBL_ROLES`); new `sp_GetDashboardRoleConfig`, `sp_SetDashboardRoleConfig` | Low — new table, additive |
+| 4 | `2026-08-08_pr_line_status_history.sql` | **`CREATE TABLE TBL_PR_LINE_STATUS_LOG`** (+FK to `TBL_PURCHASE_REQUEST`); `sp_ChangePrLineStatus`, `sp_GetPRHistory`, `sp_RevisePR` | Low — new table, additive |
+| 5 | `2026-08-13_job_type_multiselect_filter.sql` | `sp_SearchJobs` — adds `@JobTypeIds` and `@JobNumId` filters | Low — new optional params, existing calls unaffected |
+| 6 | `2026-08-13b_job_overview_type_multiselect.sql` | `sp_GetJobsForOverview` — job-type multiselect | Low |
+| 7 | `2026-08-13c_dashboard_active_jobs_exclude_inhouse.sql` | `sp_GetDashboard` — "Active Jobs" KPI excludes In-House; adds `ActiveJobsInHouse` | Low — **KPI will visibly drop** (in-house moves to a sub-count). Expected, not a regression. |
+| 8 | `2026-08-13d_pr_po_approvals_document_status.sql` | `sp_GetAllApprovals` — `@DocumentStatus` param; `CurrentApprover` resolves roles to real user names | Low |
+| 9 | `2026-08-13e_pr_po_approvals_menu.sql` | Menu row 1120 "PR & PO Approvals" + grants (ADMIN, DEPARTMENT HEAD) | Low — **check MenuId 1120 is free in prod first**; aborts if taken |
+| 10 | `2026-08-15_po_submit_budget_check_exclude_gst.sql` | `sp_SubmitForApproval` — **GST excluded from PO budget guard** | **Behaviour change — see §3** |
+| 11 | `2026-08-15b_po_approve_budget_check_exclude_gst.sql` | `sp_ProcessApproval` — **GST excluded from PO budget guard** | **Behaviour change — see §3** |
 
-> Scripts 6 and 7 are a **pair**. Applying only one leaves the other guard
+> Scripts 10 and 11 are a **pair**. Applying only one leaves the other guard
 > still blocking documents with the GST-inflated figure. Apply both.
 
+**Order matters — two procs are altered twice:**
+- `sp_SearchJobs` by #2 and #5. #5 is a **superset** (verified: it contains
+  both the `SortOrder`/`VW_JOB` changes from #2 and the new params), so running
+  in order is safe. Running #2 *after* #5 would revert the filters.
+- `sp_GetDashboard` is altered **only** by #7 — `sp_GetDashboardRoleConfig` in
+  #3 is a *different* proc whose name merely contains the same prefix. No
+  conflict (confirmed: the live `sp_GetDashboard` does not reference
+  `TBL_DASHBOARD_ROLE_CONFIG`).
+
 After each script, confirm `uses_quoted_identifier = 1` and
-`uses_ansi_nulls = 1` for the altered proc (scripts 6 and 7 include this
+`uses_ansi_nulls = 1` for the altered proc (scripts 10 and 11 include this
 check at the end).
 
 ---
 
 ## 2. Application code
 
+Both are deployed as whole build outputs (`ERPWEB.dll`, frontend `build/`), so
+the per-file lists below are for **review and smoke-testing**, not for copying
+files individually. Deploy the complete build.
+
 ### Backend — requires **rebuild + restart** (no hot reload)
 
-- `Controllers/Approval/ApprovalController.cs` — budget-override password removed (§4); `GetAll` gained `documentStatus` param + document-status fields
+The current `bin/Release` DLL is from **06/08 22:06** — i.e. the deployed
+version. It **must be rebuilt in Release**; only the Debug build has the
+current code.
+
+All 8 changed files since `4f15134`:
+- `Controllers/Approval/ApprovalController.cs` — budget-override password removed (§4); `GetAll` gained `documentStatus` + document-status fields
 - `Controllers/General/DashboardController.cs` — exposes `activeJobsInHouse`
-- `Controllers/Job/JobOverviewController.cs`
+- `Controllers/Job/JobController.cs` — `jobTypeIds` param; new `GetJobByNumId`
+- `Controllers/Job/JobOverviewController.cs` — `jobTypeIds` param
+- `Controllers/Item/ItemController.cs`
+- `Models/Approval/ApprovalModels.cs`
+- `Models/Mom/MomTask.cs`
+- `Models/General/DashboardRoleConfig.cs` — **new file**
 
 > The build will fail with a file-lock error if the API is still running.
 > Stop the site/service first, then build, then start.
 
 ### Frontend — rebuild and deploy
 
-Modified:
+**113 files changed** since `4f15134` — far too many to list individually;
+`git diff --name-status 4f15134..HEAD -- frontend/src` gives the full set.
+Four are new files:
+- `src/jobs/JobTypeMultiSelect.js`
+- `src/procurement/PrPoApprovalsPage.js`
+- `src/procurement/po/PoApprovalPrintPage.js`
+- `src/settings/DashboardRoleConfig.js`
+- `src/utils/useInitialFilters.js`
+
+The most-changed areas (worth the heaviest smoke-testing) are **reports**
+(~30 files), **procurement**, **approvals**, and **jobs**.
+
+Files touched by this session's fixes specifically:
 - `src/Dashboard.js`, `src/Layout.js`
 - `src/jobs/Job.js`, `src/jobs/JobOverview.js`
 - `src/bom/BomDetailPage.js`
