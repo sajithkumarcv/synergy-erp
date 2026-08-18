@@ -11,6 +11,7 @@ import { useFieldConfig } from '../../FieldConfigContext';
 import '../Procurement.css';
 import RowLink from '../../common/RowLink';
 import LookupSelect from '../../common/LookupSelect';
+import { ColFilter, applyColFilters, matchNote } from '../../common/GridColumnFilter';
 
 const PAGE_SIZES = [50, 100, 200, 500, 1000];
 // Rows pulled per job/supplier lookup. Higher than the old 10 because the field
@@ -230,7 +231,7 @@ const PoQuickView = ({ poId, onClose }) => {
                                 <span style={{ background: statusCfg.bg, color: statusCfg.color, padding: '2px 10px', borderRadius: 8, fontSize: 11, fontWeight: 700 }}>{statusCfg.label}</span>
                             </div>
                             <div style={{ color: 'rgba(255,255,255,.7)', fontSize: 12, marginTop: 4 }}>
-                                {po?.vendorName} {po?.jobId ? `· Job: ${po.jobId}` : ''} {po?.poDate ? `· ${fmtDate(po.poDate)}` : ''}
+                                {po?.supplierNameResolved || po?.vendorName} {po?.jobId ? `· Job: ${po.jobId}` : ''} {po?.poDate ? `· ${fmtDate(po.poDate)}` : ''}
                             </div>
                         </div>
                     )}
@@ -244,16 +245,25 @@ const PoQuickView = ({ poId, onClose }) => {
                         {/* KPI strip */}
                         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 20 }}>
                             {[
+                                // Supplier master name, falling back to the name typed on the PO
+                                // itself — same precedence the detail page and printouts use.
+                                { label: 'Supplier',       val: po?.supplierNameResolved || po?.vendorName || '—', wide: true },
                                 { label: 'Date',           val: fmtDate(po?.poDate) },
                                 { label: 'Currency',       val: po?.currencyShort || '—' },
-                                { label: 'Payment Terms',  val: po?.paymentTermsName || '—' },
+                                // sp_GetPO returns PaymentTermName (singular); an "Other" term
+                                // carries its free text in PaymentTermsOther.
+                                { label: 'Payment Terms',  val: (po?.paymentTermCode === 'OTHER' && po?.paymentTermsOther)
+                                                                ? po.paymentTermsOther : (po?.paymentTermName || '—') },
                                 { label: 'Delivery Date',  val: po?.deliveryDate ? fmtDate(po.deliveryDate) : '—' },
                                 { label: 'Vendor Ref',     val: po?.vendorRef || '—' },
                                 { label: 'Created By',     val: po?.createdBy || '—' },
-                            ].map(({ label, val }) => (
-                                <div key={label} style={{ minWidth: 120 }}>
+                                // Header total (what was approved); drafts have none stored yet,
+                                // so fall back to the sum of the lines shown below.
+                                { label: 'Total PO Value', val: `${po?.currencyShort || ''} ${fmt(po?.totalAmount ?? grandTotal)}`.trim(), strong: true },
+                            ].map(({ label, val, wide, strong }) => (
+                                <div key={label} style={{ minWidth: wide ? 200 : 120 }}>
                                     <div style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '.04em' }}>{label}</div>
-                                    <div style={{ fontSize: 13, color: '#1e293b', fontWeight: 500, marginTop: 2 }}>{val}</div>
+                                    <div style={{ fontSize: strong ? 14 : 13, color: strong ? '#1e3a5f' : '#1e293b', fontWeight: strong ? 700 : 500, marginTop: 2, fontVariantNumeric: strong ? 'tabular-nums' : undefined }}>{val}</div>
                                 </div>
                             ))}
                         </div>
@@ -745,9 +755,10 @@ export const Po = () => {
     const { canDo } = usePermission();
     const canAdd    = canDo('/purchase-orders', 'ADD');
     // Seeded from dashboard tiles (e.g. "Open POs" → status = the open set) —
-    // see [[weberp-synergy-fork]]. Falls back to DEFAULT_FILTERS untouched
-    // when this route was reached any other way.
-    const initialFilters = useInitialFilters(DEFAULT_FILTERS);
+    // see [[weberp-synergy-fork]]. Otherwise restored from this tab's last
+    // applied filters, so opening a PO and coming back keeps the search;
+    // falls back to DEFAULT_FILTERS on the first visit of the session.
+    const initialFilters = useInitialFilters(DEFAULT_FILTERS, 'purchaseorder');
 
     const [rows,        setRows]       = useState([]);
     const [loading,     setLoading]   = useState(false);
@@ -760,6 +771,9 @@ export const Po = () => {
     const [quickViewId, setQuickView] = useState(null);
     const [applied,    setApplied]   = useState(initialFilters);
     const [showForm,   setShowForm]  = useState(false);
+    // Per-column boxes in the grid header — page-local, see GridColumnFilter.
+    const [colF, setColF] = useState({ vendorName: '', jobId: '' });
+    const shownRows = applyColFilters(rows, colF);
 
     const gridRef = useRef({ pageSize: 200, sortCol: 'PoDate', sortDir: 'DESC', applied: DEFAULT_FILTERS });
     useEffect(() => { gridRef.current = { pageSize, sortCol, sortDir, applied }; }, [pageSize, sortCol, sortDir, applied]);
@@ -772,6 +786,9 @@ export const Po = () => {
     const [jobTypes,        setJobTypes]        = useState([]);
     const [jobOptions,      setJobOptions]      = useState([]);
     const [supplierOptions, setSupplierOptions] = useState([]);
+    // Job Type selection the job list currently reflects — also handed to the
+    // Job ID filter so its server-side search stays narrowed the same way.
+    const [jobOptTypeIds,   setJobOptTypeIds]   = useState(initialFilters.jobTypeIds || '');
 
     useEffect(() => {
         fetch(`${variables.API_URL}job/types`, { headers: authHeaders() })
@@ -788,6 +805,7 @@ export const Po = () => {
     }, []);
 
     const loadJobOptions = useCallback((jobTypeIds) => {
+        setJobOptTypeIds(jobTypeIds || '');
         const q = new URLSearchParams({ pageSize: 500, page: 1, excludeClosedStatus: true });
         if (jobTypeIds) q.set('jobTypeIds', jobTypeIds);
         fetch(`${variables.API_URL}job/search?${q}`, { headers: authHeaders() })
@@ -820,14 +838,25 @@ export const Po = () => {
 
     useEffect(() => { load(1, pageSize, sortCol, sortDir, initialFilters); }, [load]); // eslint-disable-line
 
-    // Build filter defs — called with latest options snapshots
-    const buildDefs = (jobTypeOpts, jobOpts, supplierOpts) => ({
+    // Build filter defs — called with latest options snapshots.
+    // Supplier and Job ID search the server as you type (both lists run to
+    // hundreds of rows, too many for a plain dropdown); `options` is the
+    // preloaded list, kept so a filter that comes back already set — restored
+    // for the session, or seeded by a dashboard tile — can show its name.
+    const buildDefs = (jobTypeOpts, jobOpts, supplierOpts, jobSearchTypeIds) => ({
         searchText:  { label: 'Search',     type: 'text',   placeholder: 'PO #, vendor, ref…' },
         status:      { label: 'Status',     type: 'multiselect',
                        options: getModuleStatuses('PO').map(s => ({ value: s.statusCode, label: s.statusLabel })) },
-        supplierId:  { label: 'Supplier',   type: 'select', placeholder: 'All Suppliers', options: supplierOpts },
+        supplierId:  { label: 'Supplier',   type: 'searchable-select', placeholder: 'Search supplier…',
+                       search: { url: 'supplier/search', valueKey: 'supplierId', codeKey: 'supplierCode', nameKey: 'supplierName' },
+                       options: supplierOpts },
         jobTypeIds:  { label: 'Job Type',   type: 'chip-multiselect', options: jobTypeOpts },
-        jobId:       { label: 'Job ID',     type: 'select', placeholder: 'All Jobs',      options: jobOpts },
+        // Job search stays cascaded by the Job Type chips above, same as the
+        // dropdown it replaces.
+        jobId:       { label: 'Job ID',     type: 'searchable-select', placeholder: 'Search job…',
+                       search: { url: 'job/search', valueKey: 'jobId', codeKey: 'jobId', nameKey: 'projectName',
+                                 params: { excludeClosedStatus: true, ...(jobSearchTypeIds ? { jobTypeIds: jobSearchTypeIds } : {}) } },
+                       options: jobOpts },
         priority:    { label: 'Priority',   type: 'select', placeholder: 'All Priorities', options: getVList('Procurement', 'Priority') },
         createdBy:   { label: 'Created By', type: 'text',   placeholder: 'Username…' },
         dateFrom:    { label: 'Date From',  type: 'date' },
@@ -849,7 +878,7 @@ export const Po = () => {
                 loadJobOptions(vals.jobTypeIds);
             }
         };
-        registerFilters('purchaseorder', buildDefs([], [], []), initialFilters, onApply);
+        registerFilters('purchaseorder', buildDefs([], [], [], initialFilters.jobTypeIds), initialFilters, onApply);
         return () => unregisterFilters('purchaseorder');
     }, []); // eslint-disable-line
 
@@ -857,9 +886,9 @@ export const Po = () => {
     useEffect(() => {
         updateFilterDefs('purchaseorder', buildDefs(
             jobTypes.map(t => ({ value: t.jobTypeId, label: t.jobTypeName })),
-            jobOptions, supplierOptions
+            jobOptions, supplierOptions, jobOptTypeIds
         ));
-    }, [jobTypes, jobOptions, supplierOptions, getModuleStatuses, getVList]); // eslint-disable-line
+    }, [jobTypes, jobOptions, supplierOptions, jobOptTypeIds, getModuleStatuses, getVList]); // eslint-disable-line
 
     const handleSort = col => {
         const dir = sortCol === col && sortDir === 'ASC' ? 'DESC' : 'ASC';
@@ -899,7 +928,10 @@ export const Po = () => {
                     <div className="po-title-row">
                         <div>
                             <div className="po-page-title">Purchase Orders</div>
-                            <div className="po-page-sub">{totalRows} record{totalRows !== 1 ? 's' : ''}</div>
+                            <div className="po-page-sub">
+                                {totalRows} record{totalRows !== 1 ? 's' : ''}
+                                {matchNote(colF, shownRows.length, rows.length)}
+                            </div>
                         </div>
                         <div className="po-toolbar">
                             <select className="po-select" value={pageSize} onChange={e => changePageSize(Number(e.target.value))}>
@@ -932,11 +964,21 @@ export const Po = () => {
                                 <Th col="TotalAmount">Total</Th>
                                 <th>Actions</th>
                             </tr>
+                            <tr>
+                                <th /><th />
+                                <ColFilter value={colF.jobId}      onChange={v => setColF(p => ({ ...p, jobId: v }))}      placeholder="Job no." />
+                                <ColFilter value={colF.vendorName} onChange={v => setColF(p => ({ ...p, vendorName: v }))} placeholder="Supplier" />
+                                <th /><th /><th /><th /><th />
+                            </tr>
                         </thead>
                         <tbody>
-                            {rows.length === 0 && !loading ? (
-                                <tr><td colSpan={9} className="po-empty">No purchase orders found. Use the filters on the left or create a new PO.</td></tr>
-                            ) : rows.map(r => (
+                            {shownRows.length === 0 && !loading ? (
+                                <tr><td colSpan={9} className="po-empty">
+                                    {rows.length === 0
+                                        ? 'No purchase orders found. Use the filters on the left or create a new PO.'
+                                        : 'No POs on this page match the column filters. The filter panel on the left searches every page.'}
+                                </td></tr>
+                            ) : shownRows.map(r => (
                                 <tr key={r.poId} style={r.status === 'Draft' ? { background: '#fffbeb' } : undefined}>
                                     <td>
                                         <RowLink className="po-num-link" to={`/purchase-orders/${r.poId}`}>

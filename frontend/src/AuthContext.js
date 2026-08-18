@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { variables } from './Variable';
+import { clearAllSavedFilters } from './utils/filterSession';
 
 const AuthContext = createContext(null);
 
@@ -87,6 +88,9 @@ export const AuthProvider = ({ children }) => {
   const clearSession = () => {
     sessionStorage.removeItem(TOKEN_KEY);
     sessionStorage.removeItem(USER_KEY);
+    // Remembered list-page filters are session state too — the next user on
+    // this machine must not inherit the last one's searches.
+    clearAllSavedFilters();
     setAuth(null);
     // Tell other tabs to log out too (keeps all tabs consistent)
     try { localStorage.setItem(SYNC_LOGOUT, String(Date.now())); localStorage.removeItem(SYNC_LOGOUT); } catch {}

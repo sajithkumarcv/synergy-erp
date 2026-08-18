@@ -11,6 +11,7 @@ import { useFieldConfig } from '../../FieldConfigContext';
 import '../Procurement.css';
 import RowLink from '../../common/RowLink';
 import PrPrintModal from './PrPrintModal';
+import { ColFilter, applyColFilters, matchNote } from '../../common/GridColumnFilter';
 
 const PAGE_SIZES = [50, 100, 200, 500, 1000];
 
@@ -409,9 +410,10 @@ export const Pr = () => {
     const { canDo } = usePermission();
     const canAdd    = canDo('/purchase-requests', 'ADD');
     // Seeded from dashboard tiles (e.g. "Open PRs" → status = the open set) —
-    // see [[weberp-synergy-fork]]. Falls back to DEFAULT_FILTERS untouched
-    // when this route was reached any other way.
-    const initialFilters = useInitialFilters(DEFAULT_FILTERS);
+    // see [[weberp-synergy-fork]]. Otherwise restored from this tab's last
+    // applied filters, so opening a PR and coming back keeps the search;
+    // falls back to DEFAULT_FILTERS on the first visit of the session.
+    const initialFilters = useInitialFilters(DEFAULT_FILTERS, 'purchaserequest');
 
     const [rows,      setRows]      = useState([]);
     const [loading,   setLoading]   = useState(false);
@@ -424,6 +426,9 @@ export const Pr = () => {
     const [applied,   setApplied]   = useState(initialFilters);
     const [showForm,  setShowForm]  = useState(false);
     const [infoPrId,  setInfoPrId]  = useState(null);
+    // Per-column box in the grid header — page-local, see GridColumnFilter.
+    const [colF, setColF] = useState({ jobId: '' });
+    const shownRows = applyColFilters(rows, colF);
 
     // Stable ref so filter callbacks always see current values
     const gridRef = useRef({ pageSize: 200, sortCol: 'PrDate', sortDir: 'DESC', applied: DEFAULT_FILTERS });
@@ -528,7 +533,10 @@ export const Pr = () => {
                     <div className="pr-title-row">
                         <div>
                             <div className="pr-page-title">Purchase Requests</div>
-                            <div className="pr-page-sub">{totalRows} record{totalRows !== 1 ? 's' : ''}</div>
+                            <div className="pr-page-sub">
+                                {totalRows} record{totalRows !== 1 ? 's' : ''}
+                                {matchNote(colF, shownRows.length, rows.length)}
+                            </div>
                         </div>
                         <div className="pr-toolbar">
                             <select className="pr-select" value={pageSize} onChange={e => changePageSize(Number(e.target.value))}>
@@ -561,11 +569,20 @@ export const Pr = () => {
                                 <Th col="PoCount">POs</Th>
                                 <th>Actions</th>
                             </tr>
+                            <tr>
+                                <th /><th />
+                                <ColFilter value={colF.jobId} onChange={v => setColF(p => ({ ...p, jobId: v }))} placeholder="Job no." />
+                                <th /><th /><th /><th /><th /><th />
+                            </tr>
                         </thead>
                         <tbody>
-                            {rows.length === 0 && !loading ? (
-                                <tr><td colSpan={9} className="pr-empty">No purchase requests found. Use the filters on the left or create a new PR.</td></tr>
-                            ) : rows.map(r => {
+                            {shownRows.length === 0 && !loading ? (
+                                <tr><td colSpan={9} className="pr-empty">
+                                    {rows.length === 0
+                                        ? 'No purchase requests found. Use the filters on the left or create a new PR.'
+                                        : 'No PRs on this page match the column filter. The filter panel on the left searches every page.'}
+                                </td></tr>
+                            ) : shownRows.map(r => {
                                 const priCfg = PRIORITY_CONFIG[r.priority] || {};
                                 return (
                                     <tr key={r.prId} style={r.status === 'Draft' ? { background: '#fffbeb' } : undefined}>

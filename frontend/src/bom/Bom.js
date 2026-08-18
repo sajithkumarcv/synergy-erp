@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { variables, authHeaders } from '../Variable';
 import { useCurrentUser } from '../AuthContext';
 import { useFilters } from '../FilterContext';
+import { useInitialFilters } from '../utils/useInitialFilters';
 import { useLookup } from '../LookupContext';
 import { useFieldConfig } from '../FieldConfigContext';
 import { usePermission } from '../PermissionContext';
@@ -263,6 +264,9 @@ export const Bom = () => {
     const { registerFilters, unregisterFilters, updateFilterDefs } = useFilters();
     const { vlist } = useLookup();
     const bomHeaderStatuses = vlist?.['Procurement.BOMHeaderStatus'] || [];
+    // Restored from this tab's last applied filters, so opening a BOM and
+    // coming back keeps the search; DEFAULT_FILTERS on the first visit.
+    const initialFilters = useInitialFilters(DEFAULT_FILTERS, 'bom');
 
     const [rows,      setRows]      = useState([]);
     const [totalRows, setTotal]     = useState(0);
@@ -272,7 +276,7 @@ export const Bom = () => {
     const [sortCol,   setSortCol]   = useState('BomDate');
     const [sortDir,   setSortDir]   = useState('DESC');
     const [loading,   setLoading]   = useState(false);
-    const [applied,   setApplied]   = useState({ ...DEFAULT_FILTERS });
+    const [applied,   setApplied]   = useState({ ...initialFilters });
     const [showForm,  setShowForm]  = useState(false);
     const [showCopy,  setShowCopy]  = useState(false);
 
@@ -293,7 +297,7 @@ export const Bom = () => {
             .finally(() => setLoading(false));
     }, []);
 
-    useEffect(() => { load(1, pageSize, sortCol, sortDir, DEFAULT_FILTERS); }, [load]); // eslint-disable-line
+    useEffect(() => { load(1, pageSize, sortCol, sortDir, initialFilters); }, [load]); // eslint-disable-line
 
     const buildDefs = (statuses) => ({
         searchText: { label: 'Search',     type: 'text',   placeholder: 'Job no., customer, description…' },
@@ -311,7 +315,7 @@ export const Bom = () => {
             setPage(1);
             load(1, ps, sc, sd, vals);
         };
-        registerFilters('bom', buildDefs([]), DEFAULT_FILTERS, onApply);
+        registerFilters('bom', buildDefs([]), initialFilters, onApply);
         return () => unregisterFilters('bom');
     }, []); // eslint-disable-line
 

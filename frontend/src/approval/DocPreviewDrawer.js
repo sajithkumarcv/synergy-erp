@@ -111,12 +111,21 @@ const MODULE_CONFIG = {
                     <F label="PO Number" mono>{po.poNumber}</F>
                     <F label="Date">{fmtD(po.poDate)}</F>
                     <F label="Status"><StatusBadge label={po.status} /></F>
-                    <F label="Supplier">{po.supplierName}</F>
+                    {/* Field names follow sp_GetPO: the supplier master name comes
+                        back as SupplierNameResolved (VendorName is what was typed on
+                        the PO), and the term is PaymentTermName — singular — with an
+                        "Other" term carrying its free text in PaymentTermsOther. */}
+                    <F label="Supplier">{po.supplierNameResolved || po.vendorName}</F>
                     <F label="Linked Job">{po.jobId || '—'}</F>
                     <F label="Currency">{po.currencyName || '—'}{po.exchangeRate && po.exchangeRate !== 1 ? ` @ ${po.exchangeRate}` : ''}</F>
                     <F label="Delivery Date">{fmtD(po.deliveryDate)}</F>
-                    <F label="Payment Terms">{po.paymentTermsName || '—'}</F>
-                    <F label="Total Amount" mono>{fmt(po.totalAmount)}</F>
+                    <F label="Payment Terms">
+                        {(po.paymentTermCode === 'OTHER' && po.paymentTermsOther) ? po.paymentTermsOther : po.paymentTermName}
+                    </F>
+                    {/* Header total is empty on a draft — fall back to the line sum. */}
+                    <F label="Total PO Value" mono>
+                        {`${po.currencyShort || ''} ${fmt(po.totalAmount ?? po.linesTotalWithTax)}`.trim()}
+                    </F>
                     {po.notes && <F label="Notes" wide>{po.notes}</F>}
                 </Section>
                 <Section title={`Lines (${lines.length})`}>

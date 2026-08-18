@@ -9,7 +9,12 @@ import {
 } from 'recharts';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-const API          = variables.API_URL;
+// Read the API base live per call. A module-level snapshot runs on import,
+// BEFORE index.js loads config.json into window.__APP_CONFIG__, so it froze to
+// the hardcoded fallback (https://localhost:7151/api/) and every fetch on this
+// page went to the dev API. Invisible in dev — that fallback IS the dev API —
+// and fatal in prod, where the page rendered zeros against an unreachable host.
+const API          = () => variables.API_URL;
 const PAGE_SIZES = [50, 100, 200, 500, 1000];
 const DEFAULT_FILTERS = { searchText: '', jobTypeId: '', jobId: '', statusId: '', dateFrom: '', dateTo: '' };
 const GROUP_OPTIONS   = [
@@ -142,7 +147,7 @@ export default function JobAnalysis() {
             updateFilterDefs('job-analysis', buildDefs(jobTypesRef.current, statusesRef.current, [], handleJobTypeChangeRef.current));
             return;
         }
-        fetch(`${API}job/search?jobTypeId=${encodeURIComponent(typeId)}&pageSize=200`, { headers: authHeaders() })
+        fetch(`${API()}job/search?jobTypeId=${encodeURIComponent(typeId)}&pageSize=200`, { headers: authHeaders() })
             .then(r => r.ok ? r.json() : {})
             .then(res => {
                 const jobs = res.data || [];
@@ -161,7 +166,7 @@ export default function JobAnalysis() {
         if (af.statusId)   q.set('statusId',   af.statusId);
         if (af.dateFrom)   q.set('dateFrom',   af.dateFrom);
         if (af.dateTo)     q.set('dateTo',     af.dateTo);
-        fetch(`${API}jobanalysis?${q}`, { headers:authHeaders() })
+        fetch(`${API()}jobanalysis?${q}`, { headers:authHeaders() })
             .then(r => r.json())
             .then(res => {
                 setSummary(res.summary || null);
@@ -175,9 +180,9 @@ export default function JobAnalysis() {
     }, []);
 
     useEffect(() => {
-        fetch(`${API}adminjob/jobtype`, { headers:authHeaders() })
+        fetch(`${API()}adminjob/jobtype`, { headers:authHeaders() })
             .then(r => r.ok?r.json():[]).then(d => setJobTypes(Array.isArray(d)?d:[])).catch(()=>{});
-        fetch(`${API}Lookup/jobstatus`, { headers:authHeaders() })
+        fetch(`${API()}Lookup/jobstatus`, { headers:authHeaders() })
             .then(r => r.ok?r.json():[]).then(d => setStatuses(Array.isArray(d)?d:[])).catch(()=>{});
     }, []);
 

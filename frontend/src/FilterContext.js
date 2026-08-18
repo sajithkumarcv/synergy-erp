@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
+import { saveFilters } from './utils/filterSession';
 
 // ─────────────────────────────────────────────────────────────
 // FilterContext
@@ -34,13 +35,18 @@ export const FilterProvider = ({ children }) => {
     // pages that call registerFilters inside a useEffect with lookup-array deps).
     const onApplyRef = useRef({});
 
-    // Called by a page component when it mounts to register its filters
+    // Called by a page component when it mounts to register its filters.
+    // `defaultValues` is whatever the page decided to start with — for pages
+    // that opt into session persistence via useInitialFilters(defaults, key)
+    // that already IS the restored snapshot, so writing it back here is a
+    // no-op that simply keeps the store in step with what's on screen.
     const registerFilters = useCallback((page, defs, defaultValues, onApply) => {
         onApplyRef.current[page] = onApply;           // store callback without re-rendering
         setActivePage(page);
         setFilterDefs(prev    => ({ ...prev,    [page]: defs }));
         setFilterValues(prev  => ({ ...prev,    [page]: { ...defaultValues } }));
         setApplied(prev       => ({ ...prev,    [page]: { ...defaultValues } }));
+        saveFilters(page, defaultValues);
     }, []);
 
     // Called by a page when it unmounts
@@ -65,6 +71,7 @@ export const FilterProvider = ({ children }) => {
     const applyFilters = useCallback((page) => {
         const vals = filterValues[page] || {};
         setApplied(prev => ({ ...prev, [page]: { ...vals } }));
+        saveFilters(page, vals);
         if (onApplyRef.current[page]) onApplyRef.current[page](vals);
     }, [filterValues]);
 
@@ -74,6 +81,9 @@ export const FilterProvider = ({ children }) => {
         const empty = Object.fromEntries(Object.keys(defs).map(k => [k, '']));
         setFilterValues(prev => ({ ...prev, [page]: empty }));
         setApplied(prev      => ({ ...prev, [page]: empty }));
+        // Remember the cleared state too — "Clear" must survive the round trip
+        // to a detail page just like any other filter change does.
+        saveFilters(page, empty);
         if (onApplyRef.current[page]) onApplyRef.current[page](empty);
     }, [filterDefs]);
 

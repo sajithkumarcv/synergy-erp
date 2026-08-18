@@ -533,9 +533,10 @@ const Grn = () => {
     const { canDo } = usePermission();
     const canAdd    = canDo('/grn', 'ADD');
     // Seeded from dashboard tiles (e.g. Today's Activity "GRNs" tile) — see
-    // [[weberp-synergy-fork]]. Falls back to DEFAULT_FILTERS untouched when
-    // this route was reached any other way.
-    const initialFilters = useInitialFilters(DEFAULT_FILTERS);
+    // [[weberp-synergy-fork]]. Otherwise restored from this tab's last applied
+    // filters, so opening a GRN and coming back keeps the search; falls back to
+    // DEFAULT_FILTERS on the first visit of the session.
+    const initialFilters = useInitialFilters(DEFAULT_FILTERS, 'grn');
 
     const [rows,       setRows]      = useState([]);
     const [loading,    setLoading]   = useState(false);

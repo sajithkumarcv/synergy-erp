@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { variables, authHeaders } from '../../Variable';
 import { fmt, fmtDate, statusBadgeCfg } from '../procurementConstants';
+import useOwnerCompany from '../../hooks/useOwnerCompany';
 import { useLookup } from '../../LookupContext';
 import consolidatePoLinesForPrint from './consolidatePoLinesForPrint';
 import { openPrintWindow } from '../../utils/printWindow';
@@ -12,10 +13,16 @@ import './PoPrint.css';
  *
  * Opened in a NEW TAB from My Approvals (👁 preview drawer → "Open full page")
  * so the approver can review every line/term/annexure without leaving the
- * approvals list in their original tab. Deliberately reuses the same visual
- * language as the vendor-facing print (PoPrintModal3 / .po3-doc / PoPrint.css)
- * but drops the company banner (name/logo/address) — this is an internal
- * review copy, not a document meant to represent the company externally.
+ * approvals list in their original tab.
+ *
+ * The document is PoPrintModal3 (.po3-doc / PoPrint.css) with NO header block
+ * at all — no company banner, no title bar. The PO number and revision move
+ * into the info strip instead, so a printed page can still be identified.
+ * Everything else — info strip, supplier/order details, lines, totals, notes,
+ * annexures, T&C (with {CompanyName} substituted), footer — matches Format 3.
+ *
+ * The dark bar at the top is screen-only chrome: printing extracts .po3-doc,
+ * so it never reaches the paper.
  *
  * Route: /purchase-orders/:poId/review
  */
@@ -43,6 +50,7 @@ const KV = ({ label, value, mono }) => !value ? null : (
 const PoApprovalPrintPage = () => {
     const { poId } = useParams();
     const { getStatusConfig, getSetting } = useLookup();
+    const { company } = useOwnerCompany();
     const taxLabel = getSetting('Biz.Print.TAXLABEL', 'VAT');
 
     const [po,         setPo]        = useState(null);
@@ -87,7 +95,7 @@ const PoApprovalPrintPage = () => {
 
     useEffect(() => { load(); }, [load]);
 
-    const handlePrint = () => openPrintWindow('.po3-doc', `Purchase Order (Review) - ${po?.poNumber || poId}`);
+    const handlePrint = () => openPrintWindow('.po3-doc', `Purchase Order - ${po?.poNumber || poId}`);
     const handleClose = () => { window.close(); };
 
     const printLines = useMemo(() => consolidatePoLinesForPrint(lines), [lines]);
@@ -111,6 +119,10 @@ const PoApprovalPrintPage = () => {
     const authorizedBy   = po?.approvedBy   || po?.createdBy  || '';
     const authorizedDate = fmtAuthorizedDate(po?.approvedDate || po?.createdDate);
     const badge           = po ? statusBadgeCfg(getStatusConfig('PO', po.status)) : null;
+
+    // Same term-text substitution Format 3 does — without it a term stored as
+    // "…supplied to {CompanyName}…" prints the placeholder verbatim.
+    const resolveTerm = (text) => (text || '').replace(/\{CompanyName\}/g, company?.companyName || '');
 
     if (loading) {
         return (
@@ -164,54 +176,33 @@ const PoApprovalPrintPage = () => {
                 </div>
             </div>
 
-            {/* ══ A4-styled document (no company header — internal review copy) ══ */}
+            {/* ══ A4-styled document — Format 3 body with no header block ══ */}
             <div style={{ display: 'flex', justifyContent: 'center', padding: '24px 16px 48px' }}>
                 <div className="po3-doc" style={{ position: 'relative' }}>
 
-                    {/* ── Neutral internal-review header (replaces the company banner) ── */}
+                    {/* ── Info strip. Carries PO No. (and revision) because there is
+                           no header above it to state which document this is. ── */}
                     <div style={{
-                        background: '#1e293b', color: '#fff',
-                        margin: '-28px -36px 16px', padding: '20px 36px',
-                        display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 20,
-                    }}>
-                        <div>
-                            <div style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8',
-                                          textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 4 }}>
-                                Internal Approval Review Copy — not for issue to supplier
-                            </div>
-                            <div style={{ fontSize: 20, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.04em' }}>
-                                Purchase Order
-                            </div>
-                        </div>
-                        <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                            <div style={{ fontSize: 13, fontWeight: 700, fontFamily: 'Courier New' }}>
-                                {po.revision > 0 && <span style={{ color: '#fca5a5', marginRight: 8 }}>Rev.{po.revision}</span>}
-                                <span style={{ display: 'inline-block', fontSize: 18, fontWeight: 800,
-                                               background: '#fde047', color: '#0f4c75', padding: '3px 10px', borderRadius: 4 }}>
-                                    {po.poNumber}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* ── Quick info strip ── */}
-                    <div style={{
-                        display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
+                        display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)',
                         background: '#f8fafc', border: '1px solid #e2e8f0',
                         borderRadius: 4, marginBottom: 12, overflow: 'hidden',
                     }}>
                         {[
+                            ['PO NO.',           po.revision > 0 ? `${po.poNumber}  (Rev.${po.revision})` : po.poNumber],
                             ['PO DATE',          fmtDate(po.poDate)],
                             ['JOB',              po.jobId || '—'],
                             ['VENDOR QUOTE REF', po.lpoNo || po.vendorRef || '—'],
                             ['DELIVERY DATE',    fmtDate(po.deliveryDate)],
                         ].map(([label, value], i) => (
-                            <div key={label} style={{ padding: '8px 12px', borderRight: i < 3 ? '1px solid #e2e8f0' : 'none' }}>
+                            <div key={label} style={{ padding: '8px 12px', borderRight: i < 4 ? '1px solid #e2e8f0' : 'none' }}>
                                 <div style={{ fontSize: 9, fontWeight: 700, color: '#64748b',
                                               textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 3 }}>
                                     {label}
                                 </div>
-                                <div style={{ fontSize: 11.5, fontWeight: 600, color: '#1e293b' }}>{value}</div>
+                                <div style={{ fontSize: 11.5, fontWeight: 600, color: '#1e293b',
+                                              fontFamily: i === 0 ? 'Courier New' : undefined }}>
+                                    {value}
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -430,7 +421,7 @@ const PoApprovalPrintPage = () => {
                                     {terms.map((t, i) => (
                                         <tr key={t.termId}>
                                             <td style={{ padding: '5px 10px', border: '1px solid #cbd5e1', color: '#1e293b', lineHeight: 1.5 }}>
-                                                {i + 1} : {t.termText}
+                                                {i + 1} : {resolveTerm(t.termText)}
                                             </td>
                                         </tr>
                                     ))}
@@ -448,7 +439,8 @@ const PoApprovalPrintPage = () => {
                             {authorizedBy && <span>Last Action By: <strong>{authorizedBy}</strong></span>}
                         </div>
                         <div style={{ textAlign: 'right', fontSize: 10, color: '#94a3b8', fontStyle: 'italic', lineHeight: 1.5 }}>
-                            Internal approval review copy — generated for reviewing approvers only.
+                            This is a computer generated purchase order.<br />
+                            {company?.companyName}
                         </div>
                     </div>
 

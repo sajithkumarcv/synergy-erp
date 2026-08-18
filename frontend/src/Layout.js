@@ -194,10 +194,21 @@ const ThemePicker = () => {
   );
 };
 
-// ── Searchable item filter (server-side, portal dropdown) ─────────────────
-// Debounces calls to api/item/search; renders results in a React portal so the
-// list is never clipped by the filter panel's overflow:hidden/auto.
-const SearchableSelectFilter = ({ value, onChange, placeholder }) => {
+// ── Searchable lookup filter (server-side, portal dropdown) ───────────────
+// Debounces calls to a search endpoint; renders results in a React portal so
+// the list is never clipped by the filter panel's overflow:hidden/auto.
+//
+// The endpoint is per-filter, supplied by the page's def:
+//   { type: 'searchable-select',
+//     search:  { url, valueKey, codeKey, nameKey, params },
+//     options: [...] }        // preloaded list, used only to label a preset value
+// Item search is the default, so the Item pickers that predate this stay as-is.
+const ITEM_SEARCH = { url: 'item/search', valueKey: 'itemId', codeKey: 'itemCode', nameKey: 'itemName' };
+
+const optLabel = (o) => [o.code, o.name].filter(Boolean).join(' – ') || String(o.value);
+
+const SearchableSelectFilter = ({ value, onChange, placeholder, search, options }) => {
+  const cfg = search || ITEM_SEARCH;
   const [q,      setQ]      = useState('');
   const [res,    setRes]    = useState([]);
   const [label,  setLabel]  = useState('');
@@ -205,8 +216,17 @@ const SearchableSelectFilter = ({ value, onChange, placeholder }) => {
   const timer    = useRef(null);
   const inputRef = useRef(null);
 
-  // If parent clears the value (e.g. "Clear all"), reset local display state
-  useEffect(() => { if (!value) { setLabel(''); setQ(''); setRes([]); } }, [value]);
+  useEffect(() => {
+    // Parent cleared the value (e.g. "Clear all") → reset local display state.
+    if (!value) { setLabel(''); setQ(''); setRes([]); return; }
+    // Value arrived already set — a filter restored for this session or seeded
+    // by a dashboard tile. Resolve its display text from the preloaded option
+    // list so the filter doesn't read as empty while it's still filtering.
+    if (!label) {
+      const hit = (options || []).find(o => String(o.value) === String(value));
+      if (hit) setLabel(hit.label);
+    }
+  }, [value, options]); // eslint-disable-line
 
   const positionMenu = () => {
     const el = inputRef.current;
@@ -223,23 +243,32 @@ const SearchableSelectFilter = ({ value, onChange, placeholder }) => {
     return () => { window.removeEventListener('scroll', h, true); window.removeEventListener('resize', h); };
   }, [res.length]);
 
-  const search = (text) => {
+  const runSearch = (text) => {
     setQ(text);
     clearTimeout(timer.current);
     if (!text.trim()) { setRes([]); return; }
     timer.current = setTimeout(() => {
-      fetch(`${variables.API_URL}item/search?searchText=${encodeURIComponent(text)}&pageSize=20`, { headers: authHeaders() })
+      const p = new URLSearchParams({ searchText: text, page: 1, pageSize: 20, ...(cfg.params || {}) });
+      fetch(`${variables.API_URL}${cfg.url}?${p}`, { headers: authHeaders() })
         .then(r => r.json())
-        .then(d => { setRes(Array.isArray(d) ? d : (d.data || [])); positionMenu(); })
+        .then(d => {
+          const list = Array.isArray(d) ? d : (d.data || []);
+          setRes(list.map(r => ({
+            value: String(r[cfg.valueKey]),
+            code:  cfg.codeKey ? r[cfg.codeKey] : null,
+            name:  cfg.nameKey ? r[cfg.nameKey] : null,
+          })));
+          positionMenu();
+        })
         .catch(() => {});
     }, 280);
   };
 
-  const select = (it) => {
+  const select = (opt) => {
     setRes([]);
-    setLabel(`${it.itemCode} – ${it.itemName}`);
+    setLabel(optLabel(opt));
     setQ('');
-    onChange(String(it.itemId));
+    onChange(opt.value);
   };
 
   const clear = () => { setLabel(''); setQ(''); setRes([]); onChange(''); };
@@ -259,7 +288,7 @@ const SearchableSelectFilter = ({ value, onChange, placeholder }) => {
         type="text"
         placeholder={placeholder || 'Search item…'}
         value={q}
-        onChange={e => search(e.target.value)}
+        onChange={e => runSearch(e.target.value)}
         onFocus={positionMenu}
         onBlur={() => setTimeout(() => setRes([]), 200)}
       />
@@ -269,13 +298,13 @@ const SearchableSelectFilter = ({ value, onChange, placeholder }) => {
           zIndex: 99999, background: '#fff', border: '1px solid #c8d4e4', borderRadius: 6,
           boxShadow: '0 4px 16px rgba(0,0,0,.18)', maxHeight: 220, overflowY: 'auto',
         }}>
-          {res.map(it => (
-            <div key={it.itemId} className="fp-ss-item"
-              onMouseDown={() => select(it)}
+          {res.map(o => (
+            <div key={o.value} className="fp-ss-item"
+              onMouseDown={() => select(o)}
               onMouseEnter={e => e.currentTarget.style.background = '#eff6ff'}
               onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
-              <strong style={{ color: '#1e40af' }}>{it.itemCode}</strong>
-              <span style={{ color: '#374151', marginLeft: 6 }}>{it.itemName}</span>
+              <strong style={{ color: '#1e40af' }}>{o.code}</strong>
+              <span style={{ color: '#374151', marginLeft: 6 }}>{o.name}</span>
             </div>
           ))}
         </div>,
@@ -375,6 +404,8 @@ const FilterPanel = () => {
                       value={values[key] || ''}
                       onChange={val => setFilter(page, key, val)}
                       placeholder={def.placeholder}
+                      search={def.search}
+                      options={def.options}
                     />
                   )}
                   {def.type === 'chip-multiselect' && (

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useInitialFilters } from '../utils/useInitialFilters';
+import { hasSavedFilters } from '../utils/filterSession';
 import { variables, authHeaders } from '../Variable';
 import { useCurrentUser } from '../AuthContext';
 import { useLookup } from '../LookupContext';
@@ -9,6 +10,7 @@ import { useFieldConfig } from '../FieldConfigContext';
 import { usePermission } from '../PermissionContext';
 import './Job.css';
 import RowLink from '../common/RowLink';
+import { ColFilter, applyColFilters, matchNote } from '../common/GridColumnFilter';
 
 // ── Helpers ───────────────────────────────────────────────────
 const fmt     = (n) => n != null ? Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
@@ -682,9 +684,13 @@ export const Job = () => {
   const canAdd    = canDo('/jobs', 'ADD');
   const { baseCurrencyCode } = useLookup();
   // Seeded from dashboard tiles (e.g. "Active Jobs" → jobStatusIds='1') —
-  // see [[weberp-synergy-fork]]. Falls back to DEFAULT_FILTERS untouched
-  // when this route was reached any other way.
-  const initialFilters = useInitialFilters(DEFAULT_FILTERS);
+  // see [[weberp-synergy-fork]]. Otherwise restored from this tab's last
+  // applied filters, so opening a job and coming back keeps the search;
+  // falls back to DEFAULT_FILTERS on the first visit of the session.
+  const initialFilters = useInitialFilters(DEFAULT_FILTERS, 'job');
+  // Read at render — BEFORE the mount effect below registers (and thereby
+  // saves) these filters, which would otherwise make this always true.
+  const restored = useRef(hasSavedFilters('job')).current;
 
   const [rows, setRows]         = useState([]);
   const [totalRows, setTotal]   = useState(0);
@@ -702,6 +708,9 @@ export const Job = () => {
   const [jobStages, setJobStages] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [showForm,  setShowForm]  = useState(false);
+  // Per-column boxes in the grid header — page-local, see GridColumnFilter.
+  const [colF, setColF] = useState({ jobId: '', customerName: '', projectName: '' });
+  const shownRows = applyColFilters(rows, colF);
 
   const gridRef = useRef({ pageSize: 200, sortCol: 'JobTypeName', sortDir: 'ASC', applied: DEFAULT_FILTERS });
   useEffect(() => { gridRef.current = { pageSize, sortCol, sortDir, applied }; }, [pageSize, sortCol, sortDir, applied]);
@@ -760,8 +769,10 @@ export const Job = () => {
       // (e.g. a dashboard tile's initialFilters, which must win untouched).
       // In-house jobs are a distinct, high-volume workflow most people
       // browsing this list aren't looking for by default.
+      // `restored` suppresses it on a return visit: an empty jobTypeIds there
+      // means the user deliberately cleared the filter, not "no choice yet".
       let vals = initialFilters;
-      if (!initialFilters.jobTypeIds) {
+      if (!initialFilters.jobTypeIds && !restored) {
         const ids = list.filter(t => t.jobTypeId !== 'IH').map(t => t.jobTypeId).join(',');
         if (ids) {
           vals = { ...initialFilters, jobTypeIds: ids };
@@ -853,6 +864,7 @@ export const Job = () => {
               <div className="job-page-sub">
                 <strong style={{ color: 'var(--primary,#1e3a5f)', fontWeight: 700, fontSize: 13 }}>{totalRows}</strong>{' '}
                 record{totalRows !== 1 ? 's' : ''}
+                {matchNote(colF, shownRows.length, rows.length)}
               </div>
             </div>
             <div className="job-toolbar">
@@ -885,11 +897,22 @@ export const Job = () => {
               <Th col="OrderValue" style={{ textAlign: 'right' }}>Order Value</Th>
               <th>Status</th>
               <th>Approval</th>
+            </tr>
+            <tr>
+              <ColFilter value={colF.jobId}       onChange={v => setColF(p => ({ ...p, jobId: v }))}       placeholder="Job no." />
+              <th />
+              <ColFilter value={colF.customerName} onChange={v => setColF(p => ({ ...p, customerName: v }))} placeholder="Customer" />
+              <ColFilter value={colF.projectName}  onChange={v => setColF(p => ({ ...p, projectName: v }))}  placeholder="Project" />
+              <th /><th /><th /><th /><th />
             </tr></thead>
             <tbody>
-              {rows.length === 0 && !loading
-                ? <tr><td colSpan="9" className="job-empty">No jobs found. Use the filters on the left or create a new job.</td></tr>
-                : rows.map(j => (
+              {shownRows.length === 0 && !loading
+                ? <tr><td colSpan="9" className="job-empty">
+                    {rows.length === 0
+                      ? 'No jobs found. Use the filters on the left or create a new job.'
+                      : 'No jobs on this page match the column filters. The filter panel on the left searches every page.'}
+                  </td></tr>
+                : shownRows.map(j => (
                   <tr key={j.jobId}>
                     <td>
                       <RowLink className="job-id-link" to={`/jobs/${encodeURIComponent(j.jobId)}`}>

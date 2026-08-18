@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { variables, authHeaders } from '../../Variable';
 import { useCurrentUser } from '../../AuthContext';
 import { useFilters } from '../../FilterContext';
+import { useInitialFilters } from '../../utils/useInitialFilters';
 import { usePermission } from '../../PermissionContext';
 import { useFieldConfig } from '../../FieldConfigContext';
 import { DOC_STATUS, RECEIPT_TYPE, fmt, fmtDate } from '../inventoryConstants';
@@ -228,6 +229,9 @@ export const Grn = () => {
     const { canDo } = usePermission();
     const canAdd    = canDo('/inventory-grn', 'ADD');
     const { registerFilters, unregisterFilters } = useFilters();
+    // Restored from this tab's last applied filters, so opening a receipt and
+    // coming back keeps the search; DEFAULT_FILTERS on the first visit.
+    const initialFilters = useInitialFilters(DEFAULT_FILTERS, 'inventory-grn');
 
     const [rows,       setRows]      = useState([]);
     const [totalRows,  setTotal]     = useState(0);
@@ -237,7 +241,7 @@ export const Grn = () => {
     const [sortCol,    setSortCol]   = useState('ReceiptDate');
     const [sortDir,    setSortDir]   = useState('DESC');
     const [loading,    setLoading]   = useState(false);
-    const [applied,    setApplied]   = useState({ ...DEFAULT_FILTERS });
+    const [applied,    setApplied]   = useState({ ...initialFilters });
     const [showNew,    setShowNew]   = useState(false);
     const [listError,  setListError] = useState('');
 
@@ -263,7 +267,7 @@ export const Grn = () => {
             .finally(() => setLoading(false));
     }, []);
 
-    useEffect(() => { load(1, pageSize, sortCol, sortDir, DEFAULT_FILTERS); }, [load]); // eslint-disable-line
+    useEffect(() => { load(1, pageSize, sortCol, sortDir, initialFilters); }, [load]); // eslint-disable-line
 
     const buildDefs = () => ({
         searchText:  { label: 'Search',       type: 'text',   placeholder: 'GRN no., supplier, job…' },
@@ -281,8 +285,11 @@ export const Grn = () => {
             setApplied({ ...vals }); setPage(1);
             load(1, ps, sc, sd, vals);
         };
-        registerFilters('grn', buildDefs(), DEFAULT_FILTERS, onApply);
-        return () => unregisterFilters('grn');
+        // Key is 'inventory-grn', not 'grn' — /grn (procurement receipts) is a
+        // different page with a different filter set, and both share this
+        // registry. Sibling inventory pages key off their route the same way.
+        registerFilters('inventory-grn', buildDefs(), initialFilters, onApply);
+        return () => unregisterFilters('inventory-grn');
     }, [getModuleStatuses, getVList]); // eslint-disable-line
 
     const handleSort = (col) => {
