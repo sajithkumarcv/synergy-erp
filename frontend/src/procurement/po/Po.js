@@ -825,6 +825,7 @@ export const Po = () => {
         if (af.status)      q.set('status',      af.status);
         if (af.supplierId)  q.set('supplierId',  af.supplierId);
         if (af.jobId)       q.set('jobId',       af.jobId);
+        if (af.jobTypeIds)  q.set('jobTypeIds',  af.jobTypeIds);
         if (af.priority)    q.set('priority',    af.priority);
         if (af.createdBy)   q.set('createdBy',   af.createdBy);
         if (af.dateFrom)    q.set('dateFrom',    af.dateFrom);

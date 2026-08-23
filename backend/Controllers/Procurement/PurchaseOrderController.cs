@@ -58,6 +58,7 @@ namespace ERPWEB.Controllers.Procurement
             [FromQuery] string? status            = null,
             [FromQuery] int?    supplierId        = null,
             [FromQuery] string? jobId             = null,
+            [FromQuery] string? jobTypeIds        = null,
             [FromQuery] string? priority          = null,
             [FromQuery] string? createdBy         = null,
             [FromQuery] string? dateFrom          = null,
@@ -76,6 +77,10 @@ namespace ERPWEB.Controllers.Procurement
                     Status             = string.IsNullOrWhiteSpace(status)     ? null : status,
                     SupplierId         = supplierId,
                     JobId              = string.IsNullOrWhiteSpace(jobId)      ? null : jobId.Trim(),
+                    // Comma-separated job types, same shape the Jobs list uses. Until
+                    // 2026-08-18 this never reached the SP, so the PO grid ignored the
+                    // Job Type chips while the filter panel counted them as active.
+                    JobTypeIds         = string.IsNullOrWhiteSpace(jobTypeIds) ? null : jobTypeIds.Trim(),
                     Priority           = string.IsNullOrWhiteSpace(priority)   ? null : priority.Trim(),
                     CreatedBy          = string.IsNullOrWhiteSpace(createdBy)  ? null : createdBy.Trim(),
                     DateFrom           = string.IsNullOrWhiteSpace(dateFrom)   ? null : dateFrom,

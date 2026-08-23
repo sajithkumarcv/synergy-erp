@@ -116,6 +116,12 @@ namespace ERPWEB.Models.Approval
         public int?     NextLevelNo      { get; set; }
         public string?  NextLevelName    { get; set; }
         public string?  NextApproverUsers { get; set; }
+        // Job of the underlying document — PO/PR only, NULL for other modules.
+        // Resolved in sp_GetMyApprovals (2026-08-18_my_approvals_jobno.sql).
+        public string?  JobId            { get; set; }
+        public string?  JobTitle         { get; set; }
+        // PO only — supplier master name, falling back to the PO's typed vendor.
+        public string?  SupplierName     { get; set; }
         public bool     CanAct           { get; set; }
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         public int      TotalRows        { get; set; }

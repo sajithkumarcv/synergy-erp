@@ -1,0 +1,593 @@
+<title>PMS User Setup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap">
+
+<style>
+  :root {
+    --ground:      #f6f8fa;
+    --card:        #ffffff;
+    --ink:         #14202b;
+    --ink-soft:    #4c5c6b;
+    --ink-faint:   #7b8b99;
+    --rule:        #dde5ec;
+    --rule-soft:   #eaf0f5;
+    --navy:        #1e3a5f;
+    --navy-soft:   #eef3f9;
+    --green:       #0f7a45;
+    --green-soft:  #e8f4ed;
+    --amber-ink:   #8a4b0d;
+    --amber-bg:    #fdf6e9;
+    --amber-rule:  #e8cfa4;
+    --chip-bg:     #eef2f6;
+    --chip-ink:    #29455f;
+    --shadow:      0 1px 2px rgba(20,32,43,.05), 0 8px 24px rgba(20,32,43,.05);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:     #0e161e;
+      --card:       #16212c;
+      --ink:        #e6edf3;
+      --ink-soft:   #a7b7c5;
+      --ink-faint:  #7d8f9e;
+      --rule:       #26343f;
+      --rule-soft:  #1e2b36;
+      --navy:       #8fb6de;
+      --navy-soft:  #1a2a3a;
+      --green:      #5fc78e;
+      --green-soft: #142b20;
+      --amber-ink:  #e6b877;
+      --amber-bg:   #2a2013;
+      --amber-rule: #4a3a1e;
+      --chip-bg:    #1f2c38;
+      --chip-ink:   #b7cbdb;
+      --shadow:     0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:     #0e161e;
+    --card:       #16212c;
+    --ink:        #e6edf3;
+    --ink-soft:   #a7b7c5;
+    --ink-faint:  #7d8f9e;
+    --rule:       #26343f;
+    --rule-soft:  #1e2b36;
+    --navy:       #8fb6de;
+    --navy-soft:  #1a2a3a;
+    --green:      #5fc78e;
+    --green-soft: #142b20;
+    --amber-ink:  #e6b877;
+    --amber-bg:   #2a2013;
+    --amber-rule: #4a3a1e;
+    --chip-bg:    #1f2c38;
+    --chip-ink:   #b7cbdb;
+    --shadow:     0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 16px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 44rem;
+    margin: 0 auto;
+    padding: 3.5rem 1.25rem 5rem;
+  }
+
+  /* ── Masthead ─────────────────────────────────────────────── */
+  header { border-bottom: 2px solid var(--navy); padding-bottom: 1.5rem; }
+
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .72rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 .6rem;
+  }
+
+  h1 {
+    font-family: "Source Serif 4", Georgia, serif;
+    font-size: clamp(2rem, 5vw, 2.7rem);
+    font-weight: 700;
+    line-height: 1.12;
+    letter-spacing: -.015em;
+    text-wrap: balance;
+    margin: 0 0 .7rem;
+  }
+
+  .standfirst {
+    font-size: 1.06rem;
+    color: var(--ink-soft);
+    margin: 0;
+    max-width: 34rem;
+  }
+
+  /* ── Route map ────────────────────────────────────────────── */
+  .routemap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    align-items: center;
+    margin: 1.6rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .routemap li {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    font-size: .88rem;
+    color: var(--ink-soft);
+  }
+  .routemap b {
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .routemap .arrow { color: var(--ink-faint); }
+
+  /* ── Sections ─────────────────────────────────────────────── */
+  section { margin-top: 3.25rem; }
+
+  .part-head {
+    display: flex;
+    align-items: baseline;
+    gap: .85rem;
+    margin-bottom: .35rem;
+  }
+  .part-num {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .8rem;
+    font-weight: 600;
+    color: var(--green);
+    letter-spacing: .08em;
+    flex-shrink: 0;
+  }
+  h2 {
+    font-family: "Source Serif 4", Georgia, serif;
+    font-size: 1.65rem;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: -.01em;
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  .where {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .8rem;
+    color: var(--chip-ink);
+    background: var(--chip-bg);
+    border-radius: 4px;
+    padding: .22rem .55rem;
+    display: inline-block;
+    margin: .5rem 0 1.4rem;
+  }
+
+  /* ── Steps ────────────────────────────────────────────────── */
+  ol.steps {
+    list-style: none;
+    counter-reset: step;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1.15rem;
+  }
+  ol.steps > li {
+    counter-increment: step;
+    display: grid;
+    grid-template-columns: 1.9rem 1fr;
+    gap: .9rem;
+    align-items: start;
+  }
+  ol.steps > li::before {
+    content: counter(step);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .82rem;
+    font-weight: 600;
+    color: var(--green);
+    background: var(--green-soft);
+    border-radius: 50%;
+    width: 1.7rem;
+    height: 1.7rem;
+    display: grid;
+    place-items: center;
+    margin-top: .1rem;
+  }
+  /* Everything after the number goes in the content column. Without this,
+     a second child (a table, a note) auto-places into the 1.9rem number
+     track and gets crushed to nothing. */
+  ol.steps > li > * { grid-column: 2; min-width: 0; }
+  ol.steps p { margin: 0; }
+  ol.steps p + p { margin-top: .4rem; }
+
+  .ui {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .86em;
+    background: var(--chip-bg);
+    color: var(--chip-ink);
+    padding: .1em .4em;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+
+  .aside {
+    color: var(--ink-soft);
+    font-size: .93rem;
+  }
+
+  /* ── Field table ──────────────────────────────────────────── */
+  .tablewrap { overflow-x: auto; margin: 1.4rem 0 0; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .93rem;
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  th, td {
+    text-align: left;
+    padding: .6rem .85rem;
+    border-bottom: 1px solid var(--rule-soft);
+    vertical-align: top;
+  }
+  tr:last-child td { border-bottom: none; }
+  th {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .72rem;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 500;
+    background: var(--rule-soft);
+  }
+  td:first-child {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .84rem;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .req { color: var(--green); font-weight: 600; }
+
+  /* ── Callout ──────────────────────────────────────────────── */
+  .note {
+    background: var(--amber-bg);
+    border: 1px solid var(--amber-rule);
+    border-left-width: 3px;
+    border-radius: 0 6px 6px 0;
+    padding: .85rem 1.05rem;
+    margin: 1.4rem 0 0;
+    font-size: .93rem;
+    color: var(--amber-ink);
+  }
+  .note b { font-weight: 600; }
+  .note .ui { background: rgba(0,0,0,.06); color: inherit; }
+
+  .info {
+    background: var(--navy-soft);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    padding: 1rem 1.15rem;
+    margin: 1.5rem 0 0;
+    font-size: .95rem;
+  }
+  .info h3 {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .74rem;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 500;
+    margin: 0 0 .5rem;
+  }
+  .info p { margin: 0; color: var(--ink-soft); }
+
+  /* ── Rights list ──────────────────────────────────────────── */
+  .rights {
+    list-style: none;
+    margin: 1.3rem 0 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+    gap: .55rem .9rem;
+  }
+  .rights li {
+    display: flex;
+    gap: .55rem;
+    align-items: baseline;
+    font-size: .93rem;
+    color: var(--ink-soft);
+  }
+  .rights .name {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .78rem;
+    font-weight: 600;
+    color: var(--navy);
+    letter-spacing: .04em;
+    flex-shrink: 0;
+    min-width: 4.6rem;
+  }
+
+  /* ── Troubleshooting ──────────────────────────────────────── */
+  dl.trouble { margin: 1.3rem 0 0; }
+  dl.trouble dt {
+    font-weight: 600;
+    margin-top: 1.1rem;
+    color: var(--ink);
+  }
+  dl.trouble dt:first-child { margin-top: 0; }
+  dl.trouble dd {
+    margin: .25rem 0 0;
+    color: var(--ink-soft);
+    font-size: .95rem;
+  }
+
+  footer {
+    margin-top: 3.5rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--rule);
+    font-size: .85rem;
+    color: var(--ink-faint);
+  }
+
+  a { color: var(--navy); }
+  a:focus-visible, li:focus-visible {
+    outline: 2px solid var(--green);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">PMS Enterprise · Administration</p>
+    <h1>Setting up a new user</h1>
+    <p class="standfirst">
+      How to create someone's login, give them a role, and decide what that role
+      is allowed to see and do.
+    </p>
+
+    <ul class="routemap">
+      <li><b>Create the user</b></li>
+      <li class="arrow">→</li>
+      <li><b>Give them a role</b></li>
+      <li class="arrow">→</li>
+      <li><b>Set what the role can do</b></li>
+    </ul>
+  </header>
+
+  <div class="info">
+    <h3>Before you start</h3>
+    <p>
+      You need <span class="ui">User Management</span> in your left-hand menu. If it
+      isn't there, your own login doesn't have admin rights — ask someone who does.
+    </p>
+  </div>
+
+  <!-- ── PART 1 ─────────────────────────────────────────────── -->
+  <section>
+    <div class="part-head">
+      <span class="part-num">PART 1</span>
+      <h2>Create the user</h2>
+    </div>
+    <span class="where">User Management › Users</span>
+
+    <ol class="steps">
+      <li><p>Click <span class="ui">+ New User</span> at the top right.</p></li>
+      <li>
+        <p>Fill in the details:</p>
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr><th>Field</th><th>What to enter</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>User Code <span class="req">*</span></td>
+                <td>A short staff code. Follow whatever the last user used — for example <span class="ui">SYN-017</span>.</td>
+              </tr>
+              <tr>
+                <td>Username <span class="req">*</span></td>
+                <td>What they type to log in. House style is first name, dot, surname — <span class="ui">siju.nagrajan</span>. It can't be changed later without confusing their history, so get it right now.</td>
+              </tr>
+              <tr>
+                <td>Full Name</td>
+                <td>Their real name. This is what everyone else sees on approvals and documents.</td>
+              </tr>
+              <tr>
+                <td>Email</td>
+                <td>Needed if they should receive approval or alert emails. Leave blank if not.</td>
+              </tr>
+              <tr>
+                <td>Mobile</td>
+                <td>Optional.</td>
+              </tr>
+              <tr>
+                <td>Password <span class="req">*</span></td>
+                <td>A starting password, typed twice. They should change it after their first login.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </li>
+      <li>
+        <p>Leave <span class="ui">Active</span> ticked, and <span class="ui">Locked</span> unticked.</p>
+        <p class="aside">Untick <span class="ui">Active</span> later when someone leaves — that keeps their name on old documents while stopping them logging in. Deleting the user does not.</p>
+      </li>
+      <li><p>Save.</p></li>
+    </ol>
+
+    <div class="note">
+      <b>They can log in now, but they'll see nothing.</b> A brand new user has no
+      role, and the menu is built entirely from roles. Carry straight on to Part 2.
+    </div>
+  </section>
+
+  <!-- ── PART 2 ─────────────────────────────────────────────── -->
+  <section>
+    <div class="part-head">
+      <span class="part-num">PART 2</span>
+      <h2>Give the user a role</h2>
+    </div>
+    <span class="where">User Management › Users &nbsp;·&nbsp; or &nbsp; Assign Roles</span>
+
+    <p class="aside">
+      A role is the job someone does — Procurement Officer, Finance Manager, Engineer.
+      It decides which screens they get. Two routes to the same result:
+    </p>
+
+    <ol class="steps">
+      <li>
+        <p><b>From the user's row.</b> On <span class="ui">Users</span>, find the person and
+        click <span class="ui">Roles</span> on their line. Tick the role or roles they need, and save.</p>
+      </li>
+      <li>
+        <p><b>Or from the Assign Roles screen.</b> Go to
+        <span class="ui">User Management › Assign Roles</span>, search for the person by name,
+        tick their roles, and save. Easier when you're setting up several people in one go.</p>
+      </li>
+    </ol>
+
+    <div class="info">
+      <h3>More than one role</h3>
+      <p>
+        Someone can hold several roles at once — they get everything all of those roles
+        allow, added together. Give the smallest set that lets them do their job.
+      </p>
+    </div>
+
+    <div class="note">
+      <b>Ask them to log out and back in.</b> The menu is worked out at login, so a
+      role added while they're signed in won't appear until they sign in again.
+    </div>
+  </section>
+
+  <!-- ── PART 3 ─────────────────────────────────────────────── -->
+  <section>
+    <div class="part-head">
+      <span class="part-num">PART 3</span>
+      <h2>Set what a role can do</h2>
+    </div>
+    <span class="where">User Management › Role Permissions</span>
+
+    <p class="aside">
+      Permissions belong to the <em>role</em>, not the person. Change them once and
+      everyone holding that role is updated. If you're adding someone to a role that
+      already exists and works, you can stop here — this part is only for new roles,
+      or when an existing role needs adjusting.
+    </p>
+
+    <ol class="steps">
+      <li><p>Pick the role from the list at the top. Until you do, the page just says <span class="ui">Select a role above to configure its permissions</span>.</p></li>
+      <li>
+        <p>Tick the screens that role should reach. They're grouped the same way as the
+        left-hand menu — Job Costing, Procurement, Inventory, Finance and so on — so you
+        can open a group and tick the screens inside it.</p>
+      </li>
+      <li>
+        <p>For each screen, choose what they may do on it:</p>
+        <ul class="rights">
+          <li><span class="name">VIEW</span><span>Open the screen and read it</span></li>
+          <li><span class="name">ADD</span><span>Create new records</span></li>
+          <li><span class="name">EDIT</span><span>Change existing records</span></li>
+          <li><span class="name">DELETE</span><span>Remove records</span></li>
+          <li><span class="name">PRINT</span><span>Print or save as PDF</span></li>
+          <li><span class="name">APPROVE</span><span>Approve or reject documents</span></li>
+          <li><span class="name">EXPORT</span><span>Download to Excel</span></li>
+        </ul>
+        <p class="aside" style="margin-top:.8rem">
+          <span class="ui">VIEW</span> is the one that matters most: without it the screen
+          doesn't appear in their menu at all, no matter what else is ticked.
+        </p>
+      </li>
+      <li><p>Save.</p></li>
+    </ol>
+
+    <div class="note">
+      <b>Approvals are separate.</b> Ticking <span class="ui">APPROVE</span> lets someone use
+      the approve buttons, but it does not put documents in front of them. Who approves what,
+      and in which order, is set up under approval policies — a different job from this one.
+    </div>
+  </section>
+
+  <!-- ── Creating a role ────────────────────────────────────── -->
+  <section>
+    <div class="part-head">
+      <span class="part-num">IF NEEDED</span>
+      <h2>Creating a brand new role</h2>
+    </div>
+    <span class="where">User Management › Roles</span>
+
+    <ol class="steps">
+      <li><p>Click <span class="ui">+ New Role</span>.</p></li>
+      <li>
+        <p>Enter a <span class="ui">Role Name</span> people will recognise — for example
+        <span class="ui">Finance Manager</span> — a short <span class="ui">Role Code</span>
+        such as <span class="ui">FIN_MGR</span>, and a description of what the job covers.</p>
+      </li>
+      <li><p>Save, then go to <span class="ui">Role Permissions</span> and give it its screens, as in Part 3.</p></li>
+    </ol>
+
+    <div class="info">
+      <h3>Check first</h3>
+      <p>
+        Roles are easier to run when there are fewer of them. Before adding one, look
+        at whether an existing role already covers the job.
+      </p>
+    </div>
+  </section>
+
+  <!-- ── Troubleshooting ────────────────────────────────────── -->
+  <section>
+    <div class="part-head">
+      <span class="part-num">IF STUCK</span>
+      <h2>Common problems</h2>
+    </div>
+
+    <dl class="trouble">
+      <dt>They log in, but the menu is empty.</dt>
+      <dd>No role, or a role with no screens ticked. Check Part 2, then Part 3.</dd>
+
+      <dt>They can open a screen but the buttons are missing.</dt>
+      <dd>The role has <span class="ui">VIEW</span> but not <span class="ui">ADD</span> or
+      <span class="ui">EDIT</span> on that screen. Add the rights they need in Role Permissions.</dd>
+
+      <dt>Nothing changed after you gave them a role.</dt>
+      <dd>They're still on their old session. Have them log out and log back in.</dd>
+
+      <dt>They've forgotten their password.</dt>
+      <dd>On <span class="ui">Users</span>, click <span class="ui">Reset Pwd</span> on their
+      row and set a new one. Tell them to change it after logging in.</dd>
+
+      <dt>They're locked out after too many wrong passwords.</dt>
+      <dd>Open the user and untick <span class="ui">Locked</span>, then save.</dd>
+
+      <dt>Someone has left the company.</dt>
+      <dd>Untick <span class="ui">Active</span> on their record. Don't delete them — their
+      name needs to stay on the jobs, orders and approvals they handled.</dd>
+    </dl>
+  </section>
+
+  <footer>
+    PMS Enterprise · Synergy Infratech Power Systems — user administration guide.
+  </footer>
+
+</div>

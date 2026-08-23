@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { variables, authHeaders } from '../Variable';
 import { useCurrentUserId, useCurrentUser } from '../AuthContext';
 import ConfirmModal from '../common/ConfirmModal';
+import { ColFilter, applyColFilters, hasColFilters } from '../common/GridColumnFilter';
 import LoginPasswordModal from '../common/LoginPasswordModal';
 import { useFilters } from '../FilterContext';
 import DocPreviewDrawer from './DocPreviewDrawer';
@@ -200,6 +201,13 @@ const ExpandedDetail = ({ item, route, busy, onOpen, onAction }) => (
                 <div><strong>Document:</strong> {item.documentNo}
                     {item.documentAmount != null && <> · <strong>Amount:</strong> {fmt(item.documentAmount)}</>}
                 </div>
+                {(item.jobId || item.supplierName) && (
+                    <div>
+                        {item.jobId && <><strong>Job:</strong> {item.jobId}{item.jobTitle ? ` — ${item.jobTitle}` : ''}</>}
+                        {item.jobId && item.supplierName && ' · '}
+                        {item.supplierName && <><strong>Supplier:</strong> {item.supplierName}</>}
+                    </div>
+                )}
                 <div><strong>Submitted by:</strong> {item.submittedBy} on {fmtDateTime(item.submittedDate)}</div>
                 <div><strong>Current level:</strong> L{item.currentLevelNo} of {item.totalLevels}{item.levelName ? ` (${item.levelName})` : ''}</div>
             </div>
@@ -231,7 +239,14 @@ const ApprovalCard = ({ item, meta, expanded, onToggle, onOpen, onAction, acting
                 )}
                 <span onClick={() => onToggle(item)} style={{ fontWeight: 700, color: '#1d4ed8', fontSize: 14, flex: 1 }}>
                     {item.documentNo}
+                    {item.supplierName && (
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', marginTop: 1 }}>{item.supplierName}</div>
+                    )}
                 </span>
+                {item.jobId && (
+                    <span style={{ fontFamily: 'Courier New', fontSize: 11, color: '#1e40af',
+                                   background: '#dbeafe', padding: '2px 6px', borderRadius: 4 }}>{item.jobId}</span>
+                )}
                 <span style={{ fontFamily: 'monospace', fontSize: 13, color: '#334155' }}>
                     {item.documentAmount != null ? fmt(item.documentAmount) : ''}
                 </span>
@@ -299,6 +314,21 @@ const ApprovalRow = ({ item, route, colSpan, expanded, onToggle, onOpen, onActio
                         <span style={{ fontSize: 10, color: '#64748b' }}>{expanded ? '▾' : '▸'}</span>
                         {item.documentNo}
                     </span>
+                    {/* Supplier sits under the number rather than in its own
+                        column — it is PO-only, and the grid is already wide. */}
+                    {item.supplierName && (
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', marginTop: 2, maxWidth: 220,
+                                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                             title={item.supplierName}>
+                            {item.supplierName}
+                        </div>
+                    )}
+                </td>
+                <td style={{ padding: '8px 12px' }} title={item.jobTitle || undefined}>
+                    {item.jobId
+                        ? <span style={{ fontFamily: 'Courier New', fontSize: 11, color: '#1e40af',
+                                         background: '#dbeafe', padding: '2px 6px', borderRadius: 4 }}>{item.jobId}</span>
+                        : <span style={{ color: '#cbd5e1' }}>—</span>}
                 </td>
                 <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'monospace', fontSize: 12 }}>
                     {item.documentAmount != null ? fmt(item.documentAmount) : '—'}
@@ -371,12 +401,78 @@ const ApprovalRow = ({ item, route, colSpan, expanded, onToggle, onOpen, onActio
 };
 
 // ── Collapsible category section ──────────────────────────────────────────
+// ── Sorting ───────────────────────────────────────────────────────────────
+// Client-side, per section: everything is already in memory, so a sort covers
+// the whole section rather than a page. Null/blank values always sort last, in
+// both directions — a missing job or amount is never "the smallest".
+const SORT_VALUE = {
+    documentNo:     i => (i.documentNo   || '').toLowerCase(),
+    jobId:          i => (i.jobId        || '').toLowerCase(),
+    documentAmount: i => i.documentAmount,
+    currentLevel:   i => i.currentLevelNo,
+    nextLevel:      i => (i.nextLevelName || '').toLowerCase(),
+    submittedBy:    i => (i.submittedBy  || '').toLowerCase(),
+    submittedDate:  i => i.submittedDate ? new Date(i.submittedDate).getTime() : null,
+};
+
+const isBlank = v => v == null || v === '';
+
+// Modules whose document actually carries a job (see the sp_GetMyApprovals
+// patch). ADJ / RV / PV / CN / DN have none, so the Job No. filter box is not
+// offered on those sections - it could only ever match nothing.
+const JOB_MODULES = new Set(['PR', 'PO', 'INV', 'JOB', 'BOM', 'SRV', 'IRN', 'MH', 'STR']);
+
+const sortItems = (rows, { col, dir }) => {
+    if (!col || !SORT_VALUE[col]) return rows;          // untouched = server order
+    const get  = SORT_VALUE[col];
+    const sign = dir === 'DESC' ? -1 : 1;
+    return [...rows].sort((a, b) => {
+        const x = get(a), y = get(b);
+        if (isBlank(x) && isBlank(y)) return 0;
+        if (isBlank(x)) return 1;
+        if (isBlank(y)) return -1;
+        if (typeof x === 'number' && typeof y === 'number') return (x - y) * sign;
+        return String(x).localeCompare(String(y), undefined, { numeric: true }) * sign;
+    });
+};
+
+const SortTh = ({ col, sort, onSort, children, style }) => {
+    const active = sort.col === col;
+    return (
+        <th style={{ ...TH, cursor: 'pointer', userSelect: 'none', ...style }}
+            onClick={() => onSort(col)}
+            title={`Sort by ${typeof children === 'string' ? children : 'this column'}`}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4,
+                           justifyContent: style?.textAlign === 'right' ? 'flex-end' : 'flex-start' }}>
+                {children}
+                <span style={{ fontSize: 10, lineHeight: 1, color: active ? '#1e3a5f' : '#cbd5e1' }}>
+                    {active ? (sort.dir === 'ASC' ? '↑' : '↓') : '⇅'}
+                </span>
+            </span>
+        </th>
+    );
+};
+
 const CategorySection = ({ moduleCode, items, onOpen, onToggle, onAction, expandedId, acting, selected, onSelect, onSelectAll, onPreview, defaultOpen = true }) => {
     const meta         = moduleMeta(moduleCode);
     const [open, setOpen] = useState(defaultOpen);
     const isMobile     = useIsMobile();
 
-    const actionableIds = items.filter(i => i.canAct).map(i => i.transactionId);
+    // Per-column boxes in this section's own header row. Section-scoped so a
+    // filter typed on Purchase Orders leaves the Purchase Requests grid alone.
+    // Everything is already in memory, so this searches the whole section.
+    const [colF, setColF] = useState({ documentNo: '', jobId: '', submittedBy: '' });
+    const [sort, setSort] = useState({ col: null, dir: 'ASC' });
+    const onSort = (col) => setSort(s => s.col === col
+        ? { col, dir: s.dir === 'ASC' ? 'DESC' : 'ASC' }
+        : { col, dir: 'ASC' });
+
+    const shown = sortItems(applyColFilters(items, colF), sort);
+    const filtering = hasColFilters(colF);
+
+    // Select-all and the counts follow what is visible — ticking the header box
+    // while filtered must not silently select rows you cannot see.
+    const actionableIds = shown.filter(i => i.canAct).map(i => i.transactionId);
     const allChecked    = actionableIds.length > 0 && actionableIds.every(id => selected.has(id));
     const someChecked   = actionableIds.some(id => selected.has(id));
 
@@ -409,7 +505,7 @@ const CategorySection = ({ moduleCode, items, onOpen, onToggle, onAction, expand
                     <span style={{ fontSize: 20 }}>{meta.icon}</span>
                     <span style={{ fontSize: 14, fontWeight: 700, color: meta.color }}>{meta.label}</span>
                     <span style={{ background: meta.color, color: '#fff', borderRadius: 12, padding: '2px 10px', fontSize: 11, fontWeight: 700 }}>
-                        {items.length}
+                        {filtering ? `${shown.length} of ${items.length}` : items.length}
                     </span>
                     {someChecked && (
                         <span style={{ background: '#dcfce7', color: '#166534', borderRadius: 12, padding: '2px 8px', fontSize: 11, fontWeight: 600, border: '1px solid #86efac' }}>
@@ -421,7 +517,7 @@ const CategorySection = ({ moduleCode, items, onOpen, onToggle, onAction, expand
             </div>
             {open && (isMobile ? (
                 <div style={{ padding: '10px 12px' }}>
-                    {items.map(item => (
+                    {shown.map(item => (
                         <ApprovalCard key={item.transactionId}
                                       item={item}
                                       meta={meta}
@@ -441,22 +537,45 @@ const CategorySection = ({ moduleCode, items, onOpen, onToggle, onAction, expand
                         <thead>
                             <tr style={{ background: '#f8fafc' }}>
                                 <th style={{ ...TH, width: 36 }}></th>
-                                <th style={TH}>Document No</th>
-                                <th style={{ ...TH, textAlign: 'right', width: 110 }}>Amount</th>
-                                <th style={{ ...TH, minWidth: 160 }}>Current Level</th>
-                                <th style={{ ...TH, minWidth: 160 }}>Next Level</th>
-                                <th style={{ ...TH, minWidth: 120 }}>Submitted By</th>
-                                <th style={{ ...TH, width: 140 }}>Submitted On</th>
+                                <SortTh col="documentNo"     sort={sort} onSort={onSort}>Document No</SortTh>
+                                <SortTh col="jobId"          sort={sort} onSort={onSort} style={{ width: 130 }}>Job No.</SortTh>
+                                <SortTh col="documentAmount" sort={sort} onSort={onSort} style={{ textAlign: 'right', width: 110 }}>Amount</SortTh>
+                                <SortTh col="currentLevel"   sort={sort} onSort={onSort} style={{ minWidth: 160 }}>Current Level</SortTh>
+                                <SortTh col="nextLevel"      sort={sort} onSort={onSort} style={{ minWidth: 160 }}>Next Level</SortTh>
+                                <SortTh col="submittedBy"    sort={sort} onSort={onSort} style={{ minWidth: 120 }}>Submitted By</SortTh>
+                                <SortTh col="submittedDate"  sort={sort} onSort={onSort} style={{ width: 140 }}>Submitted On</SortTh>
                                 <th style={{ ...TH, width: 36, textAlign: 'center' }}>👁</th>
                                 <th style={{ ...TH, width: 90, textAlign: 'right' }}></th>
                             </tr>
+                            <tr>
+                                <th />
+                                <ColFilter value={colF.documentNo}
+                                           onChange={v => setColF(p => ({ ...p, documentNo: v }))}
+                                           placeholder={moduleCode === 'PR' ? 'PR no.' : moduleCode === 'PO' ? 'PO no.' : 'Doc no.'} />
+                                {/* Only where the module's document has a job. */}
+                                {JOB_MODULES.has(moduleCode)
+                                    ? <ColFilter value={colF.jobId}
+                                                 onChange={v => setColF(p => ({ ...p, jobId: v }))}
+                                                 placeholder="Job no." />
+                                    : <th />}
+                                <th /><th /><th />
+                                <ColFilter value={colF.submittedBy}
+                                           onChange={v => setColF(p => ({ ...p, submittedBy: v }))}
+                                           placeholder="Submitted by" />
+                                <th /><th /><th />
+                            </tr>
                         </thead>
                         <tbody>
-                            {items.map(item => (
+                            {shown.length === 0 && (
+                                <tr><td colSpan={10} style={{ padding: '18px 12px', textAlign: 'center', color: '#94a3b8', fontSize: 12.5 }}>
+                                    No {meta.label.toLowerCase()} match these column filters.
+                                </td></tr>
+                            )}
+                            {shown.map(item => (
                                 <ApprovalRow key={item.transactionId}
                                              item={item}
                                              route={meta.route}
-                                             colSpan={9}
+                                             colSpan={10}
                                              expanded={expandedId === item.transactionId}
                                              onToggle={onToggle}
                                              onOpen={onOpen}
@@ -581,6 +700,11 @@ const MyApprovalsPage = () => {
     useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
 
     // ── Bulk selection state ─────────────────────────────────────
+    // Type-to-narrow box above the list. Separate from the sidebar Search,
+    // which only applies on "Apply Filters" — too slow when you are hunting one
+    // document in a list of fifty. Everything is already in memory (load()
+    // fetches up to 500 in one go), so this filters the WHOLE list, not a page.
+    const [quickFind,    setQuickFind]    = useState('');
     const [selected,     setSelected]     = useState(new Set());   // Set<transactionId>
     const [bulkActing,   setBulkActing]   = useState(false);
     const [bulkProgress, setBulkProgress] = useState(null);        // { done, total }
@@ -635,6 +759,7 @@ const MyApprovalsPage = () => {
 
     const filtered = useMemo(() => {
         const s = (applied.searchText || '').trim().toLowerCase();
+        const q = quickFind.trim().toLowerCase();
         const moduleCodes = (applied.moduleCode || '').split(',').filter(Boolean);
         const wantActionable = applied.actionable === 'true'
             ? true : applied.actionable === 'false' ? false : null;
@@ -651,12 +776,20 @@ const MyApprovalsPage = () => {
                 if (to   && t > to)   return false;
             }
             if (s) {
-                const hay = `${i.documentNo || ''} ${i.submittedBy || ''} ${i.levelName || ''}`.toLowerCase();
+                const hay = `${i.documentNo || ''} ${i.submittedBy || ''} ${i.levelName || ''} ${i.jobId || ''} ${i.supplierName || ''}`.toLowerCase();
                 if (!hay.includes(s)) return false;
+            }
+            if (q) {
+                // Amount included so "627" finds PO-26-0025 by its value, and
+                // formatted so a typed "627,019" matches what is on screen.
+                const hay = `${i.documentNo || ''} ${i.submittedBy || ''} ${i.levelName || ''} `
+                          + `${i.jobId || ''} ${i.jobTitle || ''} ${i.supplierName || ''} `
+                          + `${i.documentAmount ?? ''} ${i.documentAmount != null ? fmt(i.documentAmount) : ''}`;
+                if (!hay.toLowerCase().includes(q)) return false;
             }
             return true;
         });
-    }, [items, applied]);
+    }, [items, applied, quickFind]);
 
     const groups = useMemo(() => {
         const map = new Map();
@@ -827,10 +960,35 @@ const MyApprovalsPage = () => {
                                         : `${totalPending} of ${grandTotal} shown · ${totalActionable} actionable`}
                             </div>
                         </div>
-                        <button className="po-btn-sec" onClick={load} disabled={loading}
-                                style={{ padding: '5px 12px', fontSize: 12 }}>
-                            ↻ Refresh
-                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <div style={{ position: 'relative' }}>
+                                <input
+                                    value={quickFind}
+                                    onChange={e => setQuickFind(e.target.value)}
+                                    placeholder="Find PO / PR no., submitter, amount…"
+                                    autoFocus
+                                    style={{
+                                        width: 260, boxSizing: 'border-box',
+                                        padding: '6px 26px 6px 30px', fontSize: 12.5,
+                                        border: '1px solid #cbd5e1', borderRadius: 6,
+                                        fontFamily: 'inherit', outline: 'none',
+                                    }}
+                                    onFocus={e => { e.target.style.borderColor = '#3b82f6'; }}
+                                    onBlur={e => { e.target.style.borderColor = '#cbd5e1'; }}
+                                />
+                                <span style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)',
+                                               fontSize: 12, color: '#94a3b8', pointerEvents: 'none' }}>🔍</span>
+                                {quickFind && (
+                                    <span onClick={() => setQuickFind('')} title="Clear"
+                                          style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+                                                   cursor: 'pointer', color: '#94a3b8', fontSize: 14, lineHeight: 1 }}>×</span>
+                                )}
+                            </div>
+                            <button className="po-btn-sec" onClick={load} disabled={loading}
+                                    style={{ padding: '5px 12px', fontSize: 12 }}>
+                                ↻ Refresh
+                            </button>
+                        </div>
                     </div>
 
                     {!loading && grandTotal > 0 && (
@@ -925,8 +1083,14 @@ const MyApprovalsPage = () => {
                     {!loading && !error && grandTotal > 0 && totalPending === 0 && (
                         <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94a3b8' }}>
                             <div style={{ fontSize: 36, marginBottom: 8 }}>🔎</div>
-                            <div style={{ fontSize: 14, color: '#475569' }}>No items match your filters.</div>
-                            <div style={{ fontSize: 12, marginTop: 4 }}>Clear filters in the left panel to see all {grandTotal} pending items.</div>
+                            <div style={{ fontSize: 14, color: '#475569' }}>
+                                {quickFind ? <>Nothing matches “{quickFind}”.</> : 'No items match your filters.'}
+                            </div>
+                            <div style={{ fontSize: 12, marginTop: 4 }}>
+                                {quickFind
+                                    ? <>Clear the search box above to see all {grandTotal} pending items.</>
+                                    : <>Clear filters in the left panel to see all {grandTotal} pending items.</>}
+                            </div>
                         </div>
                     )}
 
