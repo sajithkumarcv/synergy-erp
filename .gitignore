@@ -21,3 +21,6 @@ Thumbs.db
 # Build scratch output (not part of the repo)
 deploy_out/
 deploy_out_prod/
+
+# Publish output (dotnet publish -o deploy/api)
+deploy/api/
