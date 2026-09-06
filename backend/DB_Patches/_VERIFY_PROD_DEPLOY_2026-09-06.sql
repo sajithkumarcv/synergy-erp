@@ -92,15 +92,14 @@ SELECT Item, Status, Note FROM (
                     ISNULL(OBJECT_DEFINITION(OBJECT_ID('proj.sp_GetMyApprovals')), '')) > 0
                 THEN 'OK' ELSE 'MISSING' END,
            'From the 2026-08-18/23 delivery. MISSING = My Approvals shows blank Job No. and Supplier.'
+    -- REMOVED 2026-09-06: there was a check here for JobId in sp_GetAllApprovals.
+    -- It was wrong. No patch ever adds JobId to that procedure (2026-08-13d, the
+    -- only script that touches it, never mentions JobId) and ApprovalsAdminPage.js
+    -- has no job column at all. It reported MISSING on both production databases
+    -- during the 2026-09-06 deployment and sent us looking for a gap that does not
+    -- exist. The 08-23 job/supplier work was on sp_GetMyApprovals - checked above.
     UNION ALL
     SELECT 3,
-           'sp_GetAllApprovals - JobId',
-           CASE WHEN CHARINDEX('JobId',
-                    ISNULL(OBJECT_DEFINITION(OBJECT_ID('proj.sp_GetAllApprovals')), '')) > 0
-                THEN 'OK' ELSE 'MISSING' END,
-           'From the 2026-08-23 delivery. MISSING = Approvals admin shows blank Job No.'
-    UNION ALL
-    SELECT 4,
            'sp_GetPRApprovalNotify - Procurement GROUP',
            CASE WHEN CHARINDEX('TBL_USER_GROUP',
                     ISNULL(OBJECT_DEFINITION(OBJECT_ID('proj.sp_GetPRApprovalNotify')), '')) > 0
