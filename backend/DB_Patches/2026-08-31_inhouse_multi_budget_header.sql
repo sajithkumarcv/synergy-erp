@@ -1,4 +1,4 @@
-﻿/* ============================================================================
+/* ============================================================================
    In-house jobs: the job's Budget Header is a DEFAULT, not a lock
 
    BEFORE: sp_ImportJobBudgetItem forced every imported row onto the job's own
@@ -22,9 +22,20 @@
 
    HOW THIS SCRIPT WORKS - read before running:
    It does NOT contain a retyped copy of the procedure. It reads the CURRENT
-   definition out of sys.sql_modules, replaces one block, and re-executes it as
-   ALTER. If the block is not found (already patched, or the proc has diverged
-   on this database) it stops without changing anything.
+   definition out of sys.sql_modules, replaces ONE LINE, and re-executes it as
+   ALTER. If the line is not found (already patched, or the proc has diverged on
+   this database) it stops without changing anything.
+
+   Only the IF CONDITION changes. Both branches - SET @CatId = @JobCat, and the
+   lookup by @BudgetHeader - are left exactly as they are, which is why a
+   single-line anchor is enough.
+
+   >> The anchor is deliberately ONE line. An earlier revision anchored on a
+   >> four-line block and aborted on SYNERPUAE with "proc has diverged" even
+   >> though the procedure was identical - its stored definition uses different
+   >> line endings (CRLF vs LF) from the database this was written against, and
+   >> CHARINDEX cannot match a multi-line literal across that difference. A
+   >> single-line anchor contains no line ending and cannot fail that way.
 
    Idempotent. Safe to re-run. Affects sp_ImportJobBudgetItem only.
    ============================================================================ */
@@ -33,10 +44,11 @@ SET NOCOUNT ON;
 SET QUOTED_IDENTIFIER ON;
 GO
 
-DECLARE @def   NVARCHAR(MAX) = OBJECT_DEFINITION(OBJECT_ID('proj.sp_ImportJobBudgetItem'));
-DECLARE @old   NVARCHAR(MAX);
-DECLARE @new   NVARCHAR(MAX);
-DECLARE @pos   INT;
+DECLARE @def NVARCHAR(MAX) = OBJECT_DEFINITION(OBJECT_ID('proj.sp_ImportJobBudgetItem'));
+DECLARE @old NVARCHAR(MAX);
+DECLARE @new NVARCHAR(MAX);
+DECLARE @pos INT;
+DECLARE @p   INT;
 
 IF @def IS NULL
 BEGIN
@@ -44,41 +56,51 @@ BEGIN
     RETURN;
 END
 
-SET @old = N'    IF @Costing = 0 AND @JobCat IS NOT NULL
-        SET @CatId = @JobCat;
-    ELSE
-        SET @CatId = (SELECT TOP 1 ExpenseCategoryId FROM proj.TBL_JOB_EXPENSE_CATEGORY';
-
-SET @new = N'    -- The sheet''s BudgetHeader always wins. A job with its own linked header
-    -- (TBL_JOB.BudgetCategoryId) uses it only as the fallback for blank rows -
-    -- a default, not a lock - so in-house jobs budget across as many headers as
-    -- they need. @Costing is deliberately no longer part of this decision.
-    IF NULLIF(LTRIM(RTRIM(ISNULL(@BudgetHeader, N))), N) IS NULL
-        SET @CatId = @JobCat;
-    ELSE
-        SET @CatId = (SELECT TOP 1 ExpenseCategoryId FROM proj.TBL_JOB_EXPENSE_CATEGORY';
-
-IF CHARINDEX(@new, @def) > 0
+IF CHARINDEX(N'@Costing is deliberately no longer part of this decision', @def) > 0
 BEGIN
     PRINT 'sp_ImportJobBudgetItem already patched - nothing done.';
     RETURN;
 END
 
+SET @old = N'    IF @Costing = 0 AND @JobCat IS NOT NULL';
+
+SET @new = N'    -- The sheet''s BudgetHeader always wins. A job with its own linked header
+    -- (TBL_JOB.BudgetCategoryId) uses it only as the fallback for blank rows -
+    -- a default, not a lock - so in-house jobs budget across as many headers as
+    -- they need. @Costing is deliberately no longer part of this decision.
+    IF NULLIF(LTRIM(RTRIM(ISNULL(@BudgetHeader, N''''))), N'''') IS NULL';
+
 IF CHARINDEX(@old, @def) = 0
 BEGIN
-    RAISERROR('Expected header-resolution block not found in sp_ImportJobBudgetItem - proc has diverged. Nothing changed; patch it by hand.', 16, 1);
+    RAISERROR('Expected IF condition not found in sp_ImportJobBudgetItem - proc has diverged. Nothing changed; patch it by hand.', 16, 1);
     RETURN;
 END
 
 SET @def = REPLACE(@def, @old, @new);
 
--- CREATE PROCEDURE -> ALTER PROCEDURE (first occurrence only)
-SET @pos = CHARINDEX(N'CREATE', @def);
+-- CREATE PROCEDURE -> ALTER PROCEDURE. The keyword is not always at position 1
+-- (a comment header from an earlier patch can precede it), so find the CREATE
+-- that actually begins the CREATE PROCEDURE statement.
+SET @p   = 1;
+SET @pos = 0;
+WHILE 1 = 1
+BEGIN
+    SET @p = CHARINDEX(N'CREATE', @def, @p);
+    IF @p = 0 BREAK;
+    IF SUBSTRING(@def, @p, 40) LIKE N'CREATE%PROC%'
+    BEGIN
+        SET @pos = @p;
+        BREAK;
+    END
+    SET @p = @p + 6;
+END
+
 IF @pos = 0
 BEGIN
-    RAISERROR('Could not locate CREATE in the procedure definition - nothing changed.', 16, 1);
+    RAISERROR('Could not locate the CREATE PROCEDURE keyword - nothing changed.', 16, 1);
     RETURN;
 END
+
 SET @def = STUFF(@def, @pos, 6, N'ALTER');
 
 EXEC sp_executesql @def;
@@ -86,7 +108,7 @@ PRINT 'sp_ImportJobBudgetItem patched: BudgetHeader column now wins, job header 
 GO
 
 /* ---------------------------------------------------------------------------
-   Verify
+   Verify - must return 'OK - patched'
    --------------------------------------------------------------------------- */
 SELECT CASE WHEN CHARINDEX(N'@Costing is deliberately no longer part of this decision',
                            OBJECT_DEFINITION(OBJECT_ID('proj.sp_ImportJobBudgetItem'))) > 0
