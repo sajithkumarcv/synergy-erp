@@ -29,12 +29,16 @@ namespace ERPWEB.Controllers.Bom
         public async Task<IActionResult> Search(
             [FromQuery] string? searchText,
             [FromQuery] string? jobId,
-            [FromQuery] string? bomStatus,
+            [FromQuery] string? bomStatus,      // CSV of statuses (a single value still works)
+            [FromQuery] string? jobTypeIds,     // CSV of JobTypeId
+            [FromQuery] int? customerId,
             [FromQuery] string? dateFrom,
             [FromQuery] string? dateTo,
             [FromQuery] bool excludeClosedStatus = false,
             [FromQuery] int page = 1,
-            [FromQuery] int pageSize = 20)
+            [FromQuery] int pageSize = 20,
+            [FromQuery] string sortColumn = "BomDate",
+            [FromQuery] string sortDirection = "DESC")
         {
             try
             {
@@ -43,13 +47,17 @@ namespace ERPWEB.Controllers.Bom
                     SearchText           = searchText,
                     JobId                = jobId,
                     BomStatus            = bomStatus,
+                    JobTypeIds           = jobTypeIds,
+                    CustomerId           = customerId,
                     DateFrom             = string.IsNullOrEmpty(dateFrom) ? (DateTime?)null : DateTime.Parse(dateFrom),
                     DateTo               = string.IsNullOrEmpty(dateTo)   ? (DateTime?)null : DateTime.Parse(dateTo),
                     ExcludeClosedStatus  = excludeClosedStatus,
                     PageNumber           = page,
                     PageSize             = pageSize,
-                    SortColumn           = "BomDate",
-                    SortDirection        = "DESC"
+                    // The grid sorts; sp_SearchBoms whitelists the column name and
+                    // falls back to BomDate DESC for anything it doesn't recognise.
+                    SortColumn           = sortColumn,
+                    SortDirection        = sortDirection
                 });
                 var list  = rows.ToList();
                 int total = list.Count > 0 ? list[0].TotalRows : 0;
@@ -328,6 +336,76 @@ namespace ERPWEB.Controllers.Bom
             {
                 await _db.WriteLog(ex, controller: "Bom", action: "DeleteDetail", requestPath: HttpContext.Request.Path);
                 return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        // ── Bulk import BOM lines from Excel ──────────────────────
+        // One sp_ImportBomDetail call per row: the proc always returns a
+        // (Success, Message) row rather than throwing, so a bad line reports
+        // itself and the rest of the sheet still imports. Same shape as
+        // JobBudgetController.ImportItems.
+        [HttpPost("detail/import")]
+        public async Task<IActionResult> ImportDetails([FromBody] BomImportRequest req)
+        {
+            if (req.BomHeaderId <= 0)
+                return BadRequest(new { message = "BomHeaderId is required." });
+            if (req.Rows == null || req.Rows.Count == 0)
+                return BadRequest(new { message = "No rows to import." });
+
+            try
+            {
+                var results = new List<object>();
+                int ok = 0, fail = 0, n = 0;
+
+                foreach (var row in req.Rows)
+                {
+                    n++;
+                    try
+                    {
+                        DateTime? reqDate = string.IsNullOrWhiteSpace(row.ReqDate)
+                            ? (DateTime?)null
+                            : DateTime.Parse(row.ReqDate);
+
+                        var rs = await _db.QueryAsync<dynamic>("sp_ImportBomDetail", new
+                        {
+                            req.BomHeaderId,
+                            Section    = string.IsNullOrWhiteSpace(row.Section) ? null : row.Section.Trim(),
+                            ItemCode   = row.ItemCode?.Trim(),
+                            row.Qty,
+                            Uom        = string.IsNullOrWhiteSpace(row.Uom) ? null : row.Uom.Trim(),
+                            row.UnitPrice,
+                            ReqDate    = reqDate,
+                            row.IsCritical,
+                            Remarks    = string.IsNullOrWhiteSpace(row.Remarks) ? null : row.Remarks.Trim(),
+                            By         = req.ImportedBy
+                        });
+
+                        var r = rs?.FirstOrDefault();
+                        bool success = r != null && Convert.ToBoolean(r.Success);
+                        string msg   = (string?)r?.Message ?? "Unknown error";
+                        if (success) ok++; else fail++;
+                        results.Add(new { rowNumber = n, itemCode = row.ItemCode, section = row.Section, success, message = msg });
+                    }
+                    catch (Microsoft.Data.SqlClient.SqlException sqlRow) when (sqlRow.Number >= 50000)
+                    {
+                        // Business-rule THROW for this row (e.g. a closed job) → its message, not an error.
+                        fail++;
+                        results.Add(new { rowNumber = n, itemCode = row.ItemCode, section = row.Section, success = false, message = sqlRow.Message });
+                    }
+                    catch (Exception exRow)
+                    {
+                        await _db.WriteLog(exRow, controller: "Bom", action: "ImportDetails.Row", requestPath: HttpContext.Request.Path);
+                        fail++;
+                        results.Add(new { rowNumber = n, itemCode = row.ItemCode, section = row.Section, success = false, message = "Row failed — see application log." });
+                    }
+                }
+
+                return Ok(new { successCount = ok, failCount = fail, results });
+            }
+            catch (Exception ex)
+            {
+                await _db.WriteLog(ex, controller: "Bom", action: "ImportDetails", requestPath: HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Error importing BOM lines." });
             }
         }
     }

@@ -21,12 +21,14 @@ const norm = (s) => String(s ?? '').trim().toLowerCase().replace(/\s+/g, '');
 // template feeds.
 const BudgetImportModal = ({ job, rvNo, onClose, onImported }) => {
     const currentUser = useCurrentUser();
-    // Matches JobBudgetTab.js's own visibleRows/scopedRows scoping exactly: a job is
-    // single-category-locked only when its type doesn't require costing AND it has
-    // an actual fixed category set (TBL_JOB.BudgetCategoryId). isCostingRequired
-    // alone isn't enough — most "In House Jobs"-type jobs have no BudgetCategoryId
-    // at all and behave like any other multi-category job.
-    const inHouse = job?.isCostingRequired === false && !!job?.budgetCategoryId;
+    // The job's own Budget Header (TBL_JOB.BudgetCategoryId, mandatory on
+    // budget-header-linked job types such as In House Jobs) is the DEFAULT for rows
+    // that leave the BudgetHeader column blank — not a lock. A sheet naming other
+    // headers imports against those headers, so an in-house job budgets across as
+    // many cost headers as it needs. sp_ImportJobBudgetItem applies the same rule
+    // server-side (2026-08-31_inhouse_multi_budget_header.sql).
+    const defaultCatId   = job?.budgetCategoryId || null;
+    const defaultCatName = job?.budgetCategoryName || job?.budgetCategoryCode || '';
 
     const [headers, setHeaders] = useState([]);   // budget header (cost category) reference
     const [uomList, setUomList] = useState([]);   // UOM reference — fetched directly (not via
@@ -60,7 +62,7 @@ const BudgetImportModal = ({ job, rvNo, onClose, onImported }) => {
     const downloadTemplate = () => {
         const wb = XLSX.utils.book_new();
         const hdr = ['BudgetHeader', 'UOM', 'Qty', 'UnitPrice'];
-        const sampleHeader = inHouse ? (job?.budgetCategoryCode || job?.budgetCategoryName || '') : (headers[0]?.code || headers[0]?.name || 'STEEL');
+        const sampleHeader = job?.budgetCategoryCode || defaultCatName || headers[0]?.code || headers[0]?.name || 'STEEL';
         const sampleUom = uomList[0]?.uomCode || uomList[0]?.uomName || 'NOS';
         const samples = [
             [sampleHeader, sampleUom, 5, 3113906],
@@ -102,8 +104,8 @@ const BudgetImportModal = ({ job, rvNo, onClose, onImported }) => {
             const errors = [];
 
             // Resolve BudgetHeader text (code or name) → costCategoryId.
-            if (inHouse) {
-                o._costCategoryId = job?.budgetCategoryId;
+            if (!o.budgetHeader && defaultCatId) {
+                o._costCategoryId = defaultCatId;      // blank row falls back to the job's header
             } else if (!o.budgetHeader) {
                 errors.push('BudgetHeader required');
             } else {
@@ -200,7 +202,7 @@ const BudgetImportModal = ({ job, rvNo, onClose, onImported }) => {
                 <div style={{ padding: '16px 22px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
                         <div style={{ fontWeight: 700, fontSize: 16, color: '#1e293b' }}>Import Budget Lines from Excel</div>
-                        <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Job {job?.jobId}{inHouse ? ` · header ${job?.budgetCategoryName || ''}` : ''}</div>
+                        <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Job {job?.jobId}{defaultCatId ? ` · default header ${defaultCatName}` : ''}</div>
                     </div>
                     <button onClick={onClose} style={{ background: 'none', border: 0, fontSize: 20, cursor: 'pointer', color: '#64748b' }}>✕</button>
                 </div>
@@ -213,7 +215,7 @@ const BudgetImportModal = ({ job, rvNo, onClose, onImported }) => {
                             <div style={{ fontWeight: 600, margin: '8px 0' }}>Select your Excel file</div>
                             <div style={{ fontSize: 12.5, color: '#64748b', marginBottom: 14 }}>
                                 Columns: <strong>BudgetHeader, UOM, Qty, UnitPrice</strong> — one row per cost header, no item breakdown.
-                                {inHouse && <> For this in-house job the header is fixed — BudgetHeader is optional.</>}
+                                {defaultCatId && <> Rows that leave <strong>BudgetHeader</strong> blank fall back to this job's header ({defaultCatName}).</>}
                             </div>
                             <button onClick={() => fileRef.current?.click()} style={btnPri}>Browse File…</button>
                             {parseError && <div style={{ color: '#dc2626', marginTop: 12, fontSize: 13 }}>⚠ {parseError}</div>}
@@ -238,7 +240,7 @@ const BudgetImportModal = ({ job, rvNo, onClose, onImported }) => {
                                     {validRows.map(r => (
                                         <tr key={r._rowNum}>
                                             <td style={td}>{r._rowNum}</td>
-                                            <td style={td}>{inHouse ? (job?.budgetCategoryName || '—') : (r.budgetHeader || '—')}</td>
+                                            <td style={td}>{r.budgetHeader || defaultCatName || '—'}</td>
                                             <td style={td}>{r.uom || '—'}</td>
                                             <td style={{ ...td, textAlign: 'right' }}>{r.qty}</td>
                                             <td style={{ ...td, textAlign: 'right' }}>{r.unitPrice || '0'}</td>

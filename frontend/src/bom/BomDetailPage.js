@@ -10,6 +10,7 @@ import ApprovalHistoryTab   from '../approval/ApprovalHistoryTab';
 import ApprovalStatusBanner from '../approval/ApprovalStatusBanner';
 import JobClosedBanner      from '../jobs/JobClosedBanner';
 import AmountInput          from '../common/AmountInput';
+import BomImportModal       from './BomImportModal';
 import '../inventory/Inventory.css';
 
 // ── BOM line status colours ─────────────────────────────────────
@@ -1001,6 +1002,7 @@ const BomDetailPage = () => {
     const [revising,        setRevising]        = useState(false);
     const [reviseError,     setReviseError]     = useState('');
     const [showReviseModal, setShowReviseModal] = useState(false);
+    const [showImport,      setShowImport]      = useState(false);
     const [reviseReason,    setReviseReason]    = useState('');
     const [revisePassword,  setRevisePassword]  = useState('');
     const [revisedOk,       setRevisedOk]       = useState(false);  // success notice
@@ -1293,6 +1295,15 @@ const BomDetailPage = () => {
                     )}
                 </div>
                 <div style={{ display: 'flex', gap: 8, marginLeft: 'auto', alignItems: 'center' }}>
+                    {/* Import is offered only while the lines are editable - an
+                        Approved BOM has to be revised first, same rule the line
+                        editor and sp_ImportBomDetail both enforce. */}
+                    {!linesLocked && (
+                        <button className="inv-btn" onClick={() => setShowImport(true)}
+                            style={{ background: '#0f766e', color: '#fff', border: '1px solid #0f766e', fontWeight: 700 }}>
+                            📥 Import Excel
+                        </button>
+                    )}
                     {isApproved && canRevise && (
                         <button className="inv-btn" onClick={openReviseModal} disabled={revising}
                             style={{ background: '#7c3aed', color: '#fff', border: '1px solid #7c3aed', fontWeight: 700 }}>
@@ -1661,6 +1672,15 @@ const BomDetailPage = () => {
                 )}
             </div>
         </div>
+
+        {showImport && (
+            <BomImportModal
+                bomHeaderId={header.bomHeaderId}
+                sections={sections}
+                onClose={() => setShowImport(false)}
+                onImported={load}
+            />
+        )}
 
         {/* ── Revise BOM Modal ── */}
         {showReviseModal && ReactDOM.createPortal(

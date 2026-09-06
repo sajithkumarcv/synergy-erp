@@ -90,13 +90,33 @@ SET @new = N'(SELECT MAX(CAST(al2.AllowSelfApproval AS INT))
 
 SET @def = REPLACE(@def, @old, @new);
 
--- CREATE [ OR ALTER ] PROCEDURE  ->  ALTER PROCEDURE
-IF CHARINDEX(N'CREATE', @def) <> 1
+-- CREATE PROCEDURE -> ALTER PROCEDURE.
+-- The keyword is NOT always at position 1: SYNERPINDIA's copy opens with a
+-- comment header from the 2026-08-15 GST patch, which puts CREATE at 1760.
+-- Assuming position 1 mangles the leading text and the dynamic batch then fails
+-- with "Incorrect syntax" / "CREATE/ALTER PROCEDURE must be the first statement".
+-- So find the CREATE that actually begins the CREATE PROCEDURE statement.
+-- (Comments before it are fine - a comment is not a statement.)
+DECLARE @p INT = 1, @createPos INT = 0;
+WHILE 1 = 1
 BEGIN
-    RAISERROR('Definition does not start with CREATE - nothing changed.', 16, 1);
+    SET @p = CHARINDEX(N'CREATE', @def, @p);
+    IF @p = 0 BREAK;
+    IF SUBSTRING(@def, @p, 40) LIKE N'CREATE%PROC%'
+    BEGIN
+        SET @createPos = @p;
+        BREAK;
+    END
+    SET @p = @p + 6;
+END
+
+IF @createPos = 0
+BEGIN
+    RAISERROR('Could not locate the CREATE PROCEDURE keyword - nothing changed.', 16, 1);
     RETURN;
 END
-SET @def = STUFF(@def, 1, 6, N'ALTER ');
+
+SET @def = STUFF(@def, @createPos, 6, N'ALTER ');
 
 EXEC sp_executesql @def;
 

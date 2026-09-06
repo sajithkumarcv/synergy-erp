@@ -7,11 +7,14 @@ import { useInitialFilters } from '../utils/useInitialFilters';
 import { useLookup } from '../LookupContext';
 import { useFieldConfig } from '../FieldConfigContext';
 import { usePermission } from '../PermissionContext';
+import { ColFilter, applyColFilters, matchNote } from '../common/GridColumnFilter';
 import BomCopy from './BomCopy';
 import './Bom.css';
 
 const PAGE_SIZES = [50, 100, 200, 500, 1000];
-const DEFAULT_FILTERS = { searchText: '', bomStatus: '', dateFrom: '', dateTo: '' };
+// Same filter set the Jobs list offers: free text, customer, job type (multi),
+// status (multi) and a date range. bomStatus and jobTypeIds travel as CSV.
+const DEFAULT_FILTERS = { searchText: '', customerId: '', jobTypeIds: '', bomStatus: '', dateFrom: '', dateTo: '' };
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const fmt     = (n) => n != null ? Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
@@ -279,6 +282,11 @@ export const Bom = () => {
     const [applied,   setApplied]   = useState({ ...initialFilters });
     const [showForm,  setShowForm]  = useState(false);
     const [showCopy,  setShowCopy]  = useState(false);
+    const [jobTypes,  setJobTypes]  = useState([]);
+    const [customers, setCustomers] = useState([]);
+    // Per-column boxes in the grid header - page-local, see GridColumnFilter.
+    const [colF, setColF] = useState({ jobId: '', customerName: '', jobTypeName: '' });
+    const shownRows = applyColFilters(rows, colF);
 
     const gridRef = useRef({ pageSize: 200, sortCol: 'BomDate', sortDir: 'DESC', applied: DEFAULT_FILTERS });
     useEffect(() => { gridRef.current = { pageSize, sortCol, sortDir, applied }; }, [pageSize, sortCol, sortDir, applied]);
@@ -287,6 +295,8 @@ export const Bom = () => {
         setLoading(true);
         const q = new URLSearchParams({ page: pg, pageSize: ps, sortColumn: sc, sortDirection: sd });
         if (af.searchText) q.set('searchText', af.searchText);
+        if (af.customerId) q.set('customerId', af.customerId);
+        if (af.jobTypeIds) q.set('jobTypeIds', af.jobTypeIds);
         if (af.bomStatus)  q.set('bomStatus',  af.bomStatus);
         if (af.dateFrom)   q.set('dateFrom',   af.dateFrom);
         if (af.dateTo)     q.set('dateTo',     af.dateTo);
@@ -299,12 +309,14 @@ export const Bom = () => {
 
     useEffect(() => { load(1, pageSize, sortCol, sortDir, initialFilters); }, [load]); // eslint-disable-line
 
-    const buildDefs = (statuses) => ({
+    const buildDefs = (statuses, typeOptions = [], customerOptions = []) => ({
         searchText: { label: 'Search',     type: 'text',   placeholder: 'Job no., customer, description…' },
-        bomStatus:  { label: 'BOM Status', type: 'select', placeholder: 'All Statuses',
+        customerId: { label: 'Customer',   type: 'select', placeholder: 'All Customers', options: customerOptions },
+        jobTypeIds: { label: 'Job Type',   type: 'chip-multiselect', options: typeOptions },
+        bomStatus:  { label: 'BOM Status', type: 'multiselect',
                       options: statuses.map(s => ({ value: s.value, label: s.label })) },
-        dateFrom:   { label: 'Date From',  type: 'text',   placeholder: 'YYYY-MM-DD' },
-        dateTo:     { label: 'Date To',    type: 'text',   placeholder: 'YYYY-MM-DD' },
+        dateFrom:   { label: 'Date From',  type: 'date' },
+        dateTo:     { label: 'Date To',    type: 'date' },
     });
 
     // Register filter panel once on mount with empty options
@@ -319,11 +331,29 @@ export const Bom = () => {
         return () => unregisterFilters('bom');
     }, []); // eslint-disable-line
 
-    // Patch status options once vlist loads (never causes a re-registration loop)
+    // Job types and customers for the two new dropdowns. Same endpoints the Jobs
+    // list uses, so the option sets stay identical between the two pages.
     useEffect(() => {
-        if (!bomHeaderStatuses.length) return;
-        updateFilterDefs('bom', buildDefs(bomHeaderStatuses));
-    }, [bomHeaderStatuses]); // eslint-disable-line
+        const h = authHeaders();
+        fetch(`${variables.API_URL}job/types`, { headers: h })
+            .then(r => r.ok ? r.json() : [])
+            .then(d => setJobTypes(Array.isArray(d) ? d : []))
+            .catch(console.error);
+        fetch(`${variables.API_URL}customer/search?pageSize=500&page=1&sortCol=CustomerName&sortDir=ASC`, { headers: h })
+            .then(r => r.ok ? r.json() : { data: [] })
+            .then(d => setCustomers(d.data || []))
+            .catch(console.error);
+    }, []);
+
+    // Patch dropdown options once the lookups land (never causes a re-registration loop)
+    useEffect(() => {
+        if (!bomHeaderStatuses.length && !jobTypes.length && !customers.length) return;
+        updateFilterDefs('bom', buildDefs(
+            bomHeaderStatuses,
+            jobTypes.map(t => ({ value: t.jobTypeId, label: t.jobTypeName })),
+            customers.map(c => ({ value: String(c.customerId), label: c.customerName })),
+        ));
+    }, [bomHeaderStatuses, jobTypes, customers]); // eslint-disable-line
 
     const handleSort = (col) => {
         const dir = sortCol === col && sortDir === 'ASC' ? 'DESC' : 'ASC';
@@ -373,7 +403,10 @@ export const Bom = () => {
                     <div className="bom-title-row">
                         <div>
                             <h2 className="bom-page-title">Bill of Materials</h2>
-                            <div className="bom-page-sub">{totalRows} record{totalRows !== 1 ? 's' : ''}</div>
+                            <div className="bom-page-sub">
+                                {totalRows} record{totalRows !== 1 ? 's' : ''}
+                                {matchNote(colF, shownRows.length, rows.length)}
+                            </div>
                         </div>
                         <div className="bom-toolbar">
                             <select className="bom-select" style={{ width: 110 }} value={pageSize}
@@ -407,18 +440,29 @@ export const Bom = () => {
                                 <Th col="CustomerName">Customer</Th>
                                 <Th col="BomDate">Date</Th>
                                 <Th col="JobTypeName">Job Type</Th>
-                                <th>Ver.</th>
-                                <th>Lines</th>
+                                <Th col="BomVersion">Ver.</Th>
+                                <Th col="LineCount">Lines</Th>
                                 <Th col="TotalBomValue" style={{ textAlign: 'right' }}>Total Value</Th>
-                                <th>Status</th>
+                                <Th col="BomStatus">Status</Th>
                                 <th>Actions</th>
+                            </tr>
+                            <tr>
+                                <ColFilter value={colF.jobId}        onChange={v => setColF(p => ({ ...p, jobId: v }))}        placeholder="Job no." />
+                                <ColFilter value={colF.customerName} onChange={v => setColF(p => ({ ...p, customerName: v }))} placeholder="Customer" />
+                                <th />
+                                <ColFilter value={colF.jobTypeName}  onChange={v => setColF(p => ({ ...p, jobTypeName: v }))}  placeholder="Job type" />
+                                <th /><th /><th /><th /><th />
                             </tr>
                         </thead>
                         <tbody>
-                            {rows.length === 0 && !loading ? (
-                                <tr><td colSpan="9" className="bom-empty">No BOMs found. Use the filters on the left or create a new BOM.</td></tr>
+                            {shownRows.length === 0 && !loading ? (
+                                <tr><td colSpan="9" className="bom-empty">
+                                    {rows.length === 0
+                                        ? 'No BOMs found. Use the filters on the left or create a new BOM.'
+                                        : 'No BOMs on this page match the column filters. The filter panel on the left searches every page.'}
+                                </td></tr>
                             ) : (
-                                rows.map(r => (
+                                shownRows.map(r => (
                                     <tr key={r.bomHeaderId}>
                                         <td>
                                             <button className="bom-id-link"

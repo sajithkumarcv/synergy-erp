@@ -674,11 +674,12 @@ const JobBudgetEditor = ({ job }) => {
     const hasAnyBudget   = setBudgetCount > 0 || allItems.length > 0;
     const showVersionBadge = header.totalRevisions > 1 || header.isApproved;
 
-    // In-house jobs are tied to ONE cost header → show only that header (one
-    // section of items, one-section BOM). Costed jobs budget across all headers.
-    const visibleRows = (job.isCostingRequired === false && job.budgetCategoryId)
-        ? rows.filter(r => String(r.costCategoryId) === String(job.budgetCategoryId))
-        : rows;
+    // Every job budgets across every cost header. The job's own Budget Header
+    // (TBL_JOB.BudgetCategoryId, mandatory on budget-header-linked job types such
+    // as In House Jobs) is a DEFAULT — it seeds the import and the in-house stock
+    // reporting — not a filter. It used to scope this list down to that one header,
+    // which left in-house jobs unable to budget anything else.
+    const visibleRows = rows;
 
     // Distinct "created by" values across budgeted headers (for the filter).
     const creators = Array.from(new Set(visibleRows.map(r => r.createdBy).filter(Boolean)));
@@ -1216,13 +1217,12 @@ const JobBudgetSummaryTab = ({ job }) => {
     const totalVar    = totalBudget - totalActual;
     const usedPct     = totalBudget > 0 ? Math.min((totalActual / totalBudget) * 100, 999) : 0;
     const setRowsN    = rows.filter(r => r.budgetedAmount > 0).length;
-    // In-house jobs: scope the summary to the single linked cost header.
-    const scopedRows = (job.isCostingRequired === false && job.budgetCategoryId)
-        ? rows.filter(r => String(r.costCategoryId) === String(job.budgetCategoryId))
-        : rows;
-    // "Only headers with entries" filters on top of the in-house scoping above —
-    // kept separate from scopedRows so the "X of Y" count below still reflects the
-    // true header total regardless of whether the entries filter is on.
+    // No in-house scoping here either — the summary counts every cost header,
+    // same as the tab above (see visibleRows there).
+    const scopedRows = rows;
+    // "Only headers with entries" filters on top of scopedRows — kept separate so
+    // the "X of Y" count below still reflects the true header total regardless of
+    // whether the entries filter is on.
     const visibleRows = onlyWithEntries ? scopedRows.filter(r => r.budgetedAmount > 0) : scopedRows;
 
     if (loading) return <div style={{ padding: 32, textAlign: 'center', color: '#64748b' }}>Loading…</div>;

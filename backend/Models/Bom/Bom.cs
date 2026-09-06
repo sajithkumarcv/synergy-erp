@@ -167,4 +167,24 @@ namespace ERPWEB.Models.Bom
         public string  TargetJobId       { get; set; } = string.Empty;
         public string? CreatedBy         { get; set; }
     }
+
+    /// <summary>One row of the BOM import sheet. Section/Uom accept a code or a name.</summary>
+    public class BomImportRow
+    {
+        public string? Section    { get; set; }
+        public string? ItemCode   { get; set; }
+        public decimal Qty        { get; set; }
+        public string? Uom        { get; set; }
+        public decimal UnitPrice  { get; set; }
+        public string? ReqDate    { get; set; }
+        public bool    IsCritical { get; set; }
+        public string? Remarks    { get; set; }
+    }
+
+    public class BomImportRequest
+    {
+        public int    BomHeaderId          { get; set; }
+        public string? ImportedBy          { get; set; }
+        public List<BomImportRow> Rows     { get; set; } = new();
+    }
 }
