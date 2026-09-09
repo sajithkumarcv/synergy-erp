@@ -7,6 +7,7 @@ import { usePermission } from '../../../PermissionContext';
 import { fmt, fmtDate } from '../../procurementConstants';
 import { useFieldConfig } from '../../../FieldConfigContext';
 import AmountInput from '../../../common/AmountInput';
+import LastPurchaseModal from '../../../common/LastPurchaseModal';
 
 // ── Confirm Modal (delete / close / cancel line) ─────────────────
 const ConfirmModal = ({ title, titleColor = '#dc2626', icon = '🗑', detail, warning, error, confirmLabel, confirmColor = '#dc2626', onConfirm, onCancel, busy }) =>
@@ -69,6 +70,9 @@ const BomImportModal = ({ pr, onClose, onImported }) => {
     const [qtys,      setQtys]      = useState({});   // bomDetailId → qty string (editable)
     const [prices,    setPrices]    = useState({});   // bomDetailId → unit price string (editable)
     const [importing, setImporting] = useState(false);
+    // Own state: this modal is a separate component from PrLinesTab below,
+    // so it cannot share that tab's pricePeek.
+    const [bomPricePeek, setBomPricePeek] = useState(null);
     const [error,     setError]     = useState('');
     const [search,    setSearch]    = useState('');
     const [catFilter, setCatFilter] = useState('');   // budget-category filter ('' = all)
@@ -320,12 +324,26 @@ const BomImportModal = ({ pr, onClose, onImported }) => {
                                                 )}
                                             </td>
                                             <td style={{ padding: '8px 10px', borderBottom: '1px solid #f0f4f8' }}>
-                                                <span style={{ fontFamily: 'Courier New', fontSize: 11, color: '#2e5fa3', background: '#dbeafe', padding: '2px 6px', borderRadius: 4 }}>
+                                                {/* stopPropagation: the row's own onClick toggles selection. */}
+                                                <span
+                                                    onClick={b.componentItemId ? (e => { e.stopPropagation(); setBomPricePeek({ itemId: b.componentItemId, itemLabel: `[${b.componentItemCode || '—'}] ${b.componentItemName || ''}`.trim() }); }) : undefined}
+                                                    title={b.componentItemId ? 'Show last purchase price' : undefined}
+                                                    style={{ fontFamily: 'Courier New', fontSize: 11, color: '#2e5fa3', background: '#dbeafe', padding: '2px 6px', borderRadius: 4,
+                                                             cursor: b.componentItemId ? 'pointer' : 'default',
+                                                             textDecoration: b.componentItemId ? 'underline dotted' : 'none' }}>
                                                     {b.componentItemCode || '—'}
                                                 </span>
                                             </td>
                                             <td style={{ padding: '8px 10px', borderBottom: '1px solid #f0f4f8', color: isAdded ? '#64748b' : '#1e3a5f' }}>
-                                                {b.componentItemName}
+                                                {b.componentItemId
+                                                    ? <span
+                                                        onClick={e => { e.stopPropagation(); setBomPricePeek({ itemId: b.componentItemId, itemLabel: `[${b.componentItemCode || '—'}] ${b.componentItemName || ''}`.trim() }); }}
+                                                        title="Show last purchase price"
+                                                        style={{ cursor: 'pointer', textDecoration: 'underline dotted' }}>
+                                                        {b.componentItemName}
+                                                    </span>
+                                                    : b.componentItemName
+                                                }
                                             </td>
                                             <td style={{ padding: '8px 10px', borderBottom: '1px solid #f0f4f8' }}>
                                                 {b.budgetCategoryName ? (
@@ -437,6 +455,13 @@ const BomImportModal = ({ pr, onClose, onImported }) => {
                     </div>
                 </div>
             </div>
+            {bomPricePeek && (
+                <LastPurchaseModal
+                    itemId={bomPricePeek.itemId}
+                    itemLabel={bomPricePeek.itemLabel}
+                    onClose={() => setBomPricePeek(null)}
+                />
+            )}
         </div>
     );
 };
@@ -464,6 +489,8 @@ const PrLinesTab = ({ pr, onRefresh }) => {
     const [confirmStatus, setConfirmStatus] = useState(null);  // { line, newStatus } | null
     const [modalBusy,     setModalBusy]     = useState(false);
     const [modalError,    setModalError]    = useState('');
+    // Item whose last purchase price is being viewed — { itemId, itemLabel } | null
+    const [pricePeek,     setPricePeek]     = useState(null);
 
     const { canDo } = usePermission();
     const canEdit = (getStatusConfig('PR', pr.status)?.canEdit ?? (pr.status === 'Draft')) && canDo('/purchase-requests', 'EDIT');
@@ -654,6 +681,14 @@ const PrLinesTab = ({ pr, onRefresh }) => {
                 />
             )}
 
+            {pricePeek && (
+                <LastPurchaseModal
+                    itemId={pricePeek.itemId}
+                    itemLabel={pricePeek.itemLabel}
+                    onClose={() => setPricePeek(null)}
+                />
+            )}
+
             <div className="prd-lines-wrap">
                 <div className="prd-lines-header">
                     <span className="prd-lines-title">Lines ({lines.length})</span>
@@ -714,11 +749,25 @@ const PrLinesTab = ({ pr, onRefresh }) => {
                                 <tr key={l.prLineId} style={{ borderLeft: `3px solid ${poColor}` }}>
                                     <td><span className="prd-line-num">{l.lineNum}</span></td>
                                     <td>
-                                        <span style={{ fontFamily: 'Courier New', fontSize: 11, color: '#2e5fa3', background: '#dbeafe', padding: '2px 6px', borderRadius: 4 }}>
+                                        <span
+                                            onClick={l.itemId ? (() => setPricePeek({ itemId: l.itemId, itemLabel: `[${l.itemCode || '—'}] ${l.itemDesc || ''}`.trim() })) : undefined}
+                                            title={l.itemId ? 'Show last purchase price' : undefined}
+                                            style={{ fontFamily: 'Courier New', fontSize: 11, color: '#2e5fa3', background: '#dbeafe', padding: '2px 6px', borderRadius: 4,
+                                                     cursor: l.itemId ? 'pointer' : 'default', textDecoration: l.itemId ? 'underline dotted' : 'none' }}>
                                             {l.itemCode || '—'}
                                         </span>
                                     </td>
-                                    <td>{l.itemDesc}</td>
+                                    <td>
+                                        {l.itemId
+                                            ? <span
+                                                onClick={() => setPricePeek({ itemId: l.itemId, itemLabel: `[${l.itemCode || '—'}] ${l.itemDesc || ''}`.trim() })}
+                                                title="Show last purchase price"
+                                                style={{ cursor: 'pointer', textDecoration: 'underline dotted' }}>
+                                                {l.itemDesc}
+                                            </span>
+                                            : l.itemDesc
+                                        }
+                                    </td>
                                     <td className="prd-num-cell">{fmt(l.requiredQty)}</td>
                                     <td className="prd-num-cell" style={{ color: poColor, fontWeight: 600 }}>
                                         {po > 0 ? fmt(po) : '—'}

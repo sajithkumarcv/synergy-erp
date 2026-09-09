@@ -93,6 +93,9 @@ const PoOverviewTab = ({ po, onRefresh }) => {
         if (!form.exchangeRate || Number(form.exchangeRate) <= 0) { setError('Exchange rate must be greater than 0.'); return; }
         if (!form.paymentTermsId)                                 { setError('Payment Terms is required.');        return; }
         if (isOtherPaymentTerm && !form.paymentTermsOther.trim()) { setError('Please specify the payment terms.'); return; }
+        // Mirrors the guard in sp_SetPO — delivery cannot precede the order.
+        if (form.poDate && form.deliveryDate && form.deliveryDate < form.poDate)
+                                                                  { setError('Expected delivery date cannot be earlier than the PO date.'); return; }
         if (!form.deliveryTerms)                                  { setError('Delivery Terms is required.');       return; }
         setError(''); setSaving(true);
         fetch(`${variables.API_URL}purchaseorder/save`, {
@@ -285,7 +288,8 @@ const PoOverviewTab = ({ po, onRefresh }) => {
                 <div style={row}>
                     <div style={field}>
                         <label style={lbl}>Expected Delivery</label>
-                        <input className="pf-input" type="date" name="deliveryDate" value={form.deliveryDate} onChange={handle} />
+                        <input className="pf-input" type="date" name="deliveryDate" value={form.deliveryDate}
+                            min={form.poDate || undefined} onChange={handle} />
                     </div>
                     <div style={field}>
                         <label style={lbl}>Delivery Terms {isReq('deliveryTerms') && <span className="req">*</span>}</label>

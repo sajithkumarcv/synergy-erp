@@ -430,6 +430,10 @@ const PoForm = ({ onClose, onSaved }) => {
                                                                e.paymentTermsOther = 'Please specify the payment terms.';
         if (!form.deliveryTerms)                               e.deliveryTerms  = 'Delivery Terms is required.';
         if (!form.expenseCategoryId)                           e.expenseCategoryId = 'Budget Category is required.';
+        // Delivery cannot be promised before the order exists. Optional field —
+        // only checked when both dates are present.
+        if (form.poDate && form.deliveryDate && form.deliveryDate < form.poDate)
+                                                               e.deliveryDate   = 'Delivery date cannot be earlier than the PO date.';
         setErrors(e);
         return Object.keys(e).length === 0;
     };
@@ -710,7 +714,12 @@ const PoForm = ({ onClose, onSaved }) => {
                     <div className="pf-row">
                         <div className="pf-field">
                             <label>Expected Delivery</label>
-                            <input className="pf-input" type="date" name="deliveryDate" value={form.deliveryDate} onChange={handle} />
+                            {/* min stops an earlier date being picked at all; validate()
+                                still checks it, since min is only a picker hint. */}
+                            <input className={`pf-input${errors.deliveryDate ? ' pf-input-err' : ''}`}
+                                type="date" name="deliveryDate" value={form.deliveryDate}
+                                min={form.poDate || undefined} onChange={handle} />
+                            {errors.deliveryDate && <span className="pf-field-err">{errors.deliveryDate}</span>}
                         </div>
                         <div className="pf-field">
                             <label>Delivery Terms {isReq('deliveryTerms') && <span className="req">*</span>}</label>

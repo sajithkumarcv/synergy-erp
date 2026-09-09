@@ -60,7 +60,12 @@ export const LookupProvider = ({ children }) => {
             // items endpoint returns paged result; extract .data array and map to id/name/code
             const itemsRaw        = itemsData?.data || (Array.isArray(itemsData) ? itemsData : []);
             const items           = itemsRaw.map(i => ({ id: i.itemId, name: i.itemName || i.itemNameEn || '', code: i.itemCode || '', isStockable: i.isStockable, budgetCategoryId: i.budgetCategoryId ?? null, lastPurchasePrice: i.lastPurchasePrice ?? null, lastPurchaseCurrencyShort: i.lastPurchaseCurrencyShort ?? null }));
-            const uoms            = (Array.isArray(uomsData) ? uomsData : []).map(u => ({ id: u.uomId, name: u.uomName || u.uomCode || '' }));
+            // `code` is kept because documents do NOT store the unit consistently:
+            // TBL_PURCHASE_ORDER_LINE.UomName holds 'EA' on some rows and 'Each' on
+            // others, while PR lines hold 'Each'; 'SET' vs 'Set' also differs by case.
+            // Anything comparing units ACROSS documents must resolve both sides through
+            // this lookup to a uom id, or it decides one unit is two.
+            const uoms            = (Array.isArray(uomsData) ? uomsData : []).map(u => ({ id: u.uomId, name: u.uomName || u.uomCode || '', code: u.uomCode || '' }));
             const jobStatuses     = (Array.isArray(jobStatusData) ? jobStatusData : []).map(s => ({ id: s.id, name: s.name }));
             const expenseCategories = Array.isArray(expCatData)    ? expCatData    : [];
             const budgetCategories  = Array.isArray(budgetCatData) ? budgetCatData : [];

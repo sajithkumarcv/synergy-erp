@@ -36,6 +36,7 @@ namespace ERPWEB.Models.Procurement
         public int      PoId          { get; set; }
         public string   PoNumber      { get; set; } = string.Empty;
         public DateTime PoDate        { get; set; }
+        public string?  Status        { get; set; }   // Draft / PendingApproval / Approved / Received …
         public string?  SupplierName  { get; set; }
         public string?  UomName       { get; set; }
         public decimal  OrderedQty    { get; set; }

@@ -259,7 +259,16 @@ const ItemPriceAnalysis = () => {
                                 <tbody>
                                     {detail.map((d, i) => (
                                         <tr key={`${d.poId}-${i}`} style={{ background: i % 2 ? '#f8fafc' : '#fff' }}>
-                                            <td style={{ fontWeight: 600, color: '#1e40af' }}>{d.poNumber}</td>
+                                            <td style={{ fontWeight: 600 }}>
+                                                {/* Opens the headerless PO print page (PoApprovalPrintPage).
+                                                    New tab so the analysis and its filters survive. */}
+                                                <a href={`/purchase-orders/${d.poId}/review`}
+                                                   target="_blank" rel="noopener noreferrer"
+                                                   title={`Open ${d.poNumber} print view`}
+                                                   style={{ color: '#1e40af', textDecoration: 'none', borderBottom: '1px dotted #1e40af' }}>
+                                                    {d.poNumber}
+                                                </a>
+                                            </td>
                                             <td style={{ whiteSpace: 'nowrap' }}>{fmtDate(d.poDate)}</td>
                                             <td>{d.supplierName || '—'}</td>
                                             <td className="po-num-cell">{fmt(d.orderedQty, 4)}</td>

@@ -7,6 +7,12 @@ import { usePermission } from '../../../PermissionContext';
 import { fmt, fmtDate } from '../../procurementConstants';
 import { useFieldConfig } from '../../../FieldConfigContext';
 import AmountInput from '../../../common/AmountInput';
+import LastPurchaseModal from '../../../common/LastPurchaseModal';
+import PriceVarianceWarning, {
+    PriceVarianceChip, evaluateVariance, varianceTooltip,
+    useItemHistory, usePriceVarianceSettings,
+} from '../../../common/PriceVarianceWarning';
+import PriceVarianceSummary from '../../../common/PriceVarianceSummary';
 
 const EMPTY_LINE = {
     poLineId:    0,
@@ -169,9 +175,27 @@ const AmendLineModal = ({ line, onClose, onSaved }) => {
     );
 };
 
+
+// ── Price-variance chip for one import-grid row ───────────────────
+// Its own component so the history hook is only mounted for TICKED rows -
+// an unselected PR line is not being priced, and a 50-line PR must not fire
+// 50 lookups the moment the modal opens. The fetch is module-cached, so
+// several rows for the same item still make one request.
+const ImportRowChip = ({ itemId, price, uomId, uomLabel, uoms, rate, ccy, settings }) => {
+    const history  = useItemHistory(itemId);
+    const variance = useMemo(() => evaluateVariance({
+        history: history || [], typedPrice: price, exchangeRate: rate,
+        lineUomId: uomId, lineUomLabel: uomLabel, uoms, settings,
+    }), [history, price, rate, uomId, uomLabel, uoms, settings]);
+    return <PriceVarianceChip variance={variance} currencyCode={ccy} />;
+};
+
 // ── PR Lines Import Modal ─────────────────────────────────────────
 const PrImportModal = ({ po, initialPrId, onClose, onImported, budgetInfo }) => {
     const currentUser    = useCurrentUser();
+    const { lookups: pvLookups } = useLookup();
+    const uoms           = pvLookups?.uoms || [];
+    const pvSettings     = usePriceVarianceSettings();
     // PR picker state
     const [prs,          setPrs]          = useState([]);
     const [prsLoading,   setPrsLoading]   = useState(true);
@@ -188,6 +212,8 @@ const PrImportModal = ({ po, initialPrId, onClose, onImported, budgetInfo }) => 
     const [search,       setSearch]       = useState('');
     const [sortKey,      setSortKey]      = useState('');
     const [sortDir,      setSortDir]      = useState('asc');
+    // Item whose last purchase price is being viewed — { itemId, itemLabel } or null
+    const [pricePeek,    setPricePeek]    = useState(null);
 
     // Load Approved PRs for this job on open
     useEffect(() => {
@@ -501,11 +527,27 @@ const PrImportModal = ({ po, initialPrId, onClose, onImported, budgetInfo }) => 
                                             <td style={{ padding: '8px 10px', borderBottom: '1px solid #f0f4f8', color: '#64748b', fontFamily: 'Courier New', fontSize: 11 }}>{l.lineNum}</td>
                                             <td style={{ padding: '8px 10px', borderBottom: '1px solid #f0f4f8' }}>
                                                 {l.itemCode
-                                                    ? <span style={{ fontFamily: 'Courier New', fontSize: 11, color: '#2e5fa3', background: '#dbeafe', padding: '2px 6px', borderRadius: 4 }}>{l.itemCode}</span>
+                                                    ? <span
+                                                        onClick={l.itemId ? (e => { e.stopPropagation(); setPricePeek({ itemId: l.itemId, itemLabel: `[${l.itemCode}] ${l.itemDesc || ''}`.trim() }); }) : undefined}
+                                                        title={l.itemId ? 'Show last purchase price' : undefined}
+                                                        style={{ fontFamily: 'Courier New', fontSize: 11, color: '#2e5fa3', background: '#dbeafe', padding: '2px 6px', borderRadius: 4,
+                                                                 cursor: l.itemId ? 'pointer' : 'default', textDecoration: l.itemId ? 'underline dotted' : 'none' }}>
+                                                        {l.itemCode}
+                                                    </span>
                                                     : <span style={{ color: '#94a3b8' }}>—</span>
                                                 }
                                             </td>
-                                            <td style={{ padding: '8px 10px', borderBottom: '1px solid #f0f4f8', color: isAdded ? '#64748b' : '#1e3a5f' }}>{l.itemDesc}</td>
+                                            <td style={{ padding: '8px 10px', borderBottom: '1px solid #f0f4f8', color: isAdded ? '#64748b' : '#1e3a5f' }}>
+                                                {l.itemId
+                                                    ? <span
+                                                        onClick={e => { e.stopPropagation(); setPricePeek({ itemId: l.itemId, itemLabel: `[${l.itemCode || '—'}] ${l.itemDesc || ''}`.trim() }); }}
+                                                        title="Show last purchase price"
+                                                        style={{ cursor: 'pointer', textDecoration: 'underline dotted' }}>
+                                                        {l.itemDesc}
+                                                    </span>
+                                                    : l.itemDesc
+                                                }
+                                            </td>
                                             <td style={{ padding: '8px 10px', borderBottom: '1px solid #f0f4f8' }}>
                                                 {(() => {
                                                     if (!l.budgetCategoryName) return <span style={{ color: '#94a3b8', fontSize: 11 }}>—</span>;
@@ -566,23 +608,43 @@ const PrImportModal = ({ po, initialPrId, onClose, onImported, budgetInfo }) => 
                                                 {isAdded ? (
                                                     <span style={{ color: '#94a3b8', fontSize: 11 }}>{l.estUnitPrice != null ? fmt(l.estUnitPrice) : '—'}</span>
                                                 ) : (
-                                                    <input
-                                                        type="number"
-                                                        min="0"
-                                                        step="any"
-                                                        value={prices[l.prLineId] ?? ''}
-                                                        disabled={!isChecked}
-                                                        onChange={e => setPrice(l.prLineId, e.target.value)}
-                                                        style={{
-                                                            width: 90, padding: '4px 6px',
-                                                            border: `1px solid ${isChecked ? '#93c5fd' : '#e2e8f0'}`,
-                                                            borderRadius: 5, fontSize: 12,
-                                                            textAlign: 'right',
-                                                            background: isChecked ? '#fff' : '#f1f5f9',
-                                                            color: isChecked ? '#1e3a5f' : '#94a3b8',
-                                                            outline: 'none',
-                                                        }}
-                                                    />
+                                                    // Chip slot is ALWAYS reserved and sits to the LEFT of the
+                                                    // input, so a warning appearing never reflows the row and the
+                                                    // input stays hugging the right-aligned column header.
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
+                                                        <span style={{ width: 50, display: 'flex', justifyContent: 'flex-end' }}>
+                                                            {isChecked && l.itemId && (
+                                                                <ImportRowChip
+                                                                    itemId={l.itemId}
+                                                                    price={prices[l.prLineId]}
+                                                                    uomId={l.uomId}
+                                                                    uomLabel={l.uomName}
+                                                                    uoms={uoms}
+                                                                    rate={Number(po.exchangeRate) || 1}
+                                                                    ccy={po.currencyShort || ''}
+                                                                    settings={pvSettings}
+                                                                />
+                                                            )}
+                                                        </span>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            step="any"
+                                                            value={prices[l.prLineId] ?? ''}
+                                                            disabled={!isChecked}
+                                                            onChange={e => setPrice(l.prLineId, e.target.value)}
+                                                            style={{
+                                                                width: 92, padding: '4px 6px',
+                                                                // Colour only - width stays 1px in every state.
+                                                                border: `1px solid ${isChecked ? '#93c5fd' : '#e2e8f0'}`,
+                                                                borderRadius: 5, fontSize: 12,
+                                                                textAlign: 'right',
+                                                                background: isChecked ? '#fff' : '#f1f5f9',
+                                                                color: isChecked ? '#1e3a5f' : '#94a3b8',
+                                                                outline: 'none',
+                                                            }}
+                                                        />
+                                                    </div>
                                                 )}
                                             </td>
                                             <td style={{ padding: '8px 10px', borderBottom: '1px solid #f0f4f8', color: '#64748b' }}>{fmtDate(l.requiredDate)}</td>
@@ -668,6 +730,13 @@ const PrImportModal = ({ po, initialPrId, onClose, onImported, budgetInfo }) => 
                     loading={importing}
                     onConfirm={() => { setZeroConfirm(null); doImport(true); }}
                     onCancel={() => setZeroConfirm(null)}
+                />
+            )}
+            {pricePeek && (
+                <LastPurchaseModal
+                    itemId={pricePeek.itemId}
+                    itemLabel={pricePeek.itemLabel}
+                    onClose={() => setPricePeek(null)}
                 />
             )}
         </div>
@@ -820,6 +889,20 @@ const PoLinesTab = ({ po, onRefresh, initialPrId }) => {
     // via the PO exchange rate before comparing — otherwise a foreign-currency PO
     // (e.g. EUR 6,400 @ 4 = AED 25,600) is wrongly compared as 6,400 < budget.
     const poRate           = Number(po.exchangeRate) || 1;
+
+    // ── price-variance warning for the manual line form ──────────────
+    const pvSettings   = usePriceVarianceSettings();
+    const formHistory  = useItemHistory(form.itemId || null);
+    const formVariance = useMemo(() => evaluateVariance({
+        history:      formHistory || [],
+        typedPrice:   form.unitPrice,
+        exchangeRate: poRate,
+        lineUomId:    form.uomId,
+        lineUomLabel: form.uomName,
+        uoms,
+        settings:     pvSettings,
+    }), [formHistory, form.unitPrice, form.uomId, form.uomName, poRate, uoms, pvSettings]);
+
     const oldLineContrib   = editLine ? (editLine.lineTotal || 0) * poRate : 0;
     const remainingForEdit = budgetInfo ? budgetInfo.remaining + oldLineContrib : null;
     const lineTotalBase    = lineTotal() * poRate;
@@ -1165,6 +1248,8 @@ const PoLinesTab = ({ po, onRefresh, initialPrId }) => {
                     <div style={{ padding: 24, textAlign: 'center', color: '#64748b', fontSize: 12 }}>Loading…</div>
                 ) : (
                     <>
+                        {/* Renders nothing when every line is within tolerance. */}
+                        <PriceVarianceSummary lines={lines} exchangeRate={poRate} currencyCode={poCcy} />
                         <table className="prd-lines-table">
                             <thead>
                                 <tr>
@@ -1474,7 +1559,11 @@ const PoLinesTab = ({ po, onRefresh, initialPrId }) => {
                                     </div>
                                     <div className="prd-lf-field">
                                         <label>Unit Price</label>
-                                        <AmountInput className="prd-lf-input" value={form.unitPrice} onChange={v => handle({ target: { name: 'unitPrice', value: v } })} />
+                                        <AmountInput className="prd-lf-input" value={form.unitPrice}
+                                            title={varianceTooltip(formVariance, poCcy) || undefined}
+                                            onChange={v => handle({ target: { name: 'unitPrice', value: v } })} />
+                                        {/* Warn, never block - the save is unaffected. */}
+                                        <PriceVarianceWarning variance={formVariance} currencyCode={poCcy} />
                                     </div>
                                     <div className="prd-lf-field">
                                         <label>Tax %</label>

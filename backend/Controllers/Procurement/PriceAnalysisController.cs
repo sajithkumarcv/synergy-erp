@@ -18,13 +18,20 @@ namespace ERPWEB.Controllers.Procurement
         private readonly DbCon _dbcon;
         public PriceAnalysisController(DbCon dbcon) { _dbcon = dbcon; }
 
-        // GET: api/priceanalysis/po?itemId=&dateFrom=&dateTo=&supplierId=
+        // GET: api/priceanalysis/po?itemId=&dateFrom=&dateTo=&supplierId=&includeDraft=
+        //
+        // includeDraft defaults to false, which is the long-standing behaviour of
+        // this screen: Draft and Cancelled orders are left out of the KPIs and the
+        // trend. The last-purchase popup on the PR import grid passes true, because
+        // a buyer pricing a line wants to see what has been drafted as well as
+        // ordered. Cancelled is excluded either way.
         [HttpGet("po")]
         public async Task<IActionResult> PoPrice(
             [FromQuery] int     itemId,
-            [FromQuery] string? dateFrom   = null,
-            [FromQuery] string? dateTo     = null,
-            [FromQuery] int?    supplierId = null)
+            [FromQuery] string? dateFrom     = null,
+            [FromQuery] string? dateTo       = null,
+            [FromQuery] int?    supplierId   = null,
+            [FromQuery] bool    includeDraft = false)
         {
             if (itemId <= 0)
                 return BadRequest(new { message = "itemId is required." });
@@ -32,10 +39,11 @@ namespace ERPWEB.Controllers.Procurement
             {
                 var p = new
                 {
-                    ItemId     = itemId,
-                    DateFrom   = string.IsNullOrWhiteSpace(dateFrom) ? (DateTime?)null : DateTime.Parse(dateFrom),
-                    DateTo     = string.IsNullOrWhiteSpace(dateTo)   ? (DateTime?)null : DateTime.Parse(dateTo),
-                    SupplierId = supplierId,
+                    ItemId       = itemId,
+                    DateFrom     = string.IsNullOrWhiteSpace(dateFrom) ? (DateTime?)null : DateTime.Parse(dateFrom),
+                    DateTo       = string.IsNullOrWhiteSpace(dateTo)   ? (DateTime?)null : DateTime.Parse(dateTo),
+                    SupplierId   = supplierId,
+                    IncludeDraft = includeDraft,
                 };
 
                 var (summaryRows, monthlyRows, detailRows, vendorRows) =

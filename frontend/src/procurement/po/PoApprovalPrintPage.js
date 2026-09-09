@@ -5,6 +5,7 @@ import { fmt, fmtDate, statusBadgeCfg } from '../procurementConstants';
 import useOwnerCompany from '../../hooks/useOwnerCompany';
 import { useLookup } from '../../LookupContext';
 import consolidatePoLinesForPrint from './consolidatePoLinesForPrint';
+import PriceVarianceSummary from '../../common/PriceVarianceSummary';
 import { openPrintWindow } from '../../utils/printWindow';
 import './PoPrint.css';
 
@@ -179,6 +180,15 @@ const PoApprovalPrintPage = () => {
             {/* ══ A4-styled document — Format 3 body with no header block ══ */}
             <div style={{ display: 'flex', justifyContent: 'center', padding: '24px 16px 48px' }}>
                 <div className="po3-doc" style={{ position: 'relative' }}>
+
+                    {/* Approver's price check. This page doubles as the PRINTED PO,
+                        so the component hides itself under @media print — an internal
+                        review prompt must never reach the supplier's copy. */}
+                    <PriceVarianceSummary
+                        lines={lines}
+                        exchangeRate={Number(po?.exchangeRate) || 1}
+                        currencyCode={currency}
+                    />
 
                     {/* ── Info strip. Carries PO No. (and revision) because there is
                            no header above it to state which document this is. ── */}

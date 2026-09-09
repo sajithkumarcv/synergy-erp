@@ -10,6 +10,7 @@ import ApprovalHistoryTab   from '../approval/ApprovalHistoryTab';
 import ApprovalStatusBanner from '../approval/ApprovalStatusBanner';
 import JobClosedBanner      from '../jobs/JobClosedBanner';
 import AmountInput          from '../common/AmountInput';
+import LastPurchaseModal    from '../common/LastPurchaseModal';
 import BomImportModal       from './BomImportModal';
 import '../inventory/Inventory.css';
 
@@ -558,6 +559,9 @@ const SectionGroup = ({ bomSectionId, sectionCode, sectionName, sectionSortOrder
     const [sortCol, setSortCol] = useState('');   // field key or ''
     const [sortDir, setSortDir] = useState('asc');
 
+    // Item whose last purchase price is being viewed — { itemId, itemLabel } | null
+    const [pricePeek, setPricePeek] = useState(null);
+
     const SORTABLE = {
         '#':        (r) => r.sortOrder ?? 0,
         'Item':     (r) => ((r.itemCode || '') + ' ' + (r.itemName || '')).toLowerCase(),
@@ -835,10 +839,21 @@ const SectionGroup = ({ bomSectionId, sectionCode, sectionName, sectionSortOrder
                                             {i + 1}
                                         </td>
                                         <td style={{ padding: '8px 10px', minWidth: 160 }}>
-                                            <div style={{ fontWeight: 600, color: '#1e40af', fontSize: 12 }}>
+                                            {/* Click either line to see what this item last cost. */}
+                                            <div
+                                                onClick={r.itemId ? (() => setPricePeek({ itemId: r.itemId, itemLabel: `${r.itemCode || ''} — ${r.itemName || ''}`.trim() })) : undefined}
+                                                title={r.itemId ? 'Show last purchase price' : undefined}
+                                                style={{ fontWeight: 600, color: '#1e40af', fontSize: 12,
+                                                         cursor: r.itemId ? 'pointer' : 'default',
+                                                         textDecoration: r.itemId ? 'underline dotted' : 'none' }}>
                                                 <Highlight text={r.itemCode} query={searchQuery} />
                                             </div>
-                                            <div style={{ fontSize: 11, color: '#64748b' }}>
+                                            <div
+                                                onClick={r.itemId ? (() => setPricePeek({ itemId: r.itemId, itemLabel: `${r.itemCode || ''} — ${r.itemName || ''}`.trim() })) : undefined}
+                                                title={r.itemId ? 'Show last purchase price' : undefined}
+                                                style={{ fontSize: 11, color: '#64748b',
+                                                         cursor: r.itemId ? 'pointer' : 'default',
+                                                         textDecoration: r.itemId ? 'underline dotted' : 'none' }}>
                                                 <Highlight text={r.itemName} query={searchQuery} />
                                             </div>
                                             {r.isCritical && <span style={{ fontSize: 10, color: '#dc2626', fontWeight: 700 }}>⚑ Critical</span>}
@@ -972,6 +987,14 @@ const SectionGroup = ({ bomSectionId, sectionCode, sectionName, sectionSortOrder
                 </div>
             </div>,
             document.body
+        )}
+
+        {pricePeek && (
+            <LastPurchaseModal
+                itemId={pricePeek.itemId}
+                itemLabel={pricePeek.itemLabel}
+                onClose={() => setPricePeek(null)}
+            />
         )}
         </>
     );
