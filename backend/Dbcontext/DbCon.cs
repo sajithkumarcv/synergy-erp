@@ -60,15 +60,33 @@ namespace ERPWEB.Dbcontext
 
         /// <summary>
         /// Executes a stored procedure that returns multiple result sets.
-        /// Returns a SqlMapper.GridReader whose connection is automatically closed
-        /// when the reader is disposed (use with `using`).
+        /// Returns a SqlMapper.GridReader whose connection is closed and returned to
+        /// the pool when the reader is disposed — so callers MUST use `using`.
         /// </summary>
+        /// <remarks>
+        /// The connection is deliberately NOT opened here.
+        ///
+        /// Dapper only closes a connection it opened itself: it records whether the
+        /// connection was closed when handed to it (`wasClosed`) and, on
+        /// GridReader.Dispose(), calls Close() only in that case. This method used to
+        /// call OpenAsync() first, so Dapper saw an already-open connection, treated it
+        /// as caller-owned, and never closed it. Nothing else disposed it either — so
+        /// every call through this overload leaked one pooled connection, even though
+        /// all 22 call sites correctly use `using var`.
+        ///
+        /// That leak exhausted the 100-connection pool on SYNERPINDIA on 2026-09-09.
+        /// Reads from SSMS still worked, so the database looked healthy, but every
+        /// request — including the error logger — timed out waiting for a free
+        /// connection, producing "Server error" with nothing written to TBL_APP_LOG.
+        ///
+        /// Leaving the connection closed lets Dapper open it, and disposing the
+        /// GridReader now genuinely returns it to the pool. Do not add OpenAsync back.
+        /// The typed overloads below are unaffected: they buffer their result sets
+        /// inside a `using var db`, so they own and release the connection themselves.
+        /// </remarks>
         public async Task<SqlMapper.GridReader> QueryMultipleAsync(string spName, object? parameters = null)
         {
             var db = new SqlConnection(_connectionString);
-            await db.OpenAsync();
-            // NOTE: Dapper's GridReader holds the connection open while reading.
-            // The caller must dispose the GridReader (use `using var`) to avoid leaking the connection.
             return await db.QueryMultipleAsync(spName, parameters, commandType: CommandType.StoredProcedure);
         }
 
