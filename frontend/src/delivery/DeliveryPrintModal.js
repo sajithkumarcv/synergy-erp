@@ -1,5 +1,5 @@
 import React from 'react';
-import { fmtDate, fmtDateTime } from './deliveryConstants';
+import { fmtDate } from './deliveryConstants';
 import useOwnerCompany from '../hooks/useOwnerCompany';
 import { CompanyHeaderBand, DraftWatermark, PreviewBanner } from '../components/print/PrintCompanyHeader';
 import { openPrintWindow } from '../utils/printWindow';
@@ -9,6 +9,9 @@ const dash = (v) => (v != null && v !== '') ? v : '—';
 
 const DeliveryPrintModal = ({ delivery, lines = [], onClose }) => {
     const { company, loading: coLoading } = useOwnerCompany();
+    // The name printed on the document. Company Name is the legal name; Display Name
+    // (the short brand) is only a fallback so the footer can never print blank.
+    const companyLabel = (company?.companyName || company?.displayName || '').replace(/\s+/g, ' ').trim();
 
     // Until the note is Dispatched (or Delivered) it is only a preview — not a
     // valid carrier copy. Print it watermarked, like a Draft PO.
@@ -31,7 +34,13 @@ const DeliveryPrintModal = ({ delivery, lines = [], onClose }) => {
                 </div>
                 <div style={{ display: 'flex', gap: 10 }}>
                     <button className="po-print-btn-close" onClick={onClose}>✕ Close</button>
-                    <button className="po-print-btn-print" onClick={handlePrint}>
+                    {/* Disabled until the company record has loaded. Before this, clicking
+                        Print too early produced a delivery note with no company name in the
+                        footer, silently. */}
+                    <button className="po-print-btn-print" onClick={handlePrint}
+                        disabled={coLoading || !companyLabel}
+                        title={coLoading ? 'Loading company details…' : undefined}
+                        style={coLoading || !companyLabel ? { opacity: .55, cursor: 'wait' } : undefined}>
                         🖨 Print / Save as PDF
                     </button>
                 </div>
@@ -52,18 +61,10 @@ const DeliveryPrintModal = ({ delivery, lines = [], onClose }) => {
                     <div className="pop-doc-type" style={{ margin: 0 }}>Delivery Note</div>
                     <div style={{ textAlign: 'right' }}>
                         <div className="pop-doc-number">{delivery.deliveryNo}</div>
-                        <div className="pop-doc-status" style={{
-                            background: delivery.status === 'Delivered'  ? '#ccfbf1' :
-                                        delivery.status === 'Dispatched' ? '#dbeafe' :
-                                        delivery.status === 'Approved'   ? '#dcfce7' :
-                                        delivery.status === 'Cancelled'  ? '#fee2e2' : '#f1f5f9',
-                            color:      delivery.status === 'Delivered'  ? '#0f766e' :
-                                        delivery.status === 'Dispatched' ? '#1e40af' :
-                                        delivery.status === 'Approved'   ? '#166534' :
-                                        delivery.status === 'Cancelled'  ? '#991b1b' : '#475569',
-                        }}>
-                            {delivery.status}
-                        </div>
+                        {/* Status pill removed from the printed note on request. The DRAFT
+                            watermark and the "not valid for dispatch" banner are separate and
+                            deliberately kept - they are what stop an undispatched note being
+                            used as a real one. */}
                     </div>
                 </div>
 
@@ -215,7 +216,7 @@ const DeliveryPrintModal = ({ delivery, lines = [], onClose }) => {
                                           lineHeight: 1.6, whiteSpace: 'pre-line' }}>
                                 <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
                                                letterSpacing: '.06em', color: '#64748b' }}>
-                                    Consignee Address:&nbsp;
+                                    Address:&nbsp;
                                 </span>
                                 {delivery.consigneeAddress}
                             </div>
@@ -223,8 +224,24 @@ const DeliveryPrintModal = ({ delivery, lines = [], onClose }) => {
                     </div>
                 )}
 
-                {/* 4. Terms Strip */}
-                <div className="pop-terms-strip">
+                {/* 4. Terms Strip
+                    Values were being clipped at the bottom. The strip's shared rule in
+                    PoPrint.css has `overflow: hidden` and the values set no line-height,
+                    so taller glyphs - notably the Courier New used for DN No and Vehicle
+                    No - spilled past their line box and got sliced off. Fixed HERE,
+                    scoped to the delivery note, because PoPrint.css is shared with the
+                    Purchase Order print and must not shift under it. */}
+                <style>{`
+                    .dn-terms { overflow: visible !important; }
+                    .dn-terms .pop-term { padding-top: 8px; padding-bottom: 10px; }
+                    .dn-terms .pop-term:first-child { border-radius: 6px 0 0 6px; }
+                    .dn-terms .pop-term:last-child  { border-radius: 0 6px 6px 0; }
+                    .dn-terms .pop-term-val { line-height: 1.45; overflow-wrap: anywhere; }
+                    @media print {
+                        .dn-terms .pop-term { padding-top: 5px !important; padding-bottom: 7px !important; }
+                    }
+                `}</style>
+                <div className="pop-terms-strip dn-terms">
                     <div className="pop-term">
                         <div className="pop-term-label">DN No</div>
                         <div className="pop-term-val" style={{ fontFamily: 'Courier New' }}>{delivery.deliveryNo}</div>
@@ -251,10 +268,6 @@ const DeliveryPrintModal = ({ delivery, lines = [], onClose }) => {
                             <div className="pop-term-val">{delivery.deliveredBy}</div>
                         </div>
                     )}
-                    <div className="pop-term">
-                        <div className="pop-term-label">Items</div>
-                        <div className="pop-term-val">{lines.length}</div>
-                    </div>
                 </div>
 
                 {/* 5. Line Items Table */}
@@ -282,7 +295,11 @@ const DeliveryPrintModal = ({ delivery, lines = [], onClose }) => {
                                 <td className="desc">{l.description}</td>
                                 <td style={{ color: '#475569', textAlign: 'center' }}>{l.uomName || '—'}</td>
                                 <td className="num">
-                                    {Number(l.qty).toLocaleString(undefined, { maximumFractionDigits: 4 })}
+                                    {/* A line saved without a quantity is stored as 0. On the
+                                        customer's copy that must read as blank, not "0". */}
+                                    {Number(l.qty) === 0
+                                        ? ''
+                                        : Number(l.qty).toLocaleString(undefined, { maximumFractionDigits: 4 })}
                                 </td>
                                 <td style={{ fontSize: 11, color: '#475569', fontStyle: l.remarks ? 'normal' : 'italic' }}>
                                     {l.remarks || '—'}
@@ -300,25 +317,9 @@ const DeliveryPrintModal = ({ delivery, lines = [], onClose }) => {
                     </div>
                 )}
 
-                {/* 7. Audit strip */}
-                <div className="pop-audit-strip">
-                    <div className="pop-audit-item">
-                        <div className="pop-audit-label">Created By</div>
-                        <div className="pop-audit-val">{delivery.createdBy || '—'}</div>
-                        <div className="pop-audit-date">{fmtDateTime(delivery.createdDate)}</div>
-                    </div>
-                    {delivery.modifiedBy && (
-                        <div className="pop-audit-item">
-                            <div className="pop-audit-label">Last Modified By</div>
-                            <div className="pop-audit-val">{delivery.modifiedBy}</div>
-                            <div className="pop-audit-date">{fmtDateTime(delivery.modifiedDate)}</div>
-                        </div>
-                    )}
-                    <div className="pop-audit-item">
-                        <div className="pop-audit-label">Status</div>
-                        <div className="pop-audit-val">{delivery.status}</div>
-                    </div>
-                </div>
+                {/* Audit strip (Created By / Last Modified By / Status) removed from the
+                    printed note on request - internal record-keeping, not something the
+                    customer's copy needs. It remains on the Overview tab. */}
 
                 <div style={{ flex: 1 }} />
 
@@ -345,7 +346,7 @@ const DeliveryPrintModal = ({ delivery, lines = [], onClose }) => {
 
                 <div className="pop-print-footer-note">
                     This is a computer-generated delivery note.
-                    {company?.companyName && <> {company.companyName}</>}
+                    {companyLabel && <> {companyLabel}</>}
                     {company?.email && <> · {company.email}</>}
                 </div>
             </div>

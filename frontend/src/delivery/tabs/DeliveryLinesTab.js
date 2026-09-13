@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { variables, authHeaders } from '../../Variable';
 import { useCurrentUser } from '../../AuthContext';
 import { usePermission } from '../../PermissionContext';
+import { useLookup } from '../../LookupContext';
 import { fmt, fmtDate } from '../deliveryConstants';
 import AlertModal from '../../common/AlertModal';
 
@@ -234,12 +235,28 @@ const InvoiceImportModal = ({ delivery, onClose, onImported }) => {
 // ── Manual Line Form ──────────────────────────────────────────────────
 const ManualLineForm = ({ delivery, editLine, seedDescription = '', fromJob = false, onClose, onSaved }) => {
     const currentUser = useCurrentUser();
+    const { lookups } = useLookup();
+    const uoms = lookups?.uoms || [];
+
+    // TBL_DELIVERY_LINE stores the unit as TEXT only (UomName, no UomId), and older
+    // rows hold whatever was typed - a code ('EA'), a name ('Each'), or something not
+    // in the UOM master at all. Map a known code or name to the master's NAME so the
+    // dropdown shows it selected; leave anything unrecognised exactly as it was.
+    const toUomName = raw => {
+        const s = String(raw || '').trim();
+        if (!s) return '';
+        const hit = uoms.find(u =>
+            String(u.name || '').toLowerCase() === s.toLowerCase() ||
+            String(u.code || '').toLowerCase() === s.toLowerCase());
+        return hit ? hit.name : s;
+    };
     // Editing keeps the line's own description; a new line uses the seed the
     // caller supplies (blank for a manual line, the Job Description when loading from job).
     const [form, setForm] = useState({
         description: editLine ? (editLine.description || '') : seedDescription,
-        uomName:     editLine?.uomName     || '',
-        qty:         editLine?.qty         != null ? String(editLine.qty) : '',
+        uomName:     toUomName(editLine?.uomName),
+        // A stored 0 means "no quantity" - show it blank when editing.
+        qty:         editLine?.qty != null && Number(editLine.qty) !== 0 ? String(editLine.qty) : '',
         remarks:     editLine?.remarks     || '',
     });
     const [errors,  setErrors]  = useState({});
@@ -252,10 +269,19 @@ const ManualLineForm = ({ delivery, editLine, seedDescription = '', fromJob = fa
         if (errors[name]) setErrors(p => ({ ...p, [name]: undefined }));
     };
 
+    // Qty is optional on every delivery line (user decision, 2026-09-13). Blank is
+    // stored as 0.
+    //
+    // Known consequence for lines taken from an invoice: sp_GetInvoiceLinesForDelivery
+    // keeps offering an invoice line for import while invoiced qty > SUM(delivered
+    // qty). A linked line saved with no qty adds 0, so that invoice line stays
+    // "pending" and can be imported into another delivery note.
     const validate = f => {
         const e = {};
         if (!f.description.trim()) e.description = 'Description is required.';
-        if (!f.qty || isNaN(Number(f.qty)) || Number(f.qty) <= 0) e.qty = 'Qty must be > 0.';
+        const raw = String(f.qty ?? '').trim();
+        if (raw !== '' && isNaN(Number(raw))) e.qty = 'Qty must be a number.';
+        else if (Number(raw) < 0)             e.qty = 'Qty cannot be negative.';
         return e;
     };
 
@@ -271,7 +297,11 @@ const ManualLineForm = ({ delivery, editLine, seedDescription = '', fromJob = fa
             lineNum:        editLine?.lineNum || 0,
             description:    form.description.trim(),
             uomName:        form.uomName.trim() || null,
-            qty:            Number(form.qty),
+            // Blank is sent as 0, never null: TBL_DELIVERY_LINE.Qty is NOT NULL and
+            // sp_SetDeliveryLine inserts @Qty directly. The column's DEFAULT (1) only
+            // applies when the column is omitted, not when NULL is passed - null here
+            // would fail the insert.
+            qty:            String(form.qty ?? '').trim() === '' ? 0 : Number(form.qty),
             remarks:        form.remarks.trim() || null,
             createdBy:      currentUser,
         };
@@ -306,15 +336,26 @@ const ManualLineForm = ({ delivery, editLine, seedDescription = '', fromJob = fa
                 </div>
                 <div>
                     <label style={{ fontSize: 12, color: '#64748b', fontWeight: 500, display: 'block', marginBottom: 4 }}>UOM</label>
-                    <input name="uomName" value={form.uomName} onChange={handle}
-                        style={{ width: '100%', padding: '7px 10px', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }}
-                        placeholder="Nos / Kg…" />
+                    <select name="uomName" value={form.uomName} onChange={handle}
+                        style={{ width: '100%', padding: '7px 10px', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', background: '#fff' }}>
+                        <option value="">— Select UOM —</option>
+                        {/* A legacy value not in the master stays selectable, so editing an
+                            old line never silently wipes its unit. */}
+                        {form.uomName && !uoms.some(u => u.name === form.uomName) && (
+                            <option value={form.uomName}>{form.uomName} (not in UOM list)</option>
+                        )}
+                        {uoms.map(u => (
+                            <option key={u.id} value={u.name}>
+                                {u.name}{u.code && u.code !== u.name ? ` (${u.code})` : ''}
+                            </option>
+                        ))}
+                    </select>
                 </div>
                 <div>
-                    <label style={{ fontSize: 12, color: '#64748b', fontWeight: 500, display: 'block', marginBottom: 4 }}>Qty <span style={{ color: '#dc2626' }}>*</span></label>
-                    <input name="qty" value={form.qty} onChange={handle} type="number" min="0.001" step="any"
-                        style={{ width: '100%', padding: '7px 10px', border: `1px solid ${errors.qty ? '#dc2626' : '#cbd5e1'}`, borderRadius: 6, fontSize: 13, textAlign: 'right', boxSizing: 'border-box' }}
-                        placeholder="0" />
+                    <label style={{ fontSize: 12, color: '#64748b', fontWeight: 500, display: 'block', marginBottom: 4 }}>Qty</label>
+                    <input name="qty" value={form.qty} onChange={handle} type="number" min="0" step="any"
+                        placeholder="Optional"
+                        style={{ width: '100%', padding: '7px 10px', border: `1px solid ${errors.qty ? '#dc2626' : '#cbd5e1'}`, borderRadius: 6, fontSize: 13, textAlign: 'right', boxSizing: 'border-box' }} />
                     {errors.qty && <div style={{ color: '#dc2626', fontSize: 11, marginTop: 2 }}>⚠ {errors.qty}</div>}
                 </div>
                 <div>
@@ -431,7 +472,7 @@ const DeliveryLinesTab = ({ delivery, lines, onRefresh }) => {
                                     <td style={{ padding: '9px 12px', color: '#94a3b8', width: 36 }}>{i + 1}</td>
                                     <td style={{ padding: '9px 12px', color: '#1e293b', fontWeight: 500 }}>{l.description}</td>
                                     <td style={{ padding: '9px 12px', color: '#64748b' }}>{l.uomName || '—'}</td>
-                                    <td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 600, color: '#1e293b' }}>{fmt(l.qty, 3)}</td>
+                                    <td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 600, color: '#1e293b' }}>{Number(l.qty) === 0 ? <span style={{ color: '#94a3b8', fontWeight: 400 }}>—</span> : fmt(l.qty, 3)}</td>
                                     <td style={{ padding: '9px 12px', color: '#64748b' }}>
                                         {l.invoiceLineId
                                             ? <span style={{ background: '#eff6ff', color: '#1d4ed8', padding: '2px 7px', borderRadius: 10, fontSize: 11, fontWeight: 600 }}>INV LINE</span>

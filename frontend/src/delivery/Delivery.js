@@ -46,6 +46,10 @@ const DeliveryForm = ({ onClose, onSaved }) => {
 
     const [form,            setForm]            = useState(INITIAL);
     const [contacts,        setContacts]        = useState([]);
+    const [addresses,       setAddresses]       = useState([]);
+    // The address this form filled in automatically, so a later customer change
+    // can replace it without clobbering anything the user typed themselves.
+    const autoAddress = useRef('');
     const [invoiceResults,  setInvoiceResults]  = useState([]);
     const [jobOptions,      setJobOptions]      = useState([]);
     const [errors,          setErrors]          = useState({});
@@ -84,21 +88,47 @@ const DeliveryForm = ({ onClose, onSaved }) => {
             customerSearch: '', contactId: '', invoiceId: '', invoiceLabel: '',
             jobId: '', jobIdFromInvoice: false }));
         if (errors.customerId) setErrors(p => ({ ...p, customerId: undefined }));
-        // Load contacts for this customer
+        // Load contacts AND addresses for this customer. The endpoint has always
+        // returned addresses; this form used to read only contacts and discard them,
+        // which is why Delivery Address never filled in.
         fetch(`${variables.API_URL}invoice/customer/${c.customerId}`, { headers: authHeaders() })
             .then(r => r.json())
             .then(d => {
-                const conts = d.contacts || [];
+                const conts = d.contacts  || [];
+                const addrs = d.addresses || [];
                 setContacts(conts);
+                setAddresses(addrs);
                 const primary = conts.find(ct => ct.isPrimary);
-                if (primary) setForm(p => ({ ...p, contactId: String(primary.customerContactId) }));
+
+                // Same rule as the Invoice screen (default, else first) - but for a
+                // delivery, a delivery/shipping/site-type address beats the default.
+                const pick = addrs.find(a => /deliver|ship|site/i.test(a.addressType || ''))
+                          || addrs.find(a => a.isDefault)
+                          || addrs[0];
+
+                setForm(p => {
+                    // Never overwrite something the user typed. Only fill when the field
+                    // is empty or still holds the previous customer's auto-filled address.
+                    const untouched = !p.deliveryAddress || p.deliveryAddress === autoAddress.current;
+                    const next = pick?.fullAddress || '';
+                    if (untouched) autoAddress.current = next;
+                    return {
+                        ...p,
+                        contactId:       primary ? String(primary.customerContactId) : p.contactId,
+                        deliveryAddress: untouched ? next : p.deliveryAddress,
+                    };
+                });
             })
             .catch(console.error);
     };
 
     const clearCustomer = () => {
         setForm(p => ({ ...p, customerId: '', customerName: '', customerSearch: '',
-            contactId: '', invoiceId: '', invoiceLabel: '', jobId: '', jobIdFromInvoice: false }));
+            contactId: '', invoiceId: '', invoiceLabel: '', jobId: '', jobIdFromInvoice: false,
+            // drop the address only if it was the one we filled in, not the user's own text
+            deliveryAddress: p.deliveryAddress === autoAddress.current ? '' : p.deliveryAddress }));
+        autoAddress.current = '';
+        setAddresses([]);
         setContacts([]);
         setJobOptions([]);
     };
@@ -284,7 +314,27 @@ const DeliveryForm = ({ onClose, onSaved }) => {
                     <div className="pf-row">
                         <div className="pf-field pf-f3">
                             <label>Delivery Address</label>
-                            <textarea className="pf-input pf-textarea" rows={2} name="deliveryAddress" value={form.deliveryAddress} onChange={handle} placeholder="Delivery location" />
+                            {/* Picker only when there is a real choice - same as the Invoice screen. */}
+                            {addresses.length > 1 && (
+                                <select className="pf-input" style={{ marginBottom: 6 }}
+                                    value={addresses.findIndex(a => a.fullAddress === form.deliveryAddress)}
+                                    onChange={e => {
+                                        const next = addresses[Number(e.target.value)]?.fullAddress || '';
+                                        autoAddress.current = next;
+                                        setForm(p => ({ ...p, deliveryAddress: next }));
+                                    }}>
+                                    <option value={-1}>— Choose a saved address —</option>
+                                    {addresses.map((a, i) => (
+                                        <option key={a.customerAddressId || i} value={i}>
+                                            {(a.addressType ? `${a.addressType}: ` : '') + a.fullAddress}
+                                        </option>
+                                    ))}
+                                </select>
+                            )}
+                            <textarea className="pf-input pf-textarea" rows={2} name="deliveryAddress" value={form.deliveryAddress} onChange={handle}
+                                placeholder={form.customerId && addresses.length === 0
+                                    ? 'No address saved for this customer — type the delivery location'
+                                    : 'Delivery location'} />
                         </div>
                     </div>
 
