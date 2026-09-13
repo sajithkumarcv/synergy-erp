@@ -18,25 +18,54 @@ const BLANK_LINE = {
     uomName: '',
     unitPrice: '',
     qty: '1',
-    vatPercent: '5',
+    vatPercent: '',   // resolved in LineModal against the configured VAT list
     notes: '',
 };
 
 const LineModal = ({ invoiceId, line, onSaved, onClose, currentUser, ccy }) => {
     const { isReq } = useFieldConfig('INVOICE_LINE');
-    const { getVList, getSetting } = useLookup();
+    const { getVList, getSetting, lookups } = useLookup();
     const vatOptions = getVList('Tax', 'VATRate');
     const defaultVat = getSetting('Biz.Tax.DefaultVatRate', '5');
+    const uoms       = lookups?.uoms || [];
+
+    // TBL_INVOICE_LINE stores the unit as TEXT only (UomName, no UomId), and lines
+    // saved before this was a dropdown hold whatever was typed - a code ('LS'), a
+    // name ('Lump Sum'), or something not in the UOM master. Map a known code or name
+    // to the master NAME so the dropdown shows it selected; leave anything
+    // unrecognised untouched so re-saving an old line never erases its unit.
+    const toUomName = raw => {
+        const s = String(raw || '').trim();
+        if (!s) return '';
+        const hit = uoms.find(u =>
+            String(u.name || '').toLowerCase() === s.toLowerCase() ||
+            String(u.code || '').toLowerCase() === s.toLowerCase());
+        return hit ? hit.name : s;
+    };
+    // ── VAT: what is SHOWN must always be what is SAVED ─────────────────────
+    // The bug this fixes: Biz.Tax.DefaultVatRate was 5, but 5 was not in the VAT
+    // list (0/12/18/15/28). A <select> whose value matches no option displays its
+    // FIRST option instead - here "0% (Zero-rated/Exempt)". The user saw 0% already
+    // showing, picked it, no change event fired (it was already on screen), and the
+    // line saved at the invisible 5%.
+    //
+    // Rules now: compare numerically (a stored 5.00 must match an option "5"); never
+    // start from a rate that is not in the list; and never silently fall back to 0%
+    // either - a new line with no valid default starts BLANK and must be chosen.
+    const hasVat  = v => v !== '' && v != null;
+    const vatHit  = v => hasVat(v) ? vatOptions.find(o => Number(o.value) === Number(v)) : null;
+    const asVat   = v => { const hit = vatHit(v); return hit ? String(hit.value) : (hasVat(v) ? String(v) : ''); };
+
     const [form,   setForm]   = useState(line ? {
         invoiceLineId: line.invoiceLineId,
         lineNum:       line.lineNum,
         description:   line.description   || '',
-        uomName:       line.uomName        || '',
+        uomName:       toUomName(line.uomName),
         unitPrice:     line.unitPrice      ?? '',
         qty:           line.qty            ?? '1',
-        vatPercent:    line.vatPercent     ?? '5',
+        vatPercent:    asVat(line.vatPercent),
         notes:         line.notes          || '',
-    } : { ...BLANK_LINE, vatPercent: defaultVat });
+    } : { ...BLANK_LINE, vatPercent: vatHit(defaultVat) ? asVat(defaultVat) : '' });
     const [errors, setErrors] = useState({});
     const [saving, setSaving] = useState(false);
     const [error,  setError]  = useState('');
@@ -57,6 +86,8 @@ const LineModal = ({ invoiceId, line, onSaved, onClose, currentUser, ccy }) => {
         if (!form.description.trim())             e.description = 'Description is required.';
         if (!form.qty || Number(form.qty) <= 0)   e.qty         = 'Qty must be > 0.';
         if (Number(form.unitPrice) < 0)           e.unitPrice   = 'Unit Price cannot be negative.';
+        // A tax rate must be one that is actually configured - never a phantom default.
+        if (!vatHit(form.vatPercent))             e.vatPercent  = 'Choose a VAT rate from the list.';
         setErrors(e);
         return Object.keys(e).length === 0;
     };
@@ -123,11 +154,24 @@ const LineModal = ({ invoiceId, line, onSaved, onClose, currentUser, ccy }) => {
                                 onChange={e => set('qty', e.target.value)} />
                             {errors.qty && <span className="pf-field-err">{errors.qty}</span>}
                         </div>
-                        <div className="pf-field" style={{ flex: '0 0 100px' }}>
+                        {/* Wider than the old 100px text box - "Lump Sum (LS)" must fit. */}
+                        <div className="pf-field" style={{ flex: '0 0 150px' }}>
                             <label>UOM</label>
-                            <input className="pf-input" placeholder="LS, Nos…"
+                            <select className="pf-input"
                                 value={form.uomName}
-                                onChange={e => set('uomName', e.target.value)} />
+                                onChange={e => set('uomName', e.target.value)}>
+                                <option value="">— Select —</option>
+                                {/* A legacy value not in the master stays selectable, so editing
+                                    an old line never silently wipes its unit. */}
+                                {form.uomName && !uoms.some(u => u.name === form.uomName) && (
+                                    <option value={form.uomName}>{form.uomName} (not in UOM list)</option>
+                                )}
+                                {uoms.map(u => (
+                                    <option key={u.id} value={u.name}>
+                                        {u.name}{u.code && u.code !== u.name ? ` (${u.code})` : ''}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
                         <div className="pf-field">
                             <label>Unit Price</label>
@@ -163,12 +207,22 @@ const LineModal = ({ invoiceId, line, onSaved, onClose, currentUser, ccy }) => {
                         </div>
                         <div className="pf-field" style={{ flex: '0 0 110px' }}>
                             <label>VAT %</label>
-                            <select className="pf-input" value={form.vatPercent}
+                            <select className={`pf-input${errors.vatPercent ? ' pf-input-err' : ''}`}
+                                value={form.vatPercent}
                                 onChange={e => set('vatPercent', e.target.value)}>
+                                {/* Explicit placeholder, so an unset rate is visibly unset instead
+                                    of the browser silently displaying the first option. */}
+                                {!hasVat(form.vatPercent) && <option value="">— Select VAT —</option>}
+                                {/* An old line saved at a rate no longer in the list stays visible
+                                    as itself, so choosing another rate genuinely changes the value. */}
+                                {hasVat(form.vatPercent) && !vatHit(form.vatPercent) && (
+                                    <option value={form.vatPercent}>{form.vatPercent}% (not in VAT list)</option>
+                                )}
                                 {vatOptions.map(o => (
-                                    <option key={o.value} value={o.value}>{o.label}</option>
+                                    <option key={o.value} value={String(o.value)}>{o.label}</option>
                                 ))}
                             </select>
+                            {errors.vatPercent && <span className="pf-field-err">{errors.vatPercent}</span>}
                         </div>
                     </div>
 
