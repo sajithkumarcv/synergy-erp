@@ -4,6 +4,58 @@ import { variables, authHeaders } from '../Variable';
 import { useLookup } from '../LookupContext';
 import { fmt, fmtDate } from '../procurement/procurementConstants';
 
+// ── Tiny price-trend sparkline ────────────────────────────────────
+// Inline SVG rather than a chart library: this sits inside a modal, needs no
+// axes or legend, and must not drag Recharts into every screen that opens the
+// popup. The full charted view lives on Item Price Analysis.
+// Plots the quantity-weighted monthly average, which is what the analysis
+// screen's solid line shows, so the two never tell different stories.
+const PriceSparkline = ({ monthly, currencyCode }) => {
+    const pts = (monthly || [])
+        .map(m => ({ label: m.monthLabel, v: Number(m.weightedAvg) || 0 }))
+        .filter(p => p.v > 0);
+    if (pts.length < 2) return null;   // one point is not a trend
+
+    const W = 300, H = 46, pad = 5;
+    const vals = pts.map(p => p.v);
+    const min  = Math.min(...vals);
+    const max  = Math.max(...vals);
+    const span = (max - min) || 1;
+    const step = (W - pad * 2) / (pts.length - 1);
+    const yOf  = v => H - pad - ((v - min) / span) * (H - pad * 2);
+    const path = pts.map((p, i) => `${i ? 'L' : 'M'}${(pad + i * step).toFixed(1)},${yOf(p.v).toFixed(1)}`).join(' ');
+    const last = pts[pts.length - 1];
+    const cur  = currencyCode ? `${currencyCode} ` : '';
+    const rise = last.v - pts[0].v;
+
+    return (
+        <div style={{ marginBottom: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 2 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#475569' }}>
+                    Price trend · {pts.length} month{pts.length === 1 ? '' : 's'}
+                </span>
+                <span style={{ fontSize: 11, color: rise > 0 ? '#b45309' : rise < 0 ? '#166534' : '#64748b' }}>
+                    {rise > 0 ? '▲' : rise < 0 ? '▼' : '■'} {cur}{fmt(Math.abs(rise))} since {pts[0].label}
+                </span>
+            </div>
+            <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none"
+                style={{ display: 'block', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 6 }}>
+                <path d={path} fill="none" stroke="#2e5fa3" strokeWidth="1.6"
+                    vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
+                {pts.map((p, i) => (
+                    <circle key={i} cx={pad + i * step} cy={yOf(p.v)} r={i === pts.length - 1 ? 2.6 : 1.6}
+                        fill={i === pts.length - 1 ? '#1e3a5f' : '#93c5fd'} />
+                ))}
+            </svg>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#94a3b8', marginTop: 1 }}>
+                <span>{pts[0].label} · {cur}{fmt(pts[0].v)}</span>
+                <span>low {cur}{fmt(min)} · high {cur}{fmt(max)}</span>
+                <span>{last.label} · {cur}{fmt(last.v)}</span>
+            </div>
+        </div>
+    );
+};
+
 // ── Last Purchase Price popup (shared) ────────────────────────────
 // Opened on demand by clicking an item code / description in a line
 // grid, to answer "what did we last pay for this?" while the line is
@@ -19,6 +71,7 @@ const LastPurchaseModal = ({ itemId, itemLabel, onClose }) => {
     const { getStatusConfig } = useLookup();
     const [rows,    setRows]    = useState([]);
     const [summary, setSummary] = useState(null);
+    const [monthly, setMonthly] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error,   setError]   = useState('');
 
@@ -34,6 +87,8 @@ const LastPurchaseModal = ({ itemId, itemLabel, onClose }) => {
                 if (cancelled) return;
                 setRows(Array.isArray(d?.detail) ? d.detail : []);
                 setSummary(d?.summary || null);
+                // RS2 of the same response - already fetched, previously discarded.
+                setMonthly(Array.isArray(d?.monthly) ? d.monthly : []);
             })
             .catch(() => { if (!cancelled) setError('Could not load purchase history.'); })
             .finally(() => { if (!cancelled) setLoading(false); });
@@ -140,6 +195,8 @@ const LastPurchaseModal = ({ itemId, itemLabel, onClose }) => {
                                     <div style={{ marginTop: 2 }}><StatusPill status={latest.status} /></div>
                                 </div>
                             </div>
+
+                            <PriceSparkline monthly={monthly} currencyCode={latest.currencyShort} />
 
                             {ordered.length > 1 && (
                                 <>

@@ -75,8 +75,19 @@ const KpiCard = ({ label, value, sub, accent, bg, border }) => (
 
 const ItemPriceAnalysis = () => {
     const [item,     setItem]     = useState(null);
-    const [dateFrom, setDateFrom] = useState('');
+    // Default to the last 12 months. "What has this item cost us over the past
+    // year" is the question people actually open this screen to answer; leaving
+    // the range empty showed all history and made the trend line flatten out
+    // across years of data. Clear both fields to get the full history back.
+    const [dateFrom, setDateFrom] = useState(() => {
+        const d = new Date();
+        d.setFullYear(d.getFullYear() - 1);
+        return d.toISOString().slice(0, 10);
+    });
     const [dateTo,   setDateTo]   = useState('');
+    const [mode,     setMode]     = useState('item');   // 'item' | 'variance'
+    const [varRows,  setVarRows]  = useState([]);
+    const [varBusy,  setVarBusy]  = useState(false);
     const [data,     setData]     = useState(null);
     const [loading,  setLoading]  = useState(false);
     const [error,    setError]    = useState('');
@@ -116,6 +127,22 @@ const ItemPriceAnalysis = () => {
             .finally(() => setLoading(false));
     }, [item, dateFrom, dateTo]);
 
+    // Cross-item variance. Runs only in that mode, and needs no item selected.
+    useEffect(() => {
+        if (mode !== 'variance') return;
+        let live = true;
+        setVarBusy(true);
+        const q = new URLSearchParams();
+        if (dateFrom) q.set('dateFrom', dateFrom);
+        if (dateTo)   q.set('dateTo',   dateTo);
+        fetch(`${variables.API_URL}priceanalysis/variance?${q}`, { headers: authHeaders() })
+            .then(r => (r.ok ? r.json() : []))
+            .then(d => { if (live) setVarRows(Array.isArray(d) ? d : []); })
+            .catch(() => { if (live) setVarRows([]); })
+            .finally(() => { if (live) setVarBusy(false); });
+        return () => { live = false; };
+    }, [mode, dateFrom, dateTo]);
+
     useEffect(() => { if (item) load(); }, [item, load]);
 
     const s        = data?.summary;
@@ -144,7 +171,22 @@ const ItemPriceAnalysis = () => {
                         const sel = { padding: '7px 10px', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 13 };
                         return (
                             <div style={{ display: 'flex', gap: 12, marginTop: 14, flexWrap: 'wrap', alignItems: 'center' }}>
-                                <select value={itemTypeId} onChange={e => setItemTypeId(e.target.value)} style={sel}>
+                                {/* Mode toggle. "All items" answers "where did our prices
+                                    move and what did it cost", without opening items one
+                                    by one; the single-item view is the drill-down. */}
+                                <div style={{ display: 'inline-flex', border: '1px solid #cbd5e1', borderRadius: 6, overflow: 'hidden' }}>
+                                    {[['item', 'One item'], ['variance', 'All items — price movement']].map(([k, label]) => (
+                                        <button key={k} type="button" onClick={() => setMode(k)}
+                                            style={{ padding: '7px 12px', fontSize: 12.5, border: 'none', cursor: 'pointer',
+                                                     background: mode === k ? '#2e5fa3' : '#fff',
+                                                     color:      mode === k ? '#fff' : '#475569',
+                                                     fontWeight: mode === k ? 700 : 500 }}>
+                                            {label}
+                                        </button>
+                                    ))}
+                                </div>
+                                <select value={itemTypeId} onChange={e => setItemTypeId(e.target.value)} style={sel}
+                                    disabled={mode === 'variance'}>
                                     <option value="">All types</option>
                                     {types.map(t => <option key={t.itemTypeId} value={t.itemTypeId}>{t.typeName}</option>)}
                                 </select>
@@ -171,7 +213,64 @@ const ItemPriceAnalysis = () => {
 
                 {error && <div className="recv-error" style={{ margin: 12 }}>⚠ {error}</div>}
 
-                {!item ? (
+                {mode === 'variance' ? (
+                    varBusy ? (
+                        <div className="inv-loading" style={{ padding: 40 }}><div className="inv-spinner" />Loading…</div>
+                    ) : varRows.length === 0 ? (
+                        <div className="po-empty" style={{ padding: 50 }}>
+                            No item has been purchased more than once in this period, so there is nothing to
+                            compare. Widen the date range.
+                        </div>
+                    ) : (
+                        <div style={{ padding: '4px 16px 20px' }}>
+                            <div style={{ fontSize: 12, color: '#64748b', margin: '6px 0 10px' }}>
+                                Each item's <strong>latest purchase</strong> compared against the weighted average
+                                of everything bought before it, in base currency. Ranked by what the change cost,
+                                not by percentage — a large % on a cheap item is rarely the money that matters.
+                                Click a row for its full history.
+                            </div>
+                            <table className="po-table" style={{ fontSize: 12.5 }}>
+                                <thead>
+                                    <tr>
+                                        <th>Item</th>
+                                        <th>Category</th>
+                                        <th className="right">Qty</th>
+                                        <th className="right">Now</th>
+                                        <th className="right">Before</th>
+                                        <th className="right">Change</th>
+                                        <th className="right">Cost of change</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {varRows.map((r, i) => {
+                                        const up = r.extraSpend > 0;
+                                        return (
+                                            <tr key={`${r.itemId}-${r.uomId}-${i}`}
+                                                onClick={() => { setMode('item'); setItem({ itemId: r.itemId, itemCode: r.itemCode, itemName: r.itemName }); }}
+                                                title="Open this item's price history"
+                                                style={{ background: i % 2 ? '#f8fafc' : '#fff', cursor: 'pointer' }}>
+                                                <td>
+                                                    <span style={{ fontWeight: 600, color: '#1e40af' }}>{r.itemCode}</span>
+                                                    <div style={{ fontSize: 11, color: '#64748b' }}>{r.itemName}</div>
+                                                </td>
+                                                <td style={{ color: '#64748b' }}>{r.budgetCategory || '—'}</td>
+                                                <td className="po-num-cell">{fmt(r.qtyNow, 2)} {r.uomCode || ''}</td>
+                                                <td className="po-num-cell">{fmt(r.priceNow)}</td>
+                                                <td className="po-num-cell" style={{ color: '#64748b' }}>{fmt(r.priceBefore)}</td>
+                                                <td className="po-num-cell" style={{ fontWeight: 600, color: up ? '#b45309' : '#166534' }}>
+                                                    {up ? '▲' : '▼'} {Math.abs(r.changePct).toFixed(1)}%
+                                                </td>
+                                                <td className="po-num-cell" style={{ fontWeight: 700, color: up ? '#b91c1c' : '#166534' }}>
+                                                    {up ? '+' : '−'}{fmt(Math.abs(r.extraSpend))}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    )
+                ) : !item ? (
                     <div className="po-empty" style={{ padding: 50 }}>Pick an item above to see its PO price history.</div>
                 ) : loading ? (
                     <div className="inv-loading" style={{ padding: 40 }}><div className="inv-spinner" />Loading…</div>

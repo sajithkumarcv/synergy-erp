@@ -58,4 +58,29 @@ namespace ERPWEB.Models.Procurement
         public decimal   MaxPrice      { get; set; }
         public DateTime? LastOrderDate { get; set; }
     }
+
+    // ── Price Variance report — one row per item, ranked by money ─────────────
+    // ExtraSpend = (PriceNow - PriceBefore) * QtyNow, and it is the sort key.
+    // Percentage is shown but never ranked on: a 200% rise on a trivial item is
+    // noise next to a 4% rise on the biggest line.
+    public class PriceVarianceRow
+    {
+        public int       ItemId         { get; set; }
+        public string?   ItemCode       { get; set; }
+        public string?   ItemName       { get; set; }
+        public string?   UomCode        { get; set; }
+        public int?      UomId          { get; set; }
+        public string?   BudgetCategory { get; set; }
+        public decimal   QtyNow         { get; set; }
+        public decimal   PriceNow       { get; set; }
+        public decimal   PriceBefore    { get; set; }
+        public decimal   ChangePct      { get; set; }
+        public decimal   ExtraSpend     { get; set; }
+        public decimal   SpendNow       { get; set; }
+        public int       LinesNow       { get; set; }
+        public int       SuppliersNow   { get; set; }
+        public int       LinesBefore    { get; set; }
+        public DateTime? LastPoDate     { get; set; }
+        public DateTime? PrevPoDate     { get; set; }
+    }
 }
