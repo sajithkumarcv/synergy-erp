@@ -159,12 +159,18 @@ export function varianceTooltip(v, currencyCode = '') {
 // ── settings hook ────────────────────────────────────────────────────
 export function usePriceVarianceSettings() {
     const { getSetting } = useLookup();
-    return {
-        warnPercent:     Number(getSetting('Biz.PriceVariance.WarnPercent',     '10')),
-        criticalPercent: Number(getSetting('Biz.PriceVariance.CriticalPercent', '25')),
-        minUnitPrice:    Number(getSetting('Biz.PriceVariance.MinUnitPrice',    '1')),
-        minHistoryCount: Number(getSetting('Biz.PriceVariance.MinHistoryCount', '1')),
-    };
+    const warnPercent     = Number(getSetting('Biz.PriceVariance.WarnPercent',     '10'));
+    const criticalPercent = Number(getSetting('Biz.PriceVariance.CriticalPercent', '25'));
+    const minUnitPrice    = Number(getSetting('Biz.PriceVariance.MinUnitPrice',    '1'));
+    const minHistoryCount = Number(getSetting('Biz.PriceVariance.MinHistoryCount', '1'));
+    // MUST be memoised on the VALUES. Returning a fresh object literal each render
+    // gives every consumer a new dependency identity; any useEffect depending on it
+    // then re-runs, setStates, re-renders and re-runs forever. That loop pegged the
+    // CPU and made the summary's chips unclickable.
+    return React.useMemo(
+        () => ({ warnPercent, criticalPercent, minUnitPrice, minHistoryCount }),
+        [warnPercent, criticalPercent, minUnitPrice, minHistoryCount]
+    );
 }
 
 // ── history hook ─────────────────────────────────────────────────────

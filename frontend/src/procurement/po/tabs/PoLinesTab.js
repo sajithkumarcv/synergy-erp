@@ -176,18 +176,52 @@ const AmendLineModal = ({ line, onClose, onSaved }) => {
 };
 
 
-// ── Price-variance chip for one import-grid row ───────────────────
-// Its own component so the history hook is only mounted for TICKED rows -
-// an unselected PR line is not being priced, and a 50-line PR must not fire
-// 50 lookups the moment the modal opens. The fetch is module-cached, so
-// several rows for the same item still make one request.
-const ImportRowChip = ({ itemId, price, uomId, uomLabel, uoms, rate, ccy, settings }) => {
-    const history  = useItemHistory(itemId);
+// ── Price cell for one import-grid row: chip + input ──────────────
+// Its own component so the history hook belongs to the row. It is passed a
+// null itemId while the row is unticked, which makes the hook a no-op - an
+// unselected PR line is not being priced, and a 50-line PR must not fire 50
+// lookups the moment the modal opens. The fetch is module-cached, so several
+// rows for the same item still make one request.
+const ImportPriceCell = ({ itemId, active, value, onChange, uomId, uomLabel, uoms, rate, ccy, settings }) => {
+    const history  = useItemHistory(active && itemId ? itemId : null);
     const variance = useMemo(() => evaluateVariance({
-        history: history || [], typedPrice: price, exchangeRate: rate,
+        history: history || [], typedPrice: value, exchangeRate: rate,
         lineUomId: uomId, lineUomLabel: uomLabel, uoms, settings,
-    }), [history, price, rate, uomId, uomLabel, uoms, settings]);
-    return <PriceVarianceChip variance={variance} currencyCode={ccy} />;
+    }), [history, value, rate, uomId, uomLabel, uoms, settings]);
+
+    // Shown even when the price is perfectly normal - "last paid X on DATE by
+    // SUPPLIER" is the common case and the thing buyers actually want.
+    const tip = varianceTooltip(variance, ccy);
+
+    return (
+        // The chip slot is ALWAYS reserved and sits to the LEFT of the input, so a
+        // warning appearing never reflows the row and the input keeps hugging the
+        // right-aligned column header.
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
+            <span style={{ width: 50, display: 'flex', justifyContent: 'flex-end' }}>
+                <PriceVarianceChip variance={variance} currencyCode={ccy} />
+            </span>
+            <input
+                type="number"
+                min="0"
+                step="any"
+                value={value}
+                disabled={!active}
+                title={tip || undefined}
+                onChange={e => onChange(e.target.value)}
+                style={{
+                    width: 92, padding: '4px 6px',
+                    // Colour only - width stays 1px in every state.
+                    border: `1px solid ${active ? '#93c5fd' : '#e2e8f0'}`,
+                    borderRadius: 5, fontSize: 12,
+                    textAlign: 'right',
+                    background: active ? '#fff' : '#f1f5f9',
+                    color: active ? '#1e3a5f' : '#94a3b8',
+                    outline: 'none',
+                }}
+            />
+        </div>
+    );
 };
 
 // ── PR Lines Import Modal ─────────────────────────────────────────
@@ -608,43 +642,18 @@ const PrImportModal = ({ po, initialPrId, onClose, onImported, budgetInfo }) => 
                                                 {isAdded ? (
                                                     <span style={{ color: '#94a3b8', fontSize: 11 }}>{l.estUnitPrice != null ? fmt(l.estUnitPrice) : '—'}</span>
                                                 ) : (
-                                                    // Chip slot is ALWAYS reserved and sits to the LEFT of the
-                                                    // input, so a warning appearing never reflows the row and the
-                                                    // input stays hugging the right-aligned column header.
-                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
-                                                        <span style={{ width: 50, display: 'flex', justifyContent: 'flex-end' }}>
-                                                            {isChecked && l.itemId && (
-                                                                <ImportRowChip
-                                                                    itemId={l.itemId}
-                                                                    price={prices[l.prLineId]}
-                                                                    uomId={l.uomId}
-                                                                    uomLabel={l.uomName}
-                                                                    uoms={uoms}
-                                                                    rate={Number(po.exchangeRate) || 1}
-                                                                    ccy={po.currencyShort || ''}
-                                                                    settings={pvSettings}
-                                                                />
-                                                            )}
-                                                        </span>
-                                                        <input
-                                                            type="number"
-                                                            min="0"
-                                                            step="any"
-                                                            value={prices[l.prLineId] ?? ''}
-                                                            disabled={!isChecked}
-                                                            onChange={e => setPrice(l.prLineId, e.target.value)}
-                                                            style={{
-                                                                width: 92, padding: '4px 6px',
-                                                                // Colour only - width stays 1px in every state.
-                                                                border: `1px solid ${isChecked ? '#93c5fd' : '#e2e8f0'}`,
-                                                                borderRadius: 5, fontSize: 12,
-                                                                textAlign: 'right',
-                                                                background: isChecked ? '#fff' : '#f1f5f9',
-                                                                color: isChecked ? '#1e3a5f' : '#94a3b8',
-                                                                outline: 'none',
-                                                            }}
-                                                        />
-                                                    </div>
+                                                    <ImportPriceCell
+                                                        itemId={l.itemId}
+                                                        active={isChecked}
+                                                        value={prices[l.prLineId] ?? ''}
+                                                        onChange={v => setPrice(l.prLineId, v)}
+                                                        uomId={l.uomId}
+                                                        uomLabel={l.uomName}
+                                                        uoms={uoms}
+                                                        rate={Number(po.exchangeRate) || 1}
+                                                        ccy={po.currencyShort || ''}
+                                                        settings={pvSettings}
+                                                    />
                                                 )}
                                             </td>
                                             <td style={{ padding: '8px 10px', borderBottom: '1px solid #f0f4f8', color: '#64748b' }}>{fmtDate(l.requiredDate)}</td>
