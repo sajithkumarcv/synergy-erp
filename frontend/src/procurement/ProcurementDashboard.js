@@ -1,15 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { variables, authHeaders } from '../Variable';
+import { useLookup } from '../LookupContext';
 import './ProcurementDashboard.css';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-const fmtM = (n) => {
+// Spend figures are base currency (TotalAmount * ExchangeRate). The code comes
+// from the company's IsBaseCurrency row - INR in India, AED in UAE - never hardcoded.
+const fmtM = (n, ccy) => {
     if (n == null) return '—';
     const abs = Math.abs(n);
-    if (abs >= 1_000_000) return `AED ${(n / 1_000_000).toFixed(1)}M`;
-    if (abs >= 1_000)     return `AED ${(n / 1_000).toFixed(0)}K`;
-    return `AED ${Number(n).toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+    const pre = ccy ? `${ccy} ` : '';
+    if (abs >= 1_000_000) return `${pre}${(n / 1_000_000).toFixed(1)}M`;
+    if (abs >= 1_000)     return `${pre}${(n / 1_000).toFixed(0)}K`;
+    return `${pre}${Number(n).toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
 };
 const fmtN = (n) => n == null ? '—' : Number(n).toLocaleString();
 
@@ -55,6 +59,7 @@ const Stat = ({ label, value, sub, icon, color, soft, onClick }) => (
 // ═════════════════════════════════════════════════════════════════════════════
 const ProcurementDashboard = () => {
     const navigate = useNavigate();
+    const { baseCurrencyCode } = useLookup();
     const [d, setD] = useState(null);
     useEffect(() => {
         fetch(`${variables.API_URL}dashboard/procurement-analytics`, { headers: authHeaders() })
@@ -129,7 +134,7 @@ const ProcurementDashboard = () => {
                                 <div key={s.supplierName + i} className="pa-rank-row">
                                     <div className="pa-rank-head">
                                         <span className="pa-rank-name"><span className="pa-rank-idx">{i + 1}</span>{s.supplierName}</span>
-                                        <span className="pa-rank-val">{fmtM(s.spendBase)}</span>
+                                        <span className="pa-rank-val">{fmtM(s.spendBase, baseCurrencyCode)}</span>
                                     </div>
                                     <div className="pa-track"><div className="pa-fill" style={{ width: `${Math.max(3, (s.spendBase / maxSpend) * 100)}%` }} /></div>
                                 </div>
@@ -164,7 +169,7 @@ const ProcurementDashboard = () => {
                 <div className="pa-panel-head">
                     <span className="pa-panel-icon">💰</span>
                     <span className="pa-panel-title">Total Spending</span>
-                    <span className="pa-panel-sub">last 6 months · AED</span>
+                    <span className="pa-panel-sub">last 6 months{baseCurrencyCode ? ` · ${baseCurrencyCode}` : ''}</span>
                 </div>
                 <div className="pa-chart">
                     <div className="pa-chart-grid"><div /><div /><div /><div /></div>
@@ -173,7 +178,7 @@ const ProcurementDashboard = () => {
                             const h = maxTrend > 0 ? Math.max(4, (t.spendBase / maxTrend) * 150) : 4;
                             return (
                                 <div key={i} className="pa-col">
-                                    <div className="pa-col-val">{t.spendBase > 0 ? fmtM(t.spendBase) : ''}</div>
+                                    <div className="pa-col-val">{t.spendBase > 0 ? fmtM(t.spendBase, baseCurrencyCode) : ''}</div>
                                     <div className="pa-col-bar" style={{ height: h }} />
                                     <div className="pa-col-lbl">{t.monthLabel}</div>
                                 </div>

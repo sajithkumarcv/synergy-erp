@@ -204,7 +204,11 @@ namespace ERPWEB.Controllers.Invoice
                     InvoiceDate    = model.InvoiceDate,
                     CustomerId     = model.CustomerId,
                     BillingAddress = model.BillingAddress,
-                    CurrencyId     = model.CurrencyId > 0 ? model.CurrencyId : 2,   // 2 = AED base
+                    // Pass null through when unset — the SP resolves it to whichever
+                    // currency has IsBaseCurrency=1, never a hardcoded id (that id is
+                    // AED on this DB, but INR is base here; a hardcoded fallback would
+                    // silently create the wrong-currency invoice).
+                    CurrencyId     = model.CurrencyId > 0 ? model.CurrencyId : (int?)null,
                     ExchangeRate   = model.ExchangeRate,   // SP resolves to 1 when IsBaseCurrency
                     DueDate        = model.DueDate,
                     JobId          = string.IsNullOrWhiteSpace(model.JobId) ? null : model.JobId,

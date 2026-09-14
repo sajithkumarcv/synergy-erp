@@ -65,14 +65,17 @@ const JobForm = ({ jobTypes, jobStages, onClose, onSaved }) => {
   const { lookups }  = useLookup();
   const { isReq }    = useFieldConfig('JOB');
   const { currencies, jobStatuses } = lookups;
+  // Base currency first, not list position — SortOrder currently happens to put it
+  // first, but that is admin-configurable and not guaranteed.
+  const initialBaseCur = currencies.find(c => c.isBaseCurrency) || currencies[0];
 
   const [form, setForm] = useState({
     jobTypeId:               '',
     jobStageId:              jobStages[0]?.jobStageId || '',
     customerId:              '',
     customerName:            '',
-    jobCurrencyId:           currencies[0] ? String(currencies[0].id) : '',
-    jobExcRate:              currencies[0]?.exchangeRate ?? 1,
+    jobCurrencyId:           initialBaseCur ? String(initialBaseCur.id) : '',
+    jobExcRate:              initialBaseCur?.exchangeRate ?? 1,
     jobDescription:          '',
     jobDate:                 new Date().toISOString().slice(0, 10),
     projectName:             '',
@@ -96,10 +99,12 @@ const JobForm = ({ jobTypes, jobStages, onClose, onSaved }) => {
       setForm(p => ({ ...p, jobStageId: jobStages[0].jobStageId }));
   }, [jobStages]); // eslint-disable-line
 
-  // Auto-select first currency + exchange rate once currencies load
+  // Auto-select base currency + its exchange rate once currencies load
   useEffect(() => {
-    if (currencies.length > 0 && !form.jobCurrencyId)
-      setForm(p => ({ ...p, jobCurrencyId: String(currencies[0].id), jobExcRate: currencies[0].exchangeRate ?? 1 }));
+    if (currencies.length > 0 && !form.jobCurrencyId) {
+      const baseCur = currencies.find(c => c.isBaseCurrency) || currencies[0];
+      setForm(p => ({ ...p, jobCurrencyId: String(baseCur.id), jobExcRate: baseCur.exchangeRate ?? 1 }));
+    }
   }, [currencies]); // eslint-disable-line
 
   // Auto-select first job status once statuses load

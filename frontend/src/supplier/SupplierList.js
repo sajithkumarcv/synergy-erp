@@ -58,9 +58,12 @@ const SupplierCreateForm = ({ onClose, onCreated }) => {
     }, []);
 
     useEffect(() => {
+        // Base currency first, not list position — SortOrder currently happens to put
+        // it first, but that is admin-configurable and not guaranteed.
+        const baseCur = currencies.find(c => c.isBaseCurrency) || currencies[0];
         setForm(f => ({
             ...f,
-            currencyId:        f.currencyId        || (currencies.length        ? String(currencies[0].id)        : ''),
+            currencyId:        f.currencyId        || (baseCur ? String(baseCur.id) : ''),
             paymentTermsId:    f.paymentTermsId    || (paymentTerms.length      ? String(paymentTerms[0].id)      : ''),
             supplierCategoryId: f.supplierCategoryId || (supplierCategories.length ? String(supplierCategories[0].supplierCategoryId) : ''),
         }));

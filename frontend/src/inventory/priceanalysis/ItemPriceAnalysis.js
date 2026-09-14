@@ -12,6 +12,7 @@ import '../../procurement/Procurement.css';
 const ItemPicker = ({ value, onPick, itemTypeId, categoryId }) => {
     const [term,    setTerm]    = useState('');
     const [results, setResults] = useState([]);
+    const [searched, setSearched] = useState(false);   // a fetch for the current term/scope has returned
     const [open,    setOpen]    = useState(false);
     const boxRef = useRef(null);
 
@@ -25,6 +26,7 @@ const ItemPicker = ({ value, onPick, itemTypeId, categoryId }) => {
     // set we list items even before the user types, so they can browse the group.
     useEffect(() => {
         const scoped = itemTypeId || categoryId;
+        setSearched(false);
         if (!term.trim() && !scoped) { setResults([]); return; }
         const t = setTimeout(() => {
             const q = new URLSearchParams({ pageSize: '25', isActive: 'true' });
@@ -34,7 +36,8 @@ const ItemPicker = ({ value, onPick, itemTypeId, categoryId }) => {
             fetch(`${variables.API_URL}item/search?${q}`, { headers: authHeaders() })
                 .then(r => r.json())
                 .then(d => setResults(d.data || []))
-                .catch(() => setResults([]));
+                .catch(() => setResults([]))
+                .finally(() => setSearched(true));
         }, 250);
         return () => clearTimeout(t);
     }, [term, itemTypeId, categoryId]);
@@ -61,6 +64,15 @@ const ItemPicker = ({ value, onPick, itemTypeId, categoryId }) => {
                     ))}
                 </div>
             )}
+            {/* Say so when nothing matches - an empty, silent box reads as "search is broken",
+                and the usual cause is the Type / Category scope, not the typed text. */}
+            {open && searched && results.length === 0 && term.trim() && (
+                <div style={{ position: 'absolute', zIndex: 20, top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 6, marginTop: 2, padding: '8px 10px', fontSize: 12.5, color: '#64748b', boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }}>
+                    {itemTypeId || categoryId
+                        ? `No item matches "${term.trim()}" within the selected type / category. Clear those filters to search all items.`
+                        : `No item matches "${term.trim()}".`}
+                </div>
+            )}
         </div>
     );
 };
@@ -79,15 +91,19 @@ const ItemPriceAnalysis = () => {
     // year" is the question people actually open this screen to answer; leaving
     // the range empty showed all history and made the trend line flatten out
     // across years of data. Clear both fields to get the full history back.
-    const [dateFrom, setDateFrom] = useState(() => {
+    const defaultDateFrom = () => {
         const d = new Date();
         d.setFullYear(d.getFullYear() - 1);
         return d.toISOString().slice(0, 10);
-    });
+    };
+    const [dateFrom, setDateFrom] = useState(defaultDateFrom);
     const [dateTo,   setDateTo]   = useState('');
     const [mode,     setMode]     = useState('item');   // 'item' | 'variance'
     const [varRows,  setVarRows]  = useState([]);
     const [varBusy,  setVarBusy]  = useState(false);
+    // "All items" text filter: varTyped follows the keyboard, varSearch is what gets sent
+    const [varTyped,  setVarTyped]  = useState('');
+    const [varSearch, setVarSearch] = useState('');
     const [data,     setData]     = useState(null);
     const [loading,  setLoading]  = useState(false);
     const [error,    setError]    = useState('');
@@ -114,6 +130,16 @@ const ItemPriceAnalysis = () => {
     // Effective category passed to the item search: subcategory narrows, else category
     const effectiveCategoryId = subCategoryId || categoryId;
 
+    // Clear filters: back to how the screen opens. The selected item (one-item view)
+    // is left alone - it is the subject of that view, not a filter on it.
+    const filtersActive = !!(itemTypeId || categoryId || subCategoryId || varTyped
+                             || dateTo || dateFrom !== defaultDateFrom());
+    const clearFilters = () => {
+        setItemTypeId(''); setCategoryId(''); setSubCategoryId('');
+        setVarTyped(''); setVarSearch('');            // skip the debounce wait
+        setDateFrom(defaultDateFrom()); setDateTo('');
+    };
+
     const load = useCallback(() => {
         if (!item) return;
         setLoading(true); setError('');
@@ -128,20 +154,31 @@ const ItemPriceAnalysis = () => {
     }, [item, dateFrom, dateTo]);
 
     // Cross-item variance. Runs only in that mode, and needs no item selected.
+    // Type / Category / Sub-category narrow the list the same way they narrow
+    // the item picker (a category includes its sub-categories).
     useEffect(() => {
         if (mode !== 'variance') return;
         let live = true;
         setVarBusy(true);
         const q = new URLSearchParams();
-        if (dateFrom) q.set('dateFrom', dateFrom);
-        if (dateTo)   q.set('dateTo',   dateTo);
+        if (dateFrom)            q.set('dateFrom',   dateFrom);
+        if (dateTo)              q.set('dateTo',     dateTo);
+        if (itemTypeId)          q.set('itemTypeId', itemTypeId);
+        if (effectiveCategoryId) q.set('categoryId', effectiveCategoryId);
+        if (varSearch)           q.set('searchText', varSearch);
         fetch(`${variables.API_URL}priceanalysis/variance?${q}`, { headers: authHeaders() })
             .then(r => (r.ok ? r.json() : []))
             .then(d => { if (live) setVarRows(Array.isArray(d) ? d : []); })
             .catch(() => { if (live) setVarRows([]); })
             .finally(() => { if (live) setVarBusy(false); });
         return () => { live = false; };
-    }, [mode, dateFrom, dateTo]);
+    }, [mode, dateFrom, dateTo, itemTypeId, effectiveCategoryId, varSearch]);
+
+    // Debounce the text filter so each keystroke is not a report query
+    useEffect(() => {
+        const t = setTimeout(() => setVarSearch(varTyped.trim()), 300);
+        return () => clearTimeout(t);
+    }, [varTyped]);
 
     useEffect(() => { if (item) load(); }, [item, load]);
 
@@ -185,8 +222,7 @@ const ItemPriceAnalysis = () => {
                                         </button>
                                     ))}
                                 </div>
-                                <select value={itemTypeId} onChange={e => setItemTypeId(e.target.value)} style={sel}
-                                    disabled={mode === 'variance'}>
+                                <select value={itemTypeId} onChange={e => setItemTypeId(e.target.value)} style={sel}>
                                     <option value="">All types</option>
                                     {types.map(t => <option key={t.itemTypeId} value={t.itemTypeId}>{t.typeName}</option>)}
                                 </select>
@@ -201,11 +237,36 @@ const ItemPriceAnalysis = () => {
                                     <option value="">{subCats.length ? 'All sub-categories' : 'No sub-categories'}</option>
                                     {subCats.map(c => <option key={c.categoryId} value={c.categoryId}>{c.categoryName}</option>)}
                                 </select>
-                                <ItemPicker value={item} onPick={setItem} itemTypeId={itemTypeId} categoryId={effectiveCategoryId} />
+                                {/* One item: pick an item to drill into. All items: the same box
+                                    filters the list by code / name, on the server, so the
+                                    top-200 cut never hides a match. */}
+                                {mode === 'variance' ? (
+                                    <div style={{ position: 'relative', minWidth: 320 }}>
+                                        <input value={varTyped} onChange={e => setVarTyped(e.target.value)}
+                                               placeholder="Filter by item code or name…"
+                                               style={{ ...sel, width: '100%', boxSizing: 'border-box', paddingRight: 28 }} />
+                                        {varTyped && (
+                                            <button type="button" onClick={() => setVarTyped('')} title="Clear filter"
+                                                    style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 14 }}>
+                                                ✕
+                                            </button>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <ItemPicker value={item} onPick={setItem}
+                                                itemTypeId={itemTypeId} categoryId={effectiveCategoryId} />
+                                )}
                                 <span style={{ fontSize: 12, color: '#64748b' }}>From</span>
                                 <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={sel} />
                                 <span style={{ fontSize: 12, color: '#64748b' }}>To</span>
                                 <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={sel} />
+                                {filtersActive && (
+                                    <button type="button" onClick={clearFilters}
+                                            title="Reset Type, Category, Sub-category, the item filter and the dates (last 12 months)"
+                                            style={{ padding: '7px 12px', border: '1px solid #fca5a5', borderRadius: 6, background: '#fef2f2', color: '#b91c1c', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>
+                                        ✕ Clear filters
+                                    </button>
+                                )}
                             </div>
                         );
                     })()}
@@ -218,8 +279,9 @@ const ItemPriceAnalysis = () => {
                         <div className="inv-loading" style={{ padding: 40 }}><div className="inv-spinner" />Loading…</div>
                     ) : varRows.length === 0 ? (
                         <div className="po-empty" style={{ padding: 50 }}>
-                            No item has been purchased more than once in this period, so there is nothing to
-                            compare. Widen the date range.
+                            {itemTypeId || effectiveCategoryId || varSearch
+                                ? 'No item matching the selected filters has been purchased more than once in this period. Clear a filter or widen the date range.'
+                                : 'No item has been purchased more than once in this period, so there is nothing to compare. Widen the date range.'}
                         </div>
                     ) : (
                         <div style={{ padding: '4px 16px 20px' }}>

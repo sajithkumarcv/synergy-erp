@@ -79,12 +79,15 @@ const DEFAULT_CONFIG = {
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-const fmtM  = (n) => {
+// ccy = the company's base currency code from useLookup() - INR in India, AED in UAE.
+// Never hardcode it; the label is omitted until lookups have loaded.
+const fmtM  = (n, ccy) => {
     if (n == null) return '—';
     const abs = Math.abs(n);
-    if (abs >= 1_000_000) return `AED ${(n / 1_000_000).toFixed(1)}M`;
-    if (abs >= 1_000)     return `AED ${(n / 1_000).toFixed(0)}K`;
-    return `AED ${Number(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+    const pre = ccy ? `${ccy} ` : '';
+    if (abs >= 1_000_000) return `${pre}${(n / 1_000_000).toFixed(1)}M`;
+    if (abs >= 1_000)     return `${pre}${(n / 1_000).toFixed(0)}K`;
+    return `${pre}${Number(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 };
 const fmtN  = (n) => n == null ? '—' : Number(n).toLocaleString();
 
@@ -106,6 +109,7 @@ const MODULE_ROUTES = {
 
 // ── Bar indicator ─────────────────────────────────────────────────────────────
 const BarRow = ({ label, value, max, color }) => {
+    const { baseCurrencyCode } = useLookup();
     const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
     return (
         <div className="db-bar-row">
@@ -113,7 +117,7 @@ const BarRow = ({ label, value, max, color }) => {
             <div className="db-bar-track">
                 <div className="db-bar-fill" style={{ width: `${pct}%`, background: color }} />
             </div>
-            <div className="db-bar-val">{fmtM(value)}</div>
+            <div className="db-bar-val">{fmtM(value, baseCurrencyCode)}</div>
         </div>
     );
 };
@@ -218,6 +222,7 @@ const MyDraftsWidget = ({ userId }) => {
 // ── Most over-budget jobs widget (self-fetching) ───────────────────────────────
 const OverBudgetWidget = () => {
     const navigate = useNavigate();
+    const { baseCurrencyCode } = useLookup();
     const [rows, setRows] = useState(null);   // null=loading, 'err', or array
 
     useEffect(() => {
@@ -258,7 +263,7 @@ const OverBudgetWidget = () => {
                                 </span>
                             </span>
                             <span style={{ textAlign: 'right' }}>
-                                <span style={{ display: 'block', color: '#b91c1c', fontWeight: 700, fontSize: 12.5 }}>{fmtM(over)} over</span>
+                                <span style={{ display: 'block', color: '#b91c1c', fontWeight: 700, fontSize: 12.5 }}>{fmtM(over, baseCurrencyCode)} over</span>
                                 {j.variancePct != null && (
                                     <span style={{ fontSize: 10.5, color: '#94a3b8' }}>
                                         {Number(j.variancePct).toFixed(0)}% · {j.overCategoryCount} hdr{j.overCategoryCount !== 1 ? 's' : ''}
@@ -277,6 +282,7 @@ const OverBudgetWidget = () => {
 const TodayActivityWidget = ({ userId }) => {
     const navigate    = useNavigate();
     const currentUser = useCurrentUser();
+    const { baseCurrencyCode } = useLookup();
     const [d, setD] = useState(null);   // null=loading, 'err', or data object
 
     useEffect(() => {
@@ -292,7 +298,7 @@ const TodayActivityWidget = ({ userId }) => {
     // with what the filtered list shows.
     const todayFilters = { createdBy: currentUser, dateFrom: todayISO(), dateTo: todayISO() };
     const tiles = [
-        { key: 'po',    label: 'POs Created',    icon: '📦', accent: '#059669', soft: '#d1fae5', count: d?.poCount,    sub: d?.poValue > 0 ? fmtM(d.poValue) : null, route: '/purchase-orders' },
+        { key: 'po',    label: 'POs Created',    icon: '📦', accent: '#059669', soft: '#d1fae5', count: d?.poCount,    sub: d?.poValue > 0 ? fmtM(d.poValue, baseCurrencyCode) : null, route: '/purchase-orders' },
         { key: 'grn',   label: 'GRNs',           icon: '📥', accent: '#7c3aed', soft: '#ede9fe', count: d?.grnCount,   sub: null, route: '/grn' },
         { key: 'issue', label: 'Issue Notes',    icon: '📤', accent: '#b45309', soft: '#fef3c7', count: d?.issueCount, sub: null, route: '/inventory-issue' },
         { key: 'pr',    label: 'PRs',            icon: '📝', accent: '#2563eb', soft: '#dbeafe', count: d?.prCount,    sub: null, route: '/purchase-requests' },
@@ -334,6 +340,7 @@ const TodayActivityWidget = ({ userId }) => {
 // ── Approved PRs awaiting PO — procurement work queue (self-fetching) ──────────
 const ApprovedPrsWidget = () => {
     const navigate = useNavigate();
+    const { baseCurrencyCode } = useLookup();
     const [rows, setRows] = useState(null);   // null=loading, 'err', or array
 
     useEffect(() => {
@@ -374,7 +381,7 @@ const ApprovedPrsWidget = () => {
                             </span>
                         </span>
                         <span style={{ textAlign: 'right' }}>
-                            <span style={{ display: 'block', fontWeight: 700, fontSize: 12.5, color: '#166534' }}>{fmtM(pr.openValue)}</span>
+                            <span style={{ display: 'block', fontWeight: 700, fontSize: 12.5, color: '#166534' }}>{fmtM(pr.openValue, baseCurrencyCode)}</span>
                             <span style={{ fontSize: 10.5, color: pr.daysWaiting >= 3 ? '#dc2626' : '#94a3b8', fontWeight: pr.daysWaiting >= 3 ? 600 : 400 }}>
                                 {pr.daysWaiting === 0 ? 'today' : `${pr.daysWaiting}d waiting`}
                             </span>
@@ -391,7 +398,7 @@ const Dashboard = () => {
     const navigate      = useNavigate();
     const userId        = useCurrentUserId();
     const { auth }      = useAuth();
-    const { getModuleStatuses } = useLookup();
+    const { getModuleStatuses, baseCurrencyCode } = useLookup();
     const role          = (auth?.role || '').toUpperCase().trim();
 
     // Admin-configurable per-role dashboard layout (Settings → Dashboard
@@ -577,7 +584,7 @@ const Dashboard = () => {
                             <div key={a.transactionId} className="db-approval-row"
                                  onClick={() => { const r = MODULE_ROUTES[a.moduleCode]; if (r) navigate(r(a.documentId)); }}>
                                 <div className="db-approval-doc">{a.documentNo}</div>
-                                <div className="db-approval-amt">AED {Number(a.documentAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 0 })}</div>
+                                <div className="db-approval-amt">{Number(a.documentAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 0 })}</div>
                                 <div className={`db-approval-days ${a.daysPending > 2 ? 'db-days-red' : 'db-days-amber'}`}>
                                     {a.daysPending}d
                                 </div>
@@ -634,7 +641,7 @@ const Dashboard = () => {
                             { label: 'Low Stock Items', val: fmtN(inventory?.lowStock),    color: '#d97706', route: '/inventory-alerts' },
                             { label: 'Out of Stock',    val: fmtN(inventory?.outOfStock),  color: '#dc2626', route: '/inventory-alerts' },
                             { label: 'Pending GRN',     val: fmtN(inventory?.pendingGRN),  color: '#7c3aed', route: null },
-                            { label: 'Stock Value',     val: fmtM(inventory?.stockValue),  color: '#16a34a', route: null },
+                            { label: 'Stock Value',     val: fmtM(inventory?.stockValue, baseCurrencyCode),  color: '#16a34a', route: null },
                         ].map(r => (
                             <div key={r.label} className="db-stat-row"
                                  style={r.route ? { cursor: 'pointer' } : undefined}
@@ -671,9 +678,9 @@ const Dashboard = () => {
                     <div className="db-card-body db-costing-body">
                         <div className="db-costing-stats">
                             {[
-                                { label: 'Budget Amount', val: fmtM(budget),   color: '#1e40af' },
-                                { label: 'Actual Cost',   val: fmtM(actual),   color: actual > budget ? '#dc2626' : '#1e293b' },
-                                { label: 'Variance',      val: fmtM(variance), color: variance >= 0 ? '#16a34a' : '#dc2626' },
+                                { label: 'Budget Amount', val: fmtM(budget,   baseCurrencyCode), color: '#1e40af' },
+                                { label: 'Actual Cost',   val: fmtM(actual,   baseCurrencyCode), color: actual > budget ? '#dc2626' : '#1e293b' },
+                                { label: 'Variance',      val: fmtM(variance, baseCurrencyCode), color: variance >= 0 ? '#16a34a' : '#dc2626' },
                             ].map(r => (
                                 <div key={r.label} className="db-stat-row">
                                     <span className="db-stat-label">{r.label}</span>

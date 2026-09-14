@@ -7,15 +7,20 @@ import { useFieldConfig } from '../../FieldConfigContext';
 import ValidationModal from '../../common/ValidationModal';
 import AmountInput from '../../common/AmountInput';
 
-const normalise = (c, currencies, paymentTerms, customerCategories, customerTypes) => ({
-    ...c,
-    currencyId:         c.currencyId         != null ? String(c.currencyId)         : (currencies.length         ? String(currencies[0].id)         : ''),
-    paymentTermsId:     c.paymentTermsId     != null ? String(c.paymentTermsId)     : (paymentTerms.length       ? String(paymentTerms[0].id)       : ''),
-    customerCategoryId: c.customerCategoryId != null ? String(c.customerCategoryId) : (customerCategories.length ? String(customerCategories[0].id) : ''),
-    customerType:       c.customerType       || (customerTypes.length ? customerTypes[0].value : ''),
-    creditLimit:        c.creditLimit ?? 0,
-    creditDays:         c.creditDays  ?? 0,
-});
+const normalise = (c, currencies, paymentTerms, customerCategories, customerTypes) => {
+    // Base currency first, not list position — SortOrder currently happens to put it
+    // first, but that is admin-configurable and not guaranteed.
+    const baseCur = currencies.find(x => x.isBaseCurrency) || currencies[0];
+    return {
+        ...c,
+        currencyId:         c.currencyId         != null ? String(c.currencyId)         : (baseCur ? String(baseCur.id) : ''),
+        paymentTermsId:     c.paymentTermsId     != null ? String(c.paymentTermsId)     : (paymentTerms.length       ? String(paymentTerms[0].id)       : ''),
+        customerCategoryId: c.customerCategoryId != null ? String(c.customerCategoryId) : (customerCategories.length ? String(customerCategories[0].id) : ''),
+        customerType:       c.customerType       || (customerTypes.length ? customerTypes[0].value : ''),
+        creditLimit:        c.creditLimit ?? 0,
+        creditDays:         c.creditDays  ?? 0,
+    };
+};
 
 const Row = ({ label, value, mono }) => (
     <div className="ov-row">

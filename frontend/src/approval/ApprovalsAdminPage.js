@@ -153,7 +153,7 @@ const HistoryDrawer = ({ row, onClose, onNavigate }) => (
                     </div>
                     {row.documentAmount != null && (
                         <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
-                            Amount: <strong>AED {fmt(row.documentAmount)}</strong>
+                            Amount: <strong>{fmt(row.documentAmount)}</strong>
                             &nbsp;·&nbsp;Submitted by <strong>{row.submittedBy}</strong>
                         </div>
                     )}

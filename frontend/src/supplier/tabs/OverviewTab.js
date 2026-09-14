@@ -8,17 +8,22 @@ import AmountInput from '../../common/AmountInput';
 
 const PAYMENT_MODES = ['Bank Transfer', 'Cheque', 'Cash', 'Letter of Credit (LC)', 'Online Transfer'];
 
-const normalise = (s, currencies, paymentTerms, supplierCategories, countries) => ({
-    ...s,
-    currencyId:         s.currencyId         != null ? String(s.currencyId)         : (currencies.length         ? String(currencies[0].id)                              : ''),
-    paymentTermsId:     s.paymentTermsId     != null ? String(s.paymentTermsId)     : (paymentTerms.length       ? String(paymentTerms[0].id)                            : ''),
-    supplierCategoryId: s.supplierCategoryId != null ? String(s.supplierCategoryId) : (supplierCategories.length ? String(supplierCategories[0].supplierCategoryId)       : ''),
-    countryId:          s.countryId          != null ? String(s.countryId)          : '',
-    tradeLicenseExpiry: s.tradeLicenseExpiry ? s.tradeLicenseExpiry.slice(0, 10) : '',
-    rating:             s.rating != null ? String(s.rating) : '',
-    creditLimit:        s.creditLimit ?? 0,
-    creditDays:         s.creditDays  ?? 0,
-});
+const normalise = (s, currencies, paymentTerms, supplierCategories, countries) => {
+    // Base currency first, not list position — SortOrder currently happens to put it
+    // first, but that is admin-configurable and not guaranteed.
+    const baseCur = currencies.find(x => x.isBaseCurrency) || currencies[0];
+    return {
+        ...s,
+        currencyId:         s.currencyId         != null ? String(s.currencyId)         : (baseCur ? String(baseCur.id) : ''),
+        paymentTermsId:     s.paymentTermsId     != null ? String(s.paymentTermsId)     : (paymentTerms.length       ? String(paymentTerms[0].id)                            : ''),
+        supplierCategoryId: s.supplierCategoryId != null ? String(s.supplierCategoryId) : (supplierCategories.length ? String(supplierCategories[0].supplierCategoryId)       : ''),
+        countryId:          s.countryId          != null ? String(s.countryId)          : '',
+        tradeLicenseExpiry: s.tradeLicenseExpiry ? s.tradeLicenseExpiry.slice(0, 10) : '',
+        rating:             s.rating != null ? String(s.rating) : '',
+        creditLimit:        s.creditLimit ?? 0,
+        creditDays:         s.creditDays  ?? 0,
+    };
+};
 
 const Row = ({ label, value, mono }) => (
     <div className="ov-row">

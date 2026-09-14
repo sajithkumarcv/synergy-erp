@@ -149,12 +149,15 @@ const OverviewTab = ({ invoice, linesCount = 0, onRefresh }) => {
     const supplierLocked = linesCount > 0;
 
     const startEdit = () => {
+        // invoice.currencyId should always be set (required on save) — this fallback is
+        // defensive only. Base currency, never a hardcoded id.
+        const baseCur = currencies.find(c => c.isBaseCurrency) || currencies[0];
         setForm({
             supplierId:     invoice.supplierId || '',
             supplierName:   invoice.supplierName || '',
             supplierInvRef: invoice.supplierInvRef || '',
             invoiceDate:    invoice.invoiceDate?.slice(0, 10) || '',
-            currencyId:     String(invoice.currencyId || 2),
+            currencyId:     String(invoice.currencyId || (baseCur ? baseCur.id : '')),
             exchangeRate:   String(invoice.exchangeRate || 1),
             paymentTermsId: String(invoice.paymentTermsId || ''),
             dueDate:        invoice.dueDate?.slice(0, 10) || '',

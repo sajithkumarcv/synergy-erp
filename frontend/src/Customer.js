@@ -117,7 +117,10 @@ const FormSection = ({ label }) => (
 );
 
 const normaliseCustomer = (c, currencies, paymentTerms, customerCategories, customerTypes) => {
-    const firstCurrency    = currencies.length         ? String(currencies[0].id)         : '';
+    // Base currency first, not list position — SortOrder currently happens to put it
+    // first, but that is admin-configurable and not guaranteed.
+    const baseCur           = currencies.find(x => x.isBaseCurrency) || currencies[0];
+    const firstCurrency    = baseCur ? String(baseCur.id) : '';
     const firstTerms       = paymentTerms.length       ? String(paymentTerms[0].id)       : '';
     const firstCategory    = customerCategories.length ? String(customerCategories[0].id) : '';
     const firstType        = customerTypes.length      ? customerTypes[0].value           : '';

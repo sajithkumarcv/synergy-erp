@@ -102,15 +102,20 @@ const ExpensesTab = ({ jobId }) => {
             .then(r => r.json()).then(d => setCategories(Array.isArray(d) ? d : [])).catch(console.error);
     }, []);
 
-    const emptyForm = () => ({
-        expenseId: 0, jobId,
-        expenseCategoryId: categories[0]?.expenseCategoryId || '',
-        expenseDescription: '', expenseAmount: '',
-        expenseDate: new Date().toISOString().slice(0, 10),
-        currencyId: currencies[0] ? String(currencies[0].id) : '',
-        exchangeRate: 1, referenceNo: '', remarks: '',
-        createdBy: currentUser, modifiedBy: null,
-    });
+    const emptyForm = () => {
+        // Base currency first, not list position — SortOrder currently happens to put
+        // it first, but that is admin-configurable and not guaranteed.
+        const baseCur = currencies.find(c => c.isBaseCurrency) || currencies[0];
+        return {
+            expenseId: 0, jobId,
+            expenseCategoryId: categories[0]?.expenseCategoryId || '',
+            expenseDescription: '', expenseAmount: '',
+            expenseDate: new Date().toISOString().slice(0, 10),
+            currencyId: baseCur ? String(baseCur.id) : '',
+            exchangeRate: 1, referenceNo: '', remarks: '',
+            createdBy: currentUser, modifiedBy: null,
+        };
+    };
 
     const handle = (e) => { const { name, value } = e.target; setForm(p => ({ ...p, [name]: value })); };
 

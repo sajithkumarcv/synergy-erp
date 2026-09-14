@@ -5,18 +5,28 @@ import { useLookup } from '../../LookupContext';
 import AlertModal from '../../common/AlertModal';
 import ConfirmModal from '../../common/ConfirmModal';
 
-const makeEmpty = (supplierId, currencies) => ({
-    supplierBankId: 0, supplierId,
-    bankName: '', accountName: '', accountNumber: '',
-    iban: '', swiftCode: '', branchName: '',
-    currencyId: currencies.length ? String(currencies[0].id) : '',
-    isDefault: false, isActive: true,
-});
+// Base currency first, not list position — SortOrder currently happens to put it
+// first, but that is admin-configurable and not guaranteed.
+const pickBaseCurrency = (currencies) => currencies.find(c => c.isBaseCurrency) || currencies[0];
 
-const normalise = (r, currencies) => ({
-    ...r,
-    currencyId: r.currencyId != null ? String(r.currencyId) : (currencies.length ? String(currencies[0].id) : ''),
-});
+const makeEmpty = (supplierId, currencies) => {
+    const baseCur = pickBaseCurrency(currencies);
+    return {
+        supplierBankId: 0, supplierId,
+        bankName: '', accountName: '', accountNumber: '',
+        iban: '', swiftCode: '', branchName: '',
+        currencyId: baseCur ? String(baseCur.id) : '',
+        isDefault: false, isActive: true,
+    };
+};
+
+const normalise = (r, currencies) => {
+    const baseCur = pickBaseCurrency(currencies);
+    return {
+        ...r,
+        currencyId: r.currencyId != null ? String(r.currencyId) : (baseCur ? String(baseCur.id) : ''),
+    };
+};
 
 // ─── Inline bank form ────────────────────────────────────────────
 const BankForm = ({ supplierId, record, onSaved, onCancel }) => {
