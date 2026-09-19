@@ -130,8 +130,7 @@ GO
 
 -- ── verification ─────────────────────────────────────────────────────
 SELECT Item = 'sp_SetInvoice', Status = CASE
-    WHEN EXISTS (SELECT 1 FROM sys.parameters
-                 WHERE object_id = OBJECT_ID('proj.sp_SetInvoice') AND name = '@CurrencyId'
-                   AND default_value IS NULL AND has_default_value = 1)
+    -- sys.parameters.has_default_value is 0 for a "= NULL" default, so read the text instead
+    WHEN OBJECT_DEFINITION(OBJECT_ID('proj.sp_SetInvoice')) LIKE '%@CurrencyId%INT%=%NULL%'
     THEN 'OK (CurrencyId defaults to NULL)' ELSE 'MISSING' END;
 GO
