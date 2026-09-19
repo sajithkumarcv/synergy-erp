@@ -563,12 +563,14 @@ const PoDetailPage = () => {
                             🟢 Release Hold
                         </button>
                     )}
-                    {['Approved','Sent','Partial'].includes(po.status) && canRevise && (
+                    {['Approved','Sent','Partial','Received'].includes(po.status) && canRevise && (
                         <button
                             className="jd-stage-btn"
                             onClick={handleRevise}
                             disabled={revising}
-                            title="Reset to Draft for editing — increments revision counter"
+                            title={po.status === 'Received' || po.status === 'Partial'
+                                ? 'Reset to Draft to change a price after receipt, then re-submit for approval — increments revision counter'
+                                : 'Reset to Draft for editing — increments revision counter'}
                             style={{ display: 'flex', alignItems: 'center', gap: 5,
                                      background: '#fef3c7', color: '#92400e', borderColor: '#fcd34d' }}
                         >

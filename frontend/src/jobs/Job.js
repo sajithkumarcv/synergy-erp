@@ -5,6 +5,7 @@ import { hasSavedFilters } from '../utils/filterSession';
 import { variables, authHeaders } from '../Variable';
 import { useCurrentUser } from '../AuthContext';
 import { useLookup } from '../LookupContext';
+import { useApprovalLevels, pendingLevelCode } from '../common/useApprovalLevels';
 import { useFilters } from '../FilterContext';
 import { useFieldConfig } from '../FieldConfigContext';
 import { usePermission } from '../PermissionContext';
@@ -41,8 +42,11 @@ const StatusBadge = ({ id }) => {
 // in-flight strings ('PendingApproval', 'PendingL1'..'PendingL4', 'Submitted',
 // 'L1Approved', 'SentBack', etc. — the exact wording depends on how many
 // levels the job's approval policy has). Colour by category, show raw text.
-const ApprovalBadge = ({ status }) => {
-  const s = (status || 'Draft').trim();
+const ApprovalBadge = ({ status, level }) => {
+  const { getStatusConfig } = useLookup();
+  // A pending job is usually stored as plain 'PendingApproval'; show its real level.
+  const lvCfg = level ? getStatusConfig('JOB', pendingLevelCode(status, level)) : null;
+  const s = ((lvCfg && lvCfg.statusLabel) || status || 'Draft').trim();
   const up = s.toUpperCase();
   let bg = '#f1f5f9', color = '#64748b'; // Draft / unknown — grey
   if (up === 'APPROVED')                          { bg = '#dcfce7'; color = '#166534'; } // green
@@ -698,6 +702,7 @@ export const Job = () => {
   const restored = useRef(hasSavedFilters('job')).current;
 
   const [rows, setRows]         = useState([]);
+  const levels = useApprovalLevels('JOB', rows, 'jobNumId', 'approvalStatus');
   const [totalRows, setTotal]   = useState(0);
   const [totalPages, setPages]  = useState(1);
   const [page, setPage]         = useState(1);
@@ -948,7 +953,7 @@ export const Job = () => {
                         : '—'}
                     </td>
                     <td><StatusBadge id={j.jobStatusId} /></td>
-                    <td><ApprovalBadge status={j.approvalStatus} /></td>
+                    <td><ApprovalBadge status={j.approvalStatus} level={levels[j.jobNumId]} /></td>
                   </tr>
                 ))}
             </tbody>

@@ -8,6 +8,8 @@ import { ColFilter, applyColFilters, hasColFilters } from '../common/GridColumnF
 import LoginPasswordModal from '../common/LoginPasswordModal';
 import { useFilters } from '../FilterContext';
 import DocPreviewDrawer from './DocPreviewDrawer';
+import PoInfoModal from '../procurement/po/PoInfoModal';
+import PrInfoModal from '../procurement/pr/PrInfoModal';
 import '../procurement/Procurement.css';
 
 // ── Budget-override modal — authorise approving past a budget ceiling ──────
@@ -60,6 +62,7 @@ const BudgetOverrideModal = ({ info, busy, onConfirm, onCancel }) => {
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 const fmt = v => (v == null ? '—' : Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+const fmtAmt = (v, cur) => (v == null ? '—' : (cur ? cur + ' ' : '') + fmt(v));
 const fmtDateTime = d => d
     ? new Date(d).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
     : '—';
@@ -199,7 +202,7 @@ const ExpandedDetail = ({ item, route, busy, onOpen, onAction }) => (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
             <div style={{ fontSize: 12.5, color: '#475569', lineHeight: 1.8 }}>
                 <div><strong>Document:</strong> {item.documentNo}
-                    {item.documentAmount != null && <> · <strong>Amount:</strong> {fmt(item.documentAmount)}</>}
+                    {item.documentAmount != null && <> · <strong>Amount:</strong> {fmtAmt(item.documentAmount, item.currencyCode)}</>}
                 </div>
                 {(item.jobId || item.supplierName) && (
                     <div>
@@ -248,7 +251,7 @@ const ApprovalCard = ({ item, meta, expanded, onToggle, onOpen, onAction, acting
                                    background: '#dbeafe', padding: '2px 6px', borderRadius: 4 }}>{item.jobId}</span>
                 )}
                 <span style={{ fontFamily: 'monospace', fontSize: 13, color: '#334155' }}>
-                    {item.documentAmount != null ? fmt(item.documentAmount) : ''}
+                    {item.documentAmount != null ? fmtAmt(item.documentAmount, item.currencyCode) : ''}
                 </span>
             </div>
 
@@ -331,7 +334,7 @@ const ApprovalRow = ({ item, route, colSpan, expanded, onToggle, onOpen, onActio
                         : <span style={{ color: '#cbd5e1' }}>—</span>}
                 </td>
                 <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'monospace', fontSize: 12 }}>
-                    {item.documentAmount != null ? fmt(item.documentAmount) : '—'}
+                    {item.documentAmount != null ? fmtAmt(item.documentAmount, item.currencyCode) : '—'}
                 </td>
                 <td style={{ padding: '8px 12px' }}>
                     <div style={{ fontSize: 11.5, fontWeight: 600, color: '#92400e' }}>
@@ -784,7 +787,7 @@ const MyApprovalsPage = () => {
                 // formatted so a typed "627,019" matches what is on screen.
                 const hay = `${i.documentNo || ''} ${i.submittedBy || ''} ${i.levelName || ''} `
                           + `${i.jobId || ''} ${i.jobTitle || ''} ${i.supplierName || ''} `
-                          + `${i.documentAmount ?? ''} ${i.documentAmount != null ? fmt(i.documentAmount) : ''}`;
+                          + `${i.documentAmount ?? ''} ${i.documentAmount != null ? fmtAmt(i.documentAmount, i.currencyCode) : ''}`;
                 if (!hay.toLowerCase().includes(q)) return false;
             }
             return true;
@@ -1111,11 +1114,26 @@ const MyApprovalsPage = () => {
                 </div>
             </div>
 
-            <DocPreviewDrawer
-                item={previewItem}
-                onClose={() => setPreviewItem(null)}
-                onOpenFull={openDocument}
-            />
+            {/* PO and PR open the same full information view as their grids; every other module keeps the side drawer. */}
+            {previewItem?.moduleCode === 'PO' ? (
+                <PoInfoModal
+                    poId={previewItem.documentId}
+                    onClose={() => setPreviewItem(null)}
+                    onOpenFull={() => { const it = previewItem; setPreviewItem(null); openDocument(it); }}
+                />
+            ) : previewItem?.moduleCode === 'PR' ? (
+                <PrInfoModal
+                    prId={previewItem.documentId}
+                    onClose={() => setPreviewItem(null)}
+                    onOpenFull={() => { const it = previewItem; setPreviewItem(null); openDocument(it); }}
+                />
+            ) : (
+                <DocPreviewDrawer
+                    item={previewItem}
+                    onClose={() => setPreviewItem(null)}
+                    onOpenFull={openDocument}
+                />
+            )}
 
             {budgetOverride && (
                 <BudgetOverrideModal

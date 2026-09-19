@@ -9,6 +9,7 @@ import { fmt, fmtDate, today, statusBadgeCfg } from '../inventoryConstants';
 import '../Inventory.css';
 import '../../procurement/Procurement.css';
 import RowLink from '../../common/RowLink';
+import { useApprovalLevels, pendingLevelCode } from '../../common/useApprovalLevels';
 
 const PAGE_SIZES = [50, 100, 200, 500, 1000];
 const DEFAULT_FILTERS = { searchText: '', status: '', dateFrom: '', dateTo: '' };
@@ -216,6 +217,7 @@ const IssueReturn = () => {
     const canAdd    = canDo('/inventory-issue-return', 'ADD');
 
     const [rows,       setRows]     = useState([]);
+    const levels = useApprovalLevels('IRN', rows, 'returnId');
     const [loading,    setLoading]  = useState(false);
     const [totalRows,  setTotal]    = useState(0);
     const [totalPages, setPages]    = useState(1);
@@ -337,7 +339,8 @@ const IssueReturn = () => {
                                     </td>
                                 </tr>
                             ) : rows.map(r => {
-                                const sCfg = statusBadgeCfg(getStatusConfig('IRN', r.status));
+                                // A pending return is usually stored as plain 'PendingApproval'; show its real level.
+                                const sCfg = statusBadgeCfg(getStatusConfig('IRN', pendingLevelCode(r.status, levels[r.returnId])) || getStatusConfig('IRN', r.status));
                                 return (
                                     <tr key={r.returnId}>
                                         <td>

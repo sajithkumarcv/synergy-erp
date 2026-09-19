@@ -584,7 +584,7 @@ const Dashboard = () => {
                             <div key={a.transactionId} className="db-approval-row"
                                  onClick={() => { const r = MODULE_ROUTES[a.moduleCode]; if (r) navigate(r(a.documentId)); }}>
                                 <div className="db-approval-doc">{a.documentNo}</div>
-                                <div className="db-approval-amt">{Number(a.documentAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 0 })}</div>
+                                <div className="db-approval-amt">{a.currencyCode ? a.currencyCode + ' ' : ''}{Number(a.documentAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 0 })}</div>
                                 <div className={`db-approval-days ${a.daysPending > 2 ? 'db-days-red' : 'db-days-amber'}`}>
                                     {a.daysPending}d
                                 </div>

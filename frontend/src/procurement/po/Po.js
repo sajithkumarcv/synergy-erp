@@ -10,6 +10,9 @@ import { fmt, fmtDate, today, PO_STATUS, PRIORITY_CONFIG, FormSection } from '..
 import { useFieldConfig } from '../../FieldConfigContext';
 import '../Procurement.css';
 import RowLink from '../../common/RowLink';
+import ApprovalHistoryModal from '../../common/ApprovalHistoryModal';
+import { useApprovalLevels, pendingLevelCode } from '../../common/useApprovalLevels';
+import PoInfoModal from './PoInfoModal';
 import LookupSelect from '../../common/LookupSelect';
 import { ColFilter, applyColFilters, matchNote } from '../../common/GridColumnFilter';
 
@@ -27,312 +30,28 @@ const SortIcon = ({ col, sortCol, sortDir }) => {
     return <span className="po-sort-active">{sortDir === 'ASC' ? '↑' : '↓'}</span>;
 };
 
-// ── Approval History Popup ────────────────────────────────────────
-const ApprovalPopup = ({ poId, onClose, flipUp = false }) => {
-    const [data,    setData]    = useState(null);
-    const [loading, setLoading] = useState(true);
-    const ref = React.useRef(null);
-
-    useEffect(() => {
-        fetch(`${variables.API_URL}approval/status/PO/${poId}`, { headers: authHeaders() })
-            .then(r => r.json())
-            .then(d => setData(d))
-            .catch(() => setData(null))
-            .finally(() => setLoading(false));
-    }, [poId]);
-
-    useEffect(() => {
-        const h = e => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
-        document.addEventListener('mousedown', h);
-        return () => document.removeEventListener('mousedown', h);
-    }, [onClose]);
-
-    const logs   = data?.log || [];
-    const sorted = [...logs].sort((a, b) => new Date(b.actionDate) - new Date(a.actionDate));
-
-    const actionColor = (a) => {
-        if (!a) return '#64748b';
-        if (['Approved','Auto-approved'].some(x => a.startsWith(x))) return '#16a34a';
-        if (a === 'Rejected') return '#dc2626';
-        if (a === 'Submitted') return '#1e40af';
-        return '#92400e';
-    };
-
-    return (
-        <div ref={ref} style={{
-            position: 'absolute', zIndex: 500,
-            ...(flipUp ? { bottom: '110%', top: 'auto' } : { top: '110%' }),
-            left: '50%', transform: 'translateX(-50%)',
-            background: '#fff', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,.18)',
-            border: '1px solid #e2e8f0', minWidth: 300, maxWidth: 360, padding: 0, overflow: 'hidden'
-        }}>
-            <div style={{ background: '#1e3a5f', padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ color: '#fff', fontSize: 12, fontWeight: 600 }}>Approval History</span>
-                <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,.7)', cursor: 'pointer', fontSize: 14 }}>✕</button>
-            </div>
-            <div style={{ padding: 12, maxHeight: 280, overflowY: 'auto' }}>
-                {loading ? (
-                    <div style={{ textAlign: 'center', color: '#64748b', fontSize: 12, padding: 16 }}>Loading…</div>
-                ) : !data || logs.length === 0 ? (
-                    <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: 12, padding: 16, fontStyle: 'italic' }}>
-                        No approval activity yet.
-                    </div>
-                ) : (
-                    <>
-                        {data?.transaction && (
-                            <div style={{ marginBottom: 10, padding: '6px 10px', background: '#f8fafc', borderRadius: 6, fontSize: 11 }}>
-                                <span style={{ color: '#64748b' }}>Level </span>
-                                <strong>{data.transaction.currentLevelNo} of {data.transaction.totalLevels}</strong>
-                                <span style={{ marginLeft: 8, color: '#64748b' }}>· </span>
-                                <strong>{data.transaction.policyName || '—'}</strong>
-                                {data.transaction.currentStatus && (
-                                    <span style={{ marginLeft: 8, color: '#64748b' }}>· {data.transaction.currentStatus}</span>
-                                )}
-                            </div>
-                        )}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                            {/* ── Pending step — current level awaiting action ── */}
-                            {data?.transaction && !data.transaction.finalAction && (
-                                <div style={{ display: 'flex', gap: 8, fontSize: 11, paddingBottom: 8, borderBottom: '1px dashed #e2e8f0', marginBottom: 2 }}>
-                                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#f59e0b', marginTop: 4, flexShrink: 0,
-                                        boxShadow: '0 0 0 3px rgba(245,158,11,.2)' }} />
-                                    <div style={{ flex: 1 }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <span style={{ fontWeight: 600, color: '#92400e', background: '#fef3c7', padding: '1px 7px', borderRadius: 4, fontSize: 10 }}>
-                                                ⏳ Awaiting Approval
-                                            </span>
-                                            <span style={{ color: '#94a3b8', fontSize: 10 }}>
-                                                Level {data.transaction.currentLevelNo} of {data.transaction.totalLevels}
-                                            </span>
-                                        </div>
-                                        {(data.transaction.levelName || data.transaction.approverName) && (
-                                            <div style={{ color: '#92400e', fontWeight: 500, marginTop: 2 }}>
-                                                {data.transaction.levelName}
-                                                {data.transaction.approverName && data.transaction.approverName !== data.transaction.levelName
-                                                    ? ` (${data.transaction.approverName})` : ''}
-                                            </div>
-                                        )}
-                                        {data.transaction.approverUsers && (
-                                            <div style={{ color: '#64748b', fontSize: 10, marginTop: 1 }}>
-                                                Pending with: <strong>{data.transaction.approverUsers}</strong>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-
-                            {sorted.map((log, i) => {
-                                const d = log.actionDate ? new Date(log.actionDate) : null;
-                                const dateStr = d ? d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-                                const timeStr = d ? d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '';
-                                return (
-                                <div key={i} style={{ display: 'flex', gap: 8, fontSize: 11 }}>
-                                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: actionColor(log.action), marginTop: 4, flexShrink: 0 }} />
-                                    <div style={{ flex: 1 }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                            <span style={{ fontWeight: 600, color: actionColor(log.action) }}>{log.action}</span>
-                                            <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 8 }}>
-                                                <div style={{ color: '#64748b', fontSize: 10 }}>{dateStr}</div>
-                                                <div style={{ color: '#94a3b8', fontSize: 10 }}>{timeStr}</div>
-                                            </div>
-                                        </div>
-                                        <div style={{ color: '#475569' }}>{log.actionByName || log.actionBy}</div>
-                                        {log.levelNo > 0 && <div style={{ color: '#94a3b8', fontSize: 10 }}>Level {log.levelNo}{log.levelName ? ` — ${log.levelName}` : ''}</div>}
-                                        {log.remarks && <div style={{ color: '#64748b', fontSize: 10, fontStyle: 'italic' }}>{log.remarks}</div>}
-                                    </div>
-                                </div>
-                                );
-                            })}
-
-                        </div>
-                    </>
-                )}
-            </div>
-        </div>
-    );
-};
-
-// ── Status Badge with popup ────────────────────────────────────────
-const StatusBadge = ({ status, poId }) => {
+// ── Status badge — click opens the approval history modal ──────────
+const StatusBadge = ({ status, poId, level }) => {
     const { getStatusConfig } = useLookup();
-    const [showPopup, setShowPopup] = React.useState(false);
-    const [flipUp,    setFlipUp]    = React.useState(false);
-    const badgeRef = React.useRef(null);
-    const raw = getStatusConfig('PO', status);
+    const [showHistory, setShowHistory] = React.useState(false);
+    // A pending document is usually stored as plain 'PendingApproval'; show its real level.
+    const shown = pendingLevelCode(status, level);
+    const raw = getStatusConfig('PO', shown) || getStatusConfig('PO', status);
     const cfg = raw
         ? { bg: raw.badgeBg, color: raw.badgeColor, dot: raw.badgeDot, label: raw.statusLabel }
         : (PO_STATUS[status] || PO_STATUS.Draft);
 
-    const handleClick = (e) => {
-        e.stopPropagation();
-        if (!showPopup && badgeRef.current) {
-            const rect = badgeRef.current.getBoundingClientRect();
-            // Popup is ~300px tall — flip up if less than 320px below the badge
-            setFlipUp(window.innerHeight - rect.bottom < 320);
-        }
-        setShowPopup(v => !v);
-    };
-
     return (
-        <div style={{ position: 'relative', display: 'inline-block' }} ref={badgeRef}>
+        <>
             <span className="po-status-badge"
                 style={{ background: cfg.bg, color: cfg.color, cursor: 'pointer', userSelect: 'none' }}
-                onClick={handleClick}
+                onClick={(e) => { e.stopPropagation(); setShowHistory(true); }}
                 title="Click to view approval history">
                 <span className="po-status-dot" style={{ background: cfg.dot }} />
                 {cfg.label}
             </span>
-            {showPopup && (
-                <ApprovalPopup
-                    poId={poId}
-                    flipUp={flipUp}
-                    onClose={() => setShowPopup(false)}
-                />
-            )}
-        </div>
-    );
-};
-
-// ── PO Quick View Modal ────────────────────────────────────────────
-const PoQuickView = ({ poId, onClose }) => {
-    const [po,      setPo]      = useState(null);
-    const [lines,   setLines]   = useState([]);
-    const [loading, setLoading] = useState(true);
-    const { getStatusConfig } = useLookup();
-
-    useEffect(() => {
-        Promise.all([
-            fetch(`${variables.API_URL}purchaseorder/${poId}`,          { headers: authHeaders() }).then(r => r.json()),
-            fetch(`${variables.API_URL}purchaseorder/lines/${poId}`,    { headers: authHeaders() }).then(r => r.json()),
-        ]).then(([poData, linesData]) => {
-            setPo(poData);
-            setLines(Array.isArray(linesData) ? linesData : []);
-        }).catch(console.error)
-        .finally(() => setLoading(false));
-    }, [poId]);
-
-    const raw = po ? getStatusConfig('PO', po.status) : null;
-    const statusCfg = raw ? { bg: raw.badgeBg, color: raw.badgeColor, dot: raw.badgeDot, label: raw.statusLabel }
-                           : (PO_STATUS[po?.status] || PO_STATUS.Draft);
-    const grandTotal = lines.reduce((s, l) => s + (l.lineTotal || 0), 0);
-
-    return (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-             onClick={e => e.target === e.currentTarget && onClose()}>
-            <div style={{ background: '#fff', borderRadius: 12, width: 900, maxWidth: '96vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,.22)' }}>
-
-                {/* Header */}
-                <div style={{ background: '#1e3a5f', padding: '16px 24px', borderRadius: '12px 12px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    {loading ? <span style={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>Loading…</span> : (
-                        <div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                <span style={{ color: '#fff', fontWeight: 800, fontSize: 18, fontFamily: 'Courier New' }}>{po?.poNumber}</span>
-                                {po?.revision > 0 && <span style={{ background: 'rgba(255,255,255,.2)', color: '#fff', padding: '1px 8px', borderRadius: 6, fontSize: 11 }}>Rev {po.revision}</span>}
-                                <span style={{ background: statusCfg.bg, color: statusCfg.color, padding: '2px 10px', borderRadius: 8, fontSize: 11, fontWeight: 700 }}>{statusCfg.label}</span>
-                            </div>
-                            <div style={{ color: 'rgba(255,255,255,.7)', fontSize: 12, marginTop: 4 }}>
-                                {po?.supplierNameResolved || po?.vendorName} {po?.jobId ? `· Job: ${po.jobId}` : ''} {po?.poDate ? `· ${fmtDate(po.poDate)}` : ''}
-                            </div>
-                        </div>
-                    )}
-                    <button onClick={onClose} style={{ background: 'rgba(255,255,255,.15)', border: 'none', color: '#fff', width: 30, height: 30, borderRadius: 6, cursor: 'pointer', fontSize: 16 }}>✕</button>
-                </div>
-
-                {loading ? (
-                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>Loading PO details…</div>
-                ) : (
-                    <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
-                        {/* KPI strip */}
-                        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 20 }}>
-                            {[
-                                // Supplier master name, falling back to the name typed on the PO
-                                // itself — same precedence the detail page and printouts use.
-                                { label: 'Supplier',       val: po?.supplierNameResolved || po?.vendorName || '—', wide: true },
-                                { label: 'Date',           val: fmtDate(po?.poDate) },
-                                { label: 'Currency',       val: po?.currencyShort || '—' },
-                                // sp_GetPO returns PaymentTermName (singular); an "Other" term
-                                // carries its free text in PaymentTermsOther.
-                                { label: 'Payment Terms',  val: (po?.paymentTermCode === 'OTHER' && po?.paymentTermsOther)
-                                                                ? po.paymentTermsOther : (po?.paymentTermName || '—') },
-                                { label: 'Delivery Date',  val: po?.deliveryDate ? fmtDate(po.deliveryDate) : '—' },
-                                { label: 'Vendor Ref',     val: po?.vendorRef || '—' },
-                                { label: 'Created By',     val: po?.createdBy || '—' },
-                                // Header total (what was approved); drafts have none stored yet,
-                                // so fall back to the sum of the lines shown below.
-                                { label: 'Total PO Value', val: `${po?.currencyShort || ''} ${fmt(po?.totalAmount ?? grandTotal)}`.trim(), strong: true },
-                            ].map(({ label, val, wide, strong }) => (
-                                <div key={label} style={{ minWidth: wide ? 200 : 120 }}>
-                                    <div style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '.04em' }}>{label}</div>
-                                    <div style={{ fontSize: strong ? 14 : 13, color: strong ? '#1e3a5f' : '#1e293b', fontWeight: strong ? 700 : 500, marginTop: 2, fontVariantNumeric: strong ? 'tabular-nums' : undefined }}>{val}</div>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* Lines table */}
-                        <div style={{ border: '1px solid #e2e8f0', borderRadius: 8, overflow: 'hidden' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
-                                <thead>
-                                    <tr style={{ background: '#f1f5f9' }}>
-                                        {['#','Item Code','Description','Ordered','Received','UOM','Unit Price','Tax%','Line Total','Status'].map(h => (
-                                            <th key={h} style={{ padding: '8px 10px', textAlign: ['Ordered','Received','Unit Price','Tax%','Line Total'].includes(h) ? 'right' : 'left', fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '.04em', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>{h}</th>
-                                        ))}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {lines.length === 0 ? (
-                                        <tr><td colSpan={10} style={{ padding: 24, textAlign: 'center', color: '#94a3b8', fontStyle: 'italic' }}>No lines found.</td></tr>
-                                    ) : lines.map((l, i) => (
-                                        <tr key={l.poLineId} style={{ borderBottom: '1px solid #f1f5f9', background: i % 2 ? '#f8fafc' : '#fff' }}>
-                                            <td style={{ padding: '7px 10px', color: '#94a3b8' }}>{l.lineNum}</td>
-                                            <td style={{ padding: '7px 10px' }}>
-                                                <span style={{ fontFamily: 'Courier New', fontSize: 11, color: '#2e5fa3', background: '#dbeafe', padding: '1px 5px', borderRadius: 3 }}>{l.itemCode || '—'}</span>
-                                            </td>
-                                            <td style={{ padding: '7px 10px', color: '#1e293b' }}>{l.itemDesc}</td>
-                                            <td style={{ padding: '7px 10px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{fmt(l.orderedQty)}</td>
-                                            <td style={{ padding: '7px 10px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: '#16a34a' }}>{fmt(l.receivedQty)}</td>
-                                            <td style={{ padding: '7px 10px', color: '#64748b' }}>{l.uomName || '—'}</td>
-                                            <td style={{ padding: '7px 10px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{fmt(l.unitPrice)}</td>
-                                            <td style={{ padding: '7px 10px', textAlign: 'right', color: '#64748b' }}>{l.taxPct ? `${l.taxPct}%` : '—'}</td>
-                                            <td style={{ padding: '7px 10px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{fmt(l.lineTotal)}</td>
-                                            <td style={{ padding: '7px 10px' }}>
-                                                {(() => {
-                                                    const ls = l.lineStatus || 'Open';
-                                                    const sc = { Open:'#f1f5f9', Partial:'#fef3c7', Received:'#d1fae5', Closed:'#f3f4f6', Cancelled:'#fee2e2' };
-                                                    const tc = { Open:'#475569', Partial:'#92400e', Received:'#065f46', Closed:'#374151', Cancelled:'#991b1b' };
-                                                    return <span style={{ background: sc[ls]||'#f1f5f9', color: tc[ls]||'#475569', padding: '2px 7px', borderRadius: 6, fontSize: 10, fontWeight: 600 }}>{ls}</span>;
-                                                })()}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                                {lines.length > 0 && (
-                                    <tfoot>
-                                        <tr style={{ background: '#f4f7fb', fontWeight: 700 }}>
-                                            <td colSpan={8} style={{ padding: '8px 10px', textAlign: 'right', fontSize: 11, color: '#3a5070', textTransform: 'uppercase', letterSpacing: '.03em' }}>Grand Total</td>
-                                            <td style={{ padding: '8px 10px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: '#1e3a5f', fontSize: 13 }}>{fmt(grandTotal)}</td>
-                                            <td />
-                                        </tr>
-                                    </tfoot>
-                                )}
-                            </table>
-                        </div>
-
-                        {/* Notes */}
-                        {po?.notes && (
-                            <div style={{ marginTop: 16, padding: '10px 14px', background: '#f8fafc', borderRadius: 8, fontSize: 12, color: '#475569', borderLeft: '3px solid #cbd5e1' }}>
-                                <strong>Notes:</strong> {po.notes}
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {/* Footer */}
-                <div style={{ padding: '12px 24px', borderTop: '1px solid #e2e8f0', background: '#f8fafc', borderRadius: '0 0 12px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 12, color: '#64748b' }}>{lines.length} line{lines.length !== 1 ? 's' : ''}</span>
-                    <button onClick={onClose} style={{ padding: '7px 20px', borderRadius: 6, border: '1px solid #cbd5e1', background: '#fff', fontSize: 13, cursor: 'pointer', color: '#475569' }}>Close</button>
-                </div>
-            </div>
-        </div>
+            {showHistory && <ApprovalHistoryModal moduleCode="PO" documentId={poId} onClose={() => setShowHistory(false)} />}
+        </>
     );
 };
 
@@ -770,6 +489,7 @@ export const Po = () => {
     const initialFilters = useInitialFilters(DEFAULT_FILTERS, 'purchaseorder');
 
     const [rows,        setRows]       = useState([]);
+    const levels = useApprovalLevels('PO', rows, 'poId');
     const [loading,     setLoading]   = useState(false);
     const [totalRows,   setTotal]     = useState(0);
     const [totalPages,  setPages]     = useState(1);
@@ -931,7 +651,7 @@ export const Po = () => {
     return (
         <div className="po-page">
             {showForm && <PoForm onClose={() => setShowForm(false)} onSaved={handleSaved} />}
-            {quickViewId && <PoQuickView poId={quickViewId} onClose={() => setQuickView(null)} />}
+            {quickViewId && <PoInfoModal poId={quickViewId} onClose={() => setQuickView(null)} />}
 
             <div className="po-grid-wrap">
                 <div className="po-grid-header">
@@ -1003,7 +723,7 @@ export const Po = () => {
                                         }
                                     </td>
                                     <td>{r.vendorName || '—'}</td>
-                                    <td><StatusBadge status={r.status} poId={r.poId} /></td>
+                                    <td><StatusBadge status={r.status} poId={r.poId} level={levels[r.poId]} /></td>
                                     <td>
                                         {r.priority ? (() => {
                                             const pc = PRIORITY_CONFIG[r.priority] || {};

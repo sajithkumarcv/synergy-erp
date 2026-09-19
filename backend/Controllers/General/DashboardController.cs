@@ -179,6 +179,7 @@ namespace ERPWEB.Controllers.General
                         documentNo    = (string?)r.DocumentNo,
                         documentId    = (int?)r.DocumentId,
                         documentAmount= (decimal?)r.DocumentAmount,
+                        currencyCode  = (string?)r.CurrencyCode,
                         submittedDate = (DateTime?)r.SubmittedDate,
                         daysPending   = (int?)r.DaysPending,
                         currentLevel  = (int?)r.CurrentLevelNo,

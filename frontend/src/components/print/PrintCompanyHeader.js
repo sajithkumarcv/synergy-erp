@@ -13,7 +13,7 @@ export const CompanyLogo = ({ url }) => {
 // ── Diagonal DRAFT watermark (preview only) ──────────────────
 // Tiled across the whole page so it can't be cropped out. pointer-events:none
 // so it never blocks clicks; carried into the print window via inline styles.
-export const DraftWatermark = ({ label = 'DRAFT', count = 24 }) => (
+export const DraftWatermark = ({ label = 'DRAFT', count = 24, fontSize = 60 }) => (
     <div style={{
         position: 'absolute', inset: 0, zIndex: 0,
         pointerEvents: 'none', overflow: 'hidden',
@@ -27,7 +27,7 @@ export const DraftWatermark = ({ label = 'DRAFT', count = 24 }) => (
         }}>
             {Array.from({ length: count }).map((_, i) => (
                 <span key={i} style={{
-                    fontSize: 60, fontWeight: 800, letterSpacing: '.12em',
+                    fontSize, fontWeight: 800, letterSpacing: '.12em',
                     color: 'rgba(220, 38, 38, 0.17)', textTransform: 'uppercase',
                     whiteSpace: 'nowrap', userSelect: 'none',
                 }}>
@@ -35,6 +35,25 @@ export const DraftWatermark = ({ label = 'DRAFT', count = 24 }) => (
                 </span>
             ))}
         </div>
+    </div>
+);
+
+// ── A few diagonal marks, each centred and fully inside the page ──
+// DraftWatermark tiles the whole sheet (and clips at the edges when there are only a couple).
+// This is for a notice that must be obvious but should not blanket the page, e.g.
+// "NOT A SUPPLIER COPY" on the PO information view: three marks - upper, middle, lower.
+export const PageWatermark = ({ label, fontSize = 46, tops = [22, 50, 78] }) => (
+    <div style={{ position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none', overflow: 'hidden' }}>
+        {tops.map(top => (
+            <span key={top} style={{
+                position: 'absolute', left: '50%', top: `${top}%`,
+                transform: 'translate(-50%, -50%) rotate(-30deg)',
+                fontSize, fontWeight: 800, letterSpacing: '.12em', whiteSpace: 'nowrap',
+                color: 'rgba(220, 38, 38, 0.17)', textTransform: 'uppercase', userSelect: 'none',
+            }}>
+                {label}
+            </span>
+        ))}
     </div>
 );
 

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { variables, authHeaders } from '../Variable';
 import { useCurrentUser } from '../AuthContext';
 import { useLookup } from '../LookupContext';
+import { useApprovalLevels, pendingLevelCode } from '../common/useApprovalLevels';
 import './Manhour.css';
 
 const PAGE_SIZES = [50, 100, 200, 500, 1000];
@@ -22,12 +23,20 @@ const SortIcon = ({ col, sortCol, sortDir }) => {
     return <span style={{ color: '#1d4ed8' }}>{sortDir === 'ASC' ? '↑' : '↓'}</span>;
 };
 
-const StatusBadge = ({ row }) => (
-    <span className="mh-status-badge" style={{ background: row.badgeBg || '#f1f5f9', color: row.badgeColor || '#475569' }}>
-        <span className="mh-status-dot" style={{ background: row.badgeDot || '#94a3b8' }} />
-        {row.status}
-    </span>
-);
+const StatusBadge = ({ row, level }) => {
+    const { getStatusConfig } = useLookup();
+    // A pending batch is usually stored as plain 'PendingApproval'; show its real level.
+    const cfg = getStatusConfig('MH', pendingLevelCode(row.status, level)) || getStatusConfig('MH', row.status);
+    const bg    = (level && cfg?.badgeBg)    || row.badgeBg    || '#f1f5f9';
+    const color = (level && cfg?.badgeColor) || row.badgeColor || '#475569';
+    const dot   = (level && cfg?.badgeDot)   || row.badgeDot   || '#94a3b8';
+    return (
+        <span className="mh-status-badge" style={{ background: bg, color }}>
+            <span className="mh-status-dot" style={{ background: dot }} />
+            {(level && cfg?.statusLabel) || row.status}
+        </span>
+    );
+};
 
 // ── Confirm dialog ────────────────────────────────────────────────────────
 const ConfirmDialog = ({ message, onConfirm, onCancel }) => (
@@ -52,6 +61,7 @@ const Manhour = () => {
     const [filters,   setFiltersState] = useState({ ...DEFAULT_FILTERS });
     const [applied,   setApplied]      = useState({ ...DEFAULT_FILTERS });
     const [data,      setData]         = useState([]);
+    const levels = useApprovalLevels('MH', data, 'batchId');
     const [loading,   setLoading]      = useState(false);
     const [page,      setPage]         = useState(1);
     const [pageSize,  setPageSize]     = useState(200);
@@ -241,7 +251,7 @@ const Manhour = () => {
                                     <td style={{ textAlign: 'center' }}>{row.totalEmployees}</td>
                                     <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(row.totalHours)}</td>
                                     <td style={{ textAlign: 'right' }}>{fmt(row.totalOTHours)}</td>
-                                    <td><StatusBadge row={row} /></td>
+                                    <td><StatusBadge row={row} level={levels[row.batchId]} /></td>
                                     <td style={{ fontSize: 12, color: '#64748b' }}>{row.createdBy}</td>
                                     <td>
                                         <div className="mh-action-btns">

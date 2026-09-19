@@ -23,6 +23,14 @@ const RevisePoModal = ({ po, onClose, onSubmit }) => {
                     {po.poNumber} — this will reset the PO to <strong>Draft</strong> (Rev {(po.revision || 0) + 1}) so lines can be edited and re-submitted for approval.
                 </p>
 
+                {['Partial', 'Received'].includes(po.status) && (
+                    <div style={{ margin: '-6px 0 14px', padding: '8px 10px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 5, fontSize: 12, color: '#92400e', lineHeight: 1.5 }}>
+                        Goods already received are not changed. While this PO is in Draft no new GRN can be booked
+                        against it and it is left out of the job's committed cost. Once it is approved again it
+                        returns to <strong>{po.status}</strong>. Ordered quantity cannot be reduced below what was received.
+                    </div>
+                )}
+
                 <div style={{ marginBottom: 12 }}>
                     <label style={{ fontSize: 11, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>
                         Reason <span style={{ color: '#e53e3e' }}>*</span>

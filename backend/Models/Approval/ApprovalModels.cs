@@ -56,6 +56,7 @@ namespace ERPWEB.Models.Approval
         public int      DocumentId     { get; set; }
         public string   DocumentNo     { get; set; } = string.Empty;
         public decimal? DocumentAmount { get; set; }
+        public string?  CurrencyCode   { get; set; }
         public int      PolicyId       { get; set; }
         public string   PolicyName     { get; set; } = string.Empty;
         public string   CurrentStatus  { get; set; } = string.Empty;
@@ -84,6 +85,14 @@ namespace ERPWEB.Models.Approval
         public bool    CanCancel       { get; set; }
     }
 
+    // Approval level a pending document is waiting at (approval/levels, for list badges).
+    public class ApprovalLevelInfo
+    {
+        public int DocumentId  { get; set; }
+        public int LevelNo     { get; set; }
+        public int TotalLevels { get; set; }
+    }
+
     public class ApprovalLog
     {
         public long     LogId              { get; set; }
@@ -107,6 +116,7 @@ namespace ERPWEB.Models.Approval
         public int      DocumentId     { get; set; }
         public string   DocumentNo     { get; set; } = string.Empty;
         public decimal? DocumentAmount { get; set; }
+        public string?  CurrencyCode   { get; set; }
         public int      CurrentLevelNo { get; set; }
         public int      TotalLevels    { get; set; }
         public string?  LevelName      { get; set; }

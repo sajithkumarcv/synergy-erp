@@ -11,6 +11,7 @@ const fmtDateTime = d => d
     : '—';
 
 const fmt = v => (v == null ? '—' : Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+const fmtAmt = (v, cur) => (v == null ? '—' : (cur ? cur + ' ' : '') + fmt(v));
 
 const ACTION_COLOR = {
     Submitted: { bg: '#eff6ff', color: '#1d4ed8', dot: '#3b82f6' },
@@ -256,7 +257,7 @@ const ApprovalHistoryTab = ({
                                 {tx.documentAmount != null && (
                                     <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 6 }}>
                                         Policy: <strong>{tx.policyName}</strong>
-                                        &nbsp;·&nbsp;Amount: <strong>{fmt(tx.documentAmount)}</strong>
+                                        &nbsp;·&nbsp;Amount: <strong>{fmtAmt(tx.documentAmount, tx.currencyCode)}</strong>
                                     </div>
                                 )}
                             </div>

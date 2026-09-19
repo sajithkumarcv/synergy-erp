@@ -10,7 +10,9 @@ import { fmtDate, today, PR_STATUS, PRIORITY_CONFIG, FormSection } from '../proc
 import { useFieldConfig } from '../../FieldConfigContext';
 import '../Procurement.css';
 import RowLink from '../../common/RowLink';
-import PrPrintModal from './PrPrintModal';
+import ApprovalHistoryModal from '../../common/ApprovalHistoryModal';
+import { useApprovalLevels, pendingLevelCode } from '../../common/useApprovalLevels';
+import PrInfoModal from './PrInfoModal';
 import { ColFilter, applyColFilters, matchNote } from '../../common/GridColumnFilter';
 
 const PAGE_SIZES = [50, 100, 200, 500, 1000];
@@ -22,171 +24,29 @@ const SortIcon = ({ col, sortCol, sortDir }) => {
     return <span className="pr-sort-active">{sortDir === 'ASC' ? '↑' : '↓'}</span>;
 };
 
-// ── Approval History Popup ────────────────────────────────────────
-const ApprovalPopup = ({ prId, onClose, flipUp = false }) => {
-    const [data,    setData]    = React.useState(null);
-    const [loading, setLoading] = React.useState(true);
-    const ref = React.useRef(null);
-
-    React.useEffect(() => {
-        fetch(`${variables.API_URL}approval/status/PR/${prId}`, { headers: authHeaders() })
-            .then(r => r.json()).then(d => setData(d)).catch(() => setData(null))
-            .finally(() => setLoading(false));
-    }, [prId]);
-
-    React.useEffect(() => {
-        const h = e => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
-        document.addEventListener('mousedown', h);
-        return () => document.removeEventListener('mousedown', h);
-    }, [onClose]);
-
-    const logs   = data?.log || [];
-    const sorted = [...logs].sort((a, b) => new Date(b.actionDate) - new Date(a.actionDate));
-
-    const actionColor = (a) => {
-        if (!a) return '#64748b';
-        if (['Approved','Auto-approved'].some(x => a.startsWith(x))) return '#16a34a';
-        if (a === 'Rejected') return '#dc2626';
-        if (a === 'Submitted') return '#1e40af';
-        return '#92400e';
-    };
-
-    return (
-        <div ref={ref} style={{
-            position: 'absolute', zIndex: 500,
-            ...(flipUp ? { bottom: '110%' } : { top: '110%' }),
-            left: '50%', transform: 'translateX(-50%)',
-            background: '#fff', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,.18)',
-            border: '1px solid #e2e8f0', minWidth: 300, maxWidth: 360, overflow: 'hidden'
-        }}>
-            <div style={{ background: '#1e3a5f', padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ color: '#fff', fontSize: 12, fontWeight: 600 }}>Approval History</span>
-                <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,.7)', cursor: 'pointer', fontSize: 14 }}>✕</button>
-            </div>
-            <div style={{ padding: 12, maxHeight: 300, overflowY: 'auto' }}>
-                {loading ? (
-                    <div style={{ textAlign: 'center', color: '#64748b', fontSize: 12, padding: 16 }}>Loading…</div>
-                ) : !data || logs.length === 0 ? (
-                    <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: 12, padding: 16, fontStyle: 'italic' }}>No approval activity yet.</div>
-                ) : (
-                    <>
-                        {data?.transaction && (
-                            <div style={{ marginBottom: 10, padding: '6px 10px', background: '#f8fafc', borderRadius: 6, fontSize: 11 }}>
-                                <span style={{ color: '#64748b' }}>Level </span>
-                                <strong>{data.transaction.currentLevelNo} of {data.transaction.totalLevels}</strong>
-                                <span style={{ marginLeft: 6 }}>· <strong>{data.transaction.policyName || '—'}</strong></span>
-                                {data.transaction.currentStatus && <span style={{ marginLeft: 6, color: '#64748b' }}>· {data.transaction.currentStatus}</span>}
-                            </div>
-                        )}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                            {data?.transaction && !data.transaction.finalAction && (
-                                <div style={{ display: 'flex', gap: 8, fontSize: 11, paddingBottom: 8, borderBottom: '1px dashed #e2e8f0', marginBottom: 2 }}>
-                                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#f59e0b', marginTop: 4, flexShrink: 0, boxShadow: '0 0 0 3px rgba(245,158,11,.2)' }} />
-                                    <div style={{ flex: 1 }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <span style={{ fontWeight: 600, color: '#92400e', background: '#fef3c7', padding: '1px 7px', borderRadius: 4, fontSize: 10 }}>⏳ Awaiting Approval</span>
-                                            <span style={{ color: '#94a3b8', fontSize: 10 }}>Level {data.transaction.currentLevelNo} of {data.transaction.totalLevels}</span>
-                                        </div>
-                                        {(data.transaction.levelName || data.transaction.approverName) && (
-                                            <div style={{ color: '#92400e', fontWeight: 500, marginTop: 2 }}>
-                                                {data.transaction.levelName}
-                                                {data.transaction.approverName && data.transaction.approverName !== data.transaction.levelName ? ` (${data.transaction.approverName})` : ''}
-                                            </div>
-                                        )}
-                                        {data.transaction.approverUsers && (
-                                            <div style={{ color: '#64748b', fontSize: 10, marginTop: 1 }}>Pending with: <strong>{data.transaction.approverUsers}</strong></div>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-                            {sorted.map((log, i) => {
-                                const d = log.actionDate ? new Date(log.actionDate) : null;
-                                const dateStr = d ? d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-                                const timeStr = d ? d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '';
-                                return (
-                                    <div key={i} style={{ display: 'flex', gap: 8, fontSize: 11 }}>
-                                        <div style={{ width: 6, height: 6, borderRadius: '50%', background: actionColor(log.action), marginTop: 4, flexShrink: 0 }} />
-                                        <div style={{ flex: 1 }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                                <span style={{ fontWeight: 600, color: actionColor(log.action) }}>{log.action}</span>
-                                                <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 8 }}>
-                                                    <div style={{ color: '#64748b', fontSize: 10 }}>{dateStr}</div>
-                                                    <div style={{ color: '#94a3b8', fontSize: 10 }}>{timeStr}</div>
-                                                </div>
-                                            </div>
-                                            <div style={{ color: '#475569' }}>{log.actionByName || log.actionBy}</div>
-                                            {log.levelNo > 0 && <div style={{ color: '#94a3b8', fontSize: 10 }}>Level {log.levelNo}{log.levelName ? ` — ${log.levelName}` : ''}</div>}
-                                            {log.remarks && <div style={{ color: '#64748b', fontSize: 10, fontStyle: 'italic' }}>{log.remarks}</div>}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </>
-                )}
-            </div>
-        </div>
-    );
-};
-
-// ── Status Badge with popup ────────────────────────────────────────
-const StatusBadge = ({ status, prId }) => {
+// ── Status badge — click opens the approval history modal ──────────
+const StatusBadge = ({ status, prId, level }) => {
     const { getStatusConfig } = useLookup();
-    const [showPopup, setShowPopup] = React.useState(false);
-    const [flipUp,    setFlipUp]    = React.useState(false);
-    const badgeRef = React.useRef(null);
-    const raw = getStatusConfig('PR', status);
+    const [showHistory, setShowHistory] = React.useState(false);
+    // A pending document is usually stored as plain 'PendingApproval'; show its real level.
+    const shown = pendingLevelCode(status, level);
+    const raw = getStatusConfig('PR', shown) || getStatusConfig('PR', status);
     const cfg = raw
         ? { bg: raw.badgeBg, color: raw.badgeColor, dot: raw.badgeDot, label: raw.statusLabel }
         : (PR_STATUS[status] || PR_STATUS.Draft);
 
-    const handleClick = (e) => {
-        e.stopPropagation();
-        if (!showPopup && badgeRef.current) {
-            const rect = badgeRef.current.getBoundingClientRect();
-            setFlipUp(window.innerHeight - rect.bottom < 320);
-        }
-        setShowPopup(v => !v);
-    };
-
     return (
-        <div style={{ position: 'relative', display: 'inline-block' }} ref={badgeRef}>
+        <>
             <span className="pr-status-badge"
                 style={{ background: cfg.bg, color: cfg.color, cursor: 'pointer', userSelect: 'none' }}
-                onClick={handleClick}
+                onClick={(e) => { e.stopPropagation(); setShowHistory(true); }}
                 title="Click to view approval history">
                 <span className="pr-status-dot" style={{ background: cfg.dot }} />
                 {cfg.label}
             </span>
-            {showPopup && <ApprovalPopup prId={prId} flipUp={flipUp} onClose={() => setShowPopup(false)} />}
-        </div>
+            {showHistory && <ApprovalHistoryModal moduleCode="PR" documentId={prId} onClose={() => setShowHistory(false)} />}
+        </>
     );
-};
-
-// ── PR Info View (print-style, read-only — no print header) ────────
-// Loads the full PR header then renders the print document in info-only
-// mode (company letterhead + print button stripped). Used by the grid's
-// "Open" action so users can glance at a PR without leaving the list.
-const PrInfoModal = ({ prId, onClose }) => {
-    const [pr,    setPr]    = React.useState(null);
-    const [error, setError] = React.useState(false);
-
-    React.useEffect(() => {
-        fetch(`${variables.API_URL}purchaserequest/${prId}`, { headers: authHeaders() })
-            .then(r => r.json())
-            .then(d => setPr(d))
-            .catch(() => setError(true));
-    }, [prId]);
-
-    if (error) return null;
-    if (!pr) {
-        return (
-            <div className="po-print-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-                <div style={{ color: '#fff', margin: 'auto', fontSize: 14 }}>Loading…</div>
-            </div>
-        );
-    }
-    return <PrPrintModal pr={pr} infoOnly onClose={onClose} />;
 };
 
 // ── New PR Form ───────────────────────────────────────────────────
@@ -416,6 +276,7 @@ export const Pr = () => {
     const initialFilters = useInitialFilters(DEFAULT_FILTERS, 'purchaserequest');
 
     const [rows,      setRows]      = useState([]);
+    const levels = useApprovalLevels('PR', rows, 'prId');
     const [loading,   setLoading]   = useState(false);
     const [totalRows, setTotal]     = useState(0);
     const [totalPages, setPages]    = useState(1);
@@ -596,7 +457,7 @@ export const Pr = () => {
                                             ? <span style={{ fontFamily: 'Courier New', fontSize: 11, color: '#1e40af', background: '#dbeafe', padding: '2px 6px', borderRadius: 4 }}>{r.jobId}</span>
                                             : <span style={{ color: '#94a3b8' }}>—</span>}
                                         </td>
-                                        <td><StatusBadge status={r.status} prId={r.prId} /></td>
+                                        <td><StatusBadge status={r.status} prId={r.prId} level={levels[r.prId]} /></td>
                                         <td>{r.requestedBy}</td>
                                         <td>
                                             {r.priority && (

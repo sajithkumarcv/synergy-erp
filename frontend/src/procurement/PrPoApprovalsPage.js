@@ -74,6 +74,7 @@ const DEFAULT_FILTERS = {
 // ── Formatters ────────────────────────────────────────────────────────────────
 const fmt = v => v == null ? '—'
     : Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtAmt = (v, cur) => (v == null ? '—' : (cur ? cur + ' ' : '') + fmt(v));
 
 const fmtDate = d => d
     ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -157,7 +158,7 @@ const HistoryDrawer = ({ row, onClose, onNavigate }) => (
                     </div>
                     {row.documentAmount != null && (
                         <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
-                            Amount: <strong>{fmt(row.documentAmount)}</strong>
+                            Amount: <strong>{fmtAmt(row.documentAmount, row.currencyCode)}</strong>
                             &nbsp;·&nbsp;Submitted by <strong>{row.submittedBy}</strong>
                         </div>
                     )}
@@ -443,7 +444,7 @@ const PrPoApprovalsPage = () => {
                                             }
                                         </td>
                                         <td className="po-num-cell" style={{ padding: '9px 12px', fontWeight: 600 }}>
-                                            {r.documentAmount != null ? fmt(r.documentAmount) : '—'}
+                                            {r.documentAmount != null ? fmtAmt(r.documentAmount, r.currencyCode) : '—'}
                                         </td>
                                         <td style={{ padding: '9px 12px', fontSize: 12, color: '#475569' }}>
                                             {r.submittedBy || '—'}

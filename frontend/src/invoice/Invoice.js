@@ -11,6 +11,7 @@ import LookupSelect from '../common/LookupSelect';
 import '../procurement/Procurement.css';
 import { useFieldConfig } from '../FieldConfigContext';
 import RowLink from '../common/RowLink';
+import { useApprovalLevels, pendingLevelCode } from '../common/useApprovalLevels';
 
 const PAGE_SIZES = [50, 100, 200, 500, 1000];
 // Rows pulled per customer/job lookup. Higher than the old 8 because the field
@@ -430,6 +431,7 @@ export const Invoice = () => {
     const initialFilters = useInitialFilters(DEFAULT_FILTERS, 'invoice');
 
     const [rows,       setRows]     = useState([]);
+    const levels = useApprovalLevels('INV', rows, 'invoiceId');
     const [loading,    setLoading]  = useState(false);
     const [totalRows,  setTotal]    = useState(0);
     const [totalPages, setPages]    = useState(1);
@@ -509,8 +511,9 @@ export const Invoice = () => {
         return Array.from({ length: end - start + 1 }, (_, i) => start + i);
     };
 
-    const InvStatusBadge = ({ status }) => {
-        const cfg = statusBadgeCfg(getStatusConfig('INV', status));
+    const InvStatusBadge = ({ status, level }) => {
+        // A pending invoice is usually stored as plain 'PendingApproval'; show its real level.
+        const cfg = statusBadgeCfg(getStatusConfig('INV', pendingLevelCode(status, level)) || getStatusConfig('INV', status));
         return (
             <span className="po-status-badge" style={{ background: cfg.bg, color: cfg.color }}>
                 <span className="po-status-dot" style={{ background: cfg.dot }} />
@@ -590,7 +593,7 @@ export const Invoice = () => {
                                     </td>
                                     <td style={{ fontSize: 11, color: '#475569' }}>{r.currencyShort || '—'}</td>
                                     <td className="po-num-cell">{fmt(r.totalAmount)}</td>
-                                    <td><InvStatusBadge status={r.status} /></td>
+                                    <td><InvStatusBadge status={r.status} level={levels[r.invoiceId]} /></td>
                                     <td>
                                         <RowLink className="po-act-btn po-act-open" to={`/invoices/${r.invoiceId}`}>Open</RowLink>
                                     </td>

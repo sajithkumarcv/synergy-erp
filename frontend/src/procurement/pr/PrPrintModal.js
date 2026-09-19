@@ -9,7 +9,7 @@ import '../po/PoPrint.css';
 const n   = (v) => fmt(v ?? 0);
 const dash = (v) => v || '—';
 
-const PrPrintModal = ({ pr, onClose, infoOnly = false }) => {
+const PrPrintModal = ({ pr, onClose, infoOnly = false, statusLabel, onOpenFull }) => {
     const { company, loading: coLoading } = useOwnerCompany();
     const [lines,   setLines]   = useState([]);
     const [loading, setLoading] = useState(true);
@@ -43,6 +43,9 @@ const PrPrintModal = ({ pr, onClose, infoOnly = false }) => {
                 </div>
                 <div style={{ display: 'flex', gap: 10 }}>
                     <button className="po-print-btn-close" onClick={onClose}>✕ Close</button>
+                    {infoOnly && onOpenFull && (
+                        <button className="po-print-btn-print" onClick={onOpenFull}>↗ Open full page</button>
+                    )}
                     {!infoOnly && (
                         <button className="po-print-btn-print" onClick={handlePrint}>
                             🖨 Print / Save as PDF
@@ -63,7 +66,7 @@ const PrPrintModal = ({ pr, onClose, infoOnly = false }) => {
                     <div className="pop-doc-type" style={{ margin: 0 }}>Purchase Request</div>
                     <div style={{ textAlign: 'right' }}>
                         <div className="pop-doc-number">{pr.prNumber}</div>
-                        <div className="pop-doc-status">{pr.status}</div>
+                        <div className="pop-doc-status">{statusLabel || pr.status}</div>
                     </div>
                 </div>
 

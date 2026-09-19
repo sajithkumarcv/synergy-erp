@@ -53,10 +53,17 @@ const ConfirmModal = ({ title = 'Confirm Delete', message, onConfirm, onCancel, 
 // ── Amend Line Modal (qty + price) ───────────────────────────────
 const AmendLineModal = ({ line, onClose, onSaved }) => {
     const currentUser = useCurrentUser();
+    const { getSetting } = useLookup();
+    // Quick amendments may raise the PO only up to its APPROVED value + this %.
+    // The server (sp_AmendPOLine) enforces it; this just tells the user up front.
+    const tolPct = Math.max(0, parseFloat(getSetting('Biz.PoAmend.ReapprovalTolerancePct', '0')) || 0);
     const minQty  = line.receivedQty || 0;
     const maxQty  = line.orderedQty  || 0;
 
-    const [qty,      setQty]      = useState(String(minQty));
+    // Starts at the CURRENT ordered qty, not the received qty: this dialog is now
+    // also used for a price-only correction after the GRN, and defaulting to the
+    // received qty would silently cut the order on a partly received line.
+    const [qty,      setQty]      = useState(String(maxQty));
     const [price,    setPrice]    = useState(String(line.unitPrice ?? ''));
     const [reason,   setReason]   = useState('');
     const [password, setPassword] = useState('');
@@ -131,6 +138,28 @@ const AmendLineModal = ({ line, onClose, onSaved }) => {
                         </tr>
                     </tbody>
                 </table>
+
+                {(() => {
+                    // What this amendment does to the line (before tax), so the
+                    // person confirming can see the money impact.
+                    const nq = parseFloat(qty), np = parseFloat(price);
+                    if (isNaN(nq) || isNaN(np)) return null;
+                    const oldVal = maxQty * (line.unitPrice || 0);
+                    const newVal = nq * np;
+                    const diff   = newVal - oldVal;
+                    if (Math.abs(diff) < 0.005) return null;
+                    return (
+                        <div style={{ margin: '-6px 0 14px', padding: '6px 10px', background: diff > 0 ? '#fff7ed' : '#f0fdf4', border: `1px solid ${diff > 0 ? '#fed7aa' : '#bbf7d0'}`, borderRadius: 5, fontSize: 12, color: diff > 0 ? '#9a3412' : '#166534' }}>
+                            Line value {fmt(oldVal)} → <strong>{fmt(newVal)}</strong> ({diff > 0 ? '+' : '−'}{fmt(Math.abs(diff))}). The PO total is updated to match.
+                        </div>
+                    );
+                })()}
+
+                <div style={{ margin: '-6px 0 14px', fontSize: 11.5, color: '#64748b', lineHeight: 1.45 }}>
+                    {tolPct > 0
+                        ? <>A quick amendment can raise the PO up to its approved value plus <strong>{tolPct}%</strong>. A larger increase must use <strong>Revise PO</strong> so it is approved again.</>
+                        : <>Any increase in the PO value must use <strong>Revise PO</strong> so it is approved again. Reductions can be amended here.</>}
+                </div>
 
                 <div style={{ marginBottom: 12 }}>
                     <label style={{ fontSize: 11, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>
@@ -1023,6 +1052,23 @@ const PoLinesTab = ({ po, onRefresh, initialPrId }) => {
 
     const handleAmendQty = (line) => setAmendLine(line);
 
+    // Amend (qty + price) applies to lines that have goods received against them.
+    //  - Partly received: unchanged from before (Approved / Partial POs).
+    //  - FULLY received: new. This is the "supplier raised the price after the
+    //    GRN" case, where the PO can no longer be edited or revised. It changes
+    //    what an approved PO says it cost, so it needs the REVISE permission.
+    // The backend (sp_AmendPOLine) is the real gate: it also asks for the user's
+    // password and a reason, never lets qty drop below what is received, and
+    // logs every change to the Amendments tab.
+    const canAmendLine = (l) => {
+        if (canEdit) return false;
+        const recv = l.receivedQty || 0;
+        const ord  = l.orderedQty  || 0;
+        if (recv <= 0) return false;
+        if (recv < ord) return ['Approved', 'Partial'].includes(po.status);
+        return ['Approved', 'Partial', 'Received'].includes(po.status) && canDo('/purchase-orders', 'REVISE');
+    };
+
     const LINE_STATUS_CFG = {
         Open:      { bg: '#f1f5f9', color: '#475569' },
         Partial:   { bg: '#fef3c7', color: '#92400e' },
@@ -1365,9 +1411,9 @@ const PoLinesTab = ({ po, onRefresh, initialPrId }) => {
                                                                 )}
                                                             </>
                                                         )}
-                                                        {!canEdit && ['Approved','Partial'].includes(po.status) && (l0.receivedQty || 0) > 0 && (l0.receivedQty || 0) < (l0.orderedQty || 0) && (
+                                                        {canAmendLine(l0) && (
                                                             <button className="prd-line-act" onClick={() => handleAmendQty(l0)}
-                                                                title="Reduce ordered qty to match partial receipt"
+                                                                title="Amend ordered qty / unit price (goods already received)"
                                                                 style={{ color: '#92400e', borderColor: '#fcd34d', background: '#fef3c7' }}>
                                                                 Amend
                                                             </button>
@@ -1430,8 +1476,9 @@ const PoLinesTab = ({ po, onRefresh, initialPrId }) => {
                                                                 )}
                                                             </>
                                                         )}
-                                                        {!canEdit && ['Approved','Partial'].includes(po.status) && (l.receivedQty || 0) > 0 && (l.receivedQty || 0) < (l.orderedQty || 0) && (
+                                                        {canAmendLine(l) && (
                                                             <button className="prd-line-act" onClick={() => handleAmendQty(l)}
+                                                                title="Amend ordered qty / unit price (goods already received)"
                                                                 style={{ color: '#92400e', borderColor: '#fcd34d', background: '#fef3c7' }}>
                                                                 Amend
                                                             </button>

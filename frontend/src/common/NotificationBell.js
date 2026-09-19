@@ -411,7 +411,7 @@ const NotificationBell = ({ userId, userName }) => {
                                                     {a.documentNo}
                                                     {a.documentAmount != null && (
                                                         <span style={{ color: '#65676b', fontWeight: 400, fontSize: 13, marginLeft: 6 }}>
-                                                            · {Number(a.documentAmount).toLocaleString()}
+                                                            · {a.currencyCode ? a.currencyCode + ' ' : ''}{Number(a.documentAmount).toLocaleString()}
                                                         </span>
                                                     )}
                                                 </div>

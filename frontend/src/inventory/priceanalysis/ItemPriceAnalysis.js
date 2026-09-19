@@ -104,6 +104,8 @@ const ItemPriceAnalysis = () => {
     // "All items" text filter: varTyped follows the keyboard, varSearch is what gets sent
     const [varTyped,  setVarTyped]  = useState('');
     const [varSearch, setVarSearch] = useState('');
+    // Subcontract / lot-priced POs are left out of the all-items report unless ticked.
+    const [inclSub, setInclSub] = useState(false);
     const [data,     setData]     = useState(null);
     const [loading,  setLoading]  = useState(false);
     const [error,    setError]    = useState('');
@@ -133,11 +135,11 @@ const ItemPriceAnalysis = () => {
     // Clear filters: back to how the screen opens. The selected item (one-item view)
     // is left alone - it is the subject of that view, not a filter on it.
     const filtersActive = !!(itemTypeId || categoryId || subCategoryId || varTyped
-                             || dateTo || dateFrom !== defaultDateFrom());
+                             || dateTo || dateFrom !== defaultDateFrom() || inclSub);
     const clearFilters = () => {
         setItemTypeId(''); setCategoryId(''); setSubCategoryId('');
         setVarTyped(''); setVarSearch('');            // skip the debounce wait
-        setDateFrom(defaultDateFrom()); setDateTo('');
+        setDateFrom(defaultDateFrom()); setDateTo(''); setInclSub(false);
     };
 
     const load = useCallback(() => {
@@ -166,13 +168,14 @@ const ItemPriceAnalysis = () => {
         if (itemTypeId)          q.set('itemTypeId', itemTypeId);
         if (effectiveCategoryId) q.set('categoryId', effectiveCategoryId);
         if (varSearch)           q.set('searchText', varSearch);
+        if (inclSub)             q.set('includeSubcontract', 'true');
         fetch(`${variables.API_URL}priceanalysis/variance?${q}`, { headers: authHeaders() })
             .then(r => (r.ok ? r.json() : []))
             .then(d => { if (live) setVarRows(Array.isArray(d) ? d : []); })
             .catch(() => { if (live) setVarRows([]); })
             .finally(() => { if (live) setVarBusy(false); });
         return () => { live = false; };
-    }, [mode, dateFrom, dateTo, itemTypeId, effectiveCategoryId, varSearch]);
+    }, [mode, dateFrom, dateTo, itemTypeId, effectiveCategoryId, varSearch, inclSub]);
 
     // Debounce the text filter so each keystroke is not a report query
     useEffect(() => {
@@ -255,6 +258,13 @@ const ItemPriceAnalysis = () => {
                                 ) : (
                                     <ItemPicker value={item} onPick={setItem}
                                                 itemTypeId={itemTypeId} categoryId={effectiveCategoryId} />
+                                )}
+                                {mode === 'variance' && (
+                                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12.5, color: '#475569', cursor: 'pointer' }}
+                                           title="Lots on subcontract-category POs are priced per job, so their 'price change' is not a supplier price movement. Hidden by default.">
+                                        <input type="checkbox" checked={inclSub} onChange={e => setInclSub(e.target.checked)} />
+                                        Include subcontract lots
+                                    </label>
                                 )}
                                 <span style={{ fontSize: 12, color: '#64748b' }}>From</span>
                                 <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={sel} />

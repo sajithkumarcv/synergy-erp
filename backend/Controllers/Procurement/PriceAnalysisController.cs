@@ -65,7 +65,7 @@ namespace ERPWEB.Controllers.Procurement
             }
         }
 
-        // GET: api/priceanalysis/variance?dateFrom=&dateTo=&budgetCategoryId=&supplierId=&minExtraSpend=&topN=&itemTypeId=&categoryId=&searchText=
+        // GET: api/priceanalysis/variance?dateFrom=&dateTo=&budgetCategoryId=&supplierId=&minExtraSpend=&topN=&itemTypeId=&categoryId=&searchText=&includeSubcontract=
         //
         // Cross-item price movement ranked by VALUE IMPACT, so buyers do not have to
         // open items one at a time. The per-item screen is the drill-down from here.
@@ -80,7 +80,8 @@ namespace ERPWEB.Controllers.Procurement
             [FromQuery] int      topN             = 200,
             [FromQuery] int?     itemTypeId       = null,
             [FromQuery] int?     categoryId       = null,
-            [FromQuery] string?  searchText       = null)
+            [FromQuery] string?  searchText       = null,
+            [FromQuery] bool     includeSubcontract = false)
         {
             try
             {
@@ -95,6 +96,7 @@ namespace ERPWEB.Controllers.Procurement
                     ItemTypeId       = itemTypeId,
                     CategoryId       = categoryId,
                     SearchText       = searchText,
+                    IncludeSubcontract = includeSubcontract,
                 };
 
                 var rows = await _dbcon.QueryAsync<PriceVarianceRow>("sp_ReportPriceVariance", p);

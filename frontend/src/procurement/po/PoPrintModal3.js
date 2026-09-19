@@ -5,7 +5,7 @@ import useOwnerCompany from '../../hooks/useOwnerCompany';
 import { useLookup } from '../../LookupContext';
 import consolidatePoLinesForPrint from './consolidatePoLinesForPrint';
 import { openPrintWindow } from '../../utils/printWindow';
-import { DraftWatermark, PreviewBanner } from '../../components/print/PrintCompanyHeader';
+import { DraftWatermark, PageWatermark, PreviewBanner } from '../../components/print/PrintCompanyHeader';
 import './PoPrint.css';
 
 // ── Helpers ───────────────────────────────────────────────────
@@ -29,7 +29,7 @@ const KV = ({ label, value, mono }) => !value ? null : (
 );
 
 // ═════════════════════════════════════════════════════════════
-const PoPrintModal3 = ({ po, onClose, preview, overBudget }) => {
+const PoPrintModal3 = ({ po, onClose, preview, overBudget, infoOnly = false, statusLabel, onOpenFull }) => {
     const { company, loading: coLoading } = useOwnerCompany();
     const logoSrc = company?.logoPath ? getFileUrl(company.logoPath) : null;
     const { getSetting } = useLookup();
@@ -108,28 +108,51 @@ const PoPrintModal3 = ({ po, onClose, preview, overBudget }) => {
             {/* ── Toolbar ── */}
             <div className="po-print-toolbar">
                 <div className="po-print-toolbar-left">
-                    <span className="po-print-title">🖨 Purchase Order — {po.poNumber}</span>
-                    <span style={{ fontSize: 11, fontWeight: 400, color: 'rgba(255,255,255,.55)' }}>
-                        Format 3
+                    <span className="po-print-title">
+                        {infoOnly ? '👁' : '🖨'} Purchase Order — {po.poNumber}
+                        {infoOnly && <span style={{ marginLeft: 8, fontWeight: 400, opacity: .8 }}>(Information)</span>}
                     </span>
+                    {!infoOnly && (
+                        <span style={{ fontSize: 11, fontWeight: 400, color: 'rgba(255,255,255,.55)' }}>
+                            Format 3
+                        </span>
+                    )}
                 </div>
                 <div style={{ display: 'flex', gap: 10 }}>
+                    {infoOnly && onOpenFull && <button className="po-print-btn-close" onClick={onOpenFull}>↗ Open full page</button>}
                     <button className="po-print-btn-close" onClick={onClose}>✕ Close</button>
-                    <button className="po-print-btn-print" onClick={handlePrint}>🖨 Print / Save as PDF</button>
+                    {!infoOnly && <button className="po-print-btn-print" onClick={handlePrint}>🖨 Print / Save as PDF</button>}
                 </div>
             </div>
 
             {/* ══ A4 Document ══ */}
             <div className="po3-doc" style={{ position: 'relative' }}>
 
-                {preview && <DraftWatermark label={overBudget ? 'NO BUDGET' : 'DRAFT'} />}
-                {preview && (
+                {preview && !infoOnly && <DraftWatermark label={overBudget ? 'NO BUDGET' : 'DRAFT'} />}
+                {/* Information view is an internal copy - never to be sent to a supplier */}
+                {infoOnly && <PageWatermark label="NOT A SUPPLIER COPY" />}
+                {preview && !infoOnly && (
                     <PreviewBanner text={overBudget
                         ? 'NO BUDGET IN THIS CATEGORY — NOT VALID FOR ISSUE TO SUPPLIER'
                         : undefined} />
                 )}
 
+                {/* ── Info view: plain title band (no company letterhead), same idea as the PR info view ── */}
+                {infoOnly && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                        <div className="pop-doc-type" style={{ margin: 0 }}>Purchase Order</div>
+                        <div style={{ textAlign: 'right' }}>
+                            <div className="pop-doc-number">
+                                {po.revision > 0 && <span style={{ color: '#dc2626', marginRight: 8 }}>Rev.{po.revision}</span>}
+                                {po.poNumber}
+                            </div>
+                            <div className="pop-doc-status">{statusLabel || po.status}</div>
+                        </div>
+                    </div>
+                )}
+
                 {/* ── 1. Blue banner (matches the invoice header) ── */}
+                {!infoOnly && (
                 <div className="po3-banner" style={{
                     background: '#0f4c75', color: '#fff',
                     margin: '-28px -36px 16px', padding: '24px 36px',
@@ -175,6 +198,8 @@ const PoPrintModal3 = ({ po, onClose, preview, overBudget }) => {
                         </div>
                     </div>
                 </div>
+
+                )}
 
                 {/* ── 3. Quick info strip ── */}
                 <div style={{
@@ -253,6 +278,51 @@ const PoPrintModal3 = ({ po, onClose, preview, overBudget }) => {
                     <div style={{ textAlign: 'center', padding: '20px 0', color: '#64748b', fontSize: 13 }}>
                         Loading lines…
                     </div>
+                ) : infoOnly ? (
+                    /* Information view: every PO line as it actually is - received qty and line status included,
+                       and NOT merged like the supplier print, so nothing is hidden. */
+                    <table className="po3-table" style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 0, fontSize: 11 }}>
+                        <thead>
+                            <tr style={{ background: '#1e3a5f', color: '#fff' }}>
+                                {['#', 'Code', 'Description', 'Ordered', 'Received', 'UOM', 'Unit Price', 'Tax%', 'Total', 'Status'].map((h, i) => (
+                                    <th key={h} style={{
+                                        padding: '8px 6px', fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase',
+                                        letterSpacing: '.04em', whiteSpace: 'nowrap',
+                                        textAlign: [3, 4, 6, 7, 8].includes(i) ? 'right' : (i === 5 || i === 9 ? 'center' : 'left'),
+                                    }}>{h}</th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {lines.length === 0 ? (
+                                <tr><td colSpan={10} style={{ textAlign: 'center', padding: '14px 0', color: '#94a3b8', fontStyle: 'italic' }}>No items</td></tr>
+                            ) : lines.map((l, i) => {
+                                const recv = l.receivedQty || 0;
+                                const st = l.lineStatus || 'Open';
+                                const stCol = { Open: ['#f1f5f9', '#475569'], Partial: ['#fef3c7', '#92400e'], Received: ['#d1fae5', '#065f46'],
+                                                Closed: ['#e5e7eb', '#374151'], Cancelled: ['#fee2e2', '#991b1b'] }[st] || ['#f1f5f9', '#475569'];
+                                return (
+                                    <tr key={l.poLineId} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc', borderBottom: '1px solid #f1f5f9' }}>
+                                        <td style={{ padding: '7px 6px', color: '#94a3b8', fontSize: 10 }}>{l.lineNum || i + 1}</td>
+                                        <td style={{ padding: '7px 6px', fontFamily: 'Courier New', fontSize: 10.5, color: '#1d4ed8', whiteSpace: 'nowrap' }}>{l.itemCode || '—'}</td>
+                                        <td style={{ padding: '7px 6px', lineHeight: 1.4, overflowWrap: 'anywhere' }}>
+                                            <div>{l.itemDesc || l.itemName || '—'}</div>
+                                            {l.remarks && <div style={{ fontSize: 10, color: '#64748b', fontStyle: 'italic', marginTop: 1 }}>{l.remarks}</div>}
+                                        </td>
+                                        <td style={{ padding: '7px 6px', textAlign: 'right' }}>{l.orderedQty}</td>
+                                        <td style={{ padding: '7px 6px', textAlign: 'right', fontWeight: 600, color: recv > 0 ? '#16a34a' : '#94a3b8' }}>{recv}</td>
+                                        <td style={{ padding: '7px 6px', textAlign: 'center', color: '#475569' }}>{l.uomName || '—'}</td>
+                                        <td style={{ padding: '7px 6px', textAlign: 'right', fontFamily: 'Courier New', fontSize: 10.5 }}>{n(l.unitPrice)}</td>
+                                        <td style={{ padding: '7px 6px', textAlign: 'right', fontFamily: 'Courier New', fontSize: 10.5, color: '#64748b' }}>{l.taxPct > 0 ? `${l.taxPct}%` : '—'}</td>
+                                        <td style={{ padding: '7px 6px', textAlign: 'right', fontFamily: 'Courier New', fontSize: 10.5, fontWeight: 600 }}>{n(l.lineTotal ?? (l.orderedQty * l.unitPrice))}</td>
+                                        <td style={{ padding: '7px 6px', textAlign: 'center' }}>
+                                            <span style={{ background: stCol[0], color: stCol[1], borderRadius: 8, padding: '2px 8px', fontSize: 9.5, fontWeight: 700 }}>{st}</span>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
                 ) : (
                     <table className="po3-table" style={{
                         width: '100%', borderCollapse: 'collapse',
@@ -531,7 +601,7 @@ const PoPrintModal3 = ({ po, onClose, preview, overBudget }) => {
                     </div>
                 </div>
 
-                {preview && (
+                {preview && !infoOnly && (
                     <PreviewBanner text={overBudget
                         ? 'NO BUDGET IN THIS CATEGORY — NOT VALID FOR ISSUE TO SUPPLIER'
                         : undefined} />

@@ -393,6 +393,30 @@ namespace ERPWEB.Controllers.Approval
             }
         }
 
+        // ── GET api/approval/levels?moduleCode=PO&ids=1,2,3 ──────────────
+        // Which approval level each PENDING document in the list is waiting at, for the
+        // status badge on the list pages. A pending document is usually stored as plain
+        // 'PendingApproval', so the level is only on the approval transaction. One call
+        // per page of rows; documents that are not pending are simply absent.
+        [HttpGet("levels")]
+        public async Task<IActionResult> GetLevels([FromQuery] string? moduleCode, [FromQuery] string? ids)
+        {
+            if (string.IsNullOrWhiteSpace(moduleCode) || string.IsNullOrWhiteSpace(ids))
+                return Ok(Enumerable.Empty<ApprovalLevelInfo>());
+            try
+            {
+                var rows = await _dbcon.QueryAsync<ApprovalLevelInfo>(
+                    "sp_GetApprovalLevels",
+                    new { ModuleCode = moduleCode.Trim().ToUpperInvariant(), Ids = ids });
+                return Ok(rows ?? Enumerable.Empty<ApprovalLevelInfo>());
+            }
+            catch (Exception ex)
+            {
+                await _dbcon.WriteLog(ex, controller: "Approval", action: "GetLevels", requestPath: HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Error loading approval levels." });
+            }
+        }
+
         // ── GET api/approval/all ─────────────────────────────────────────
         // Admin view — all approval transactions with filters + pagination
         [HttpGet("all")]
@@ -438,6 +462,7 @@ namespace ERPWEB.Controllers.Approval
                     documentId     = (int?)r.DocumentId,
                     documentNo     = (string?)r.DocumentNo,
                     documentAmount = (decimal?)r.DocumentAmount,
+                    currencyCode   = (string?)r.CurrencyCode,
                     currentStatus  = (string?)r.CurrentStatus,
                     currentLevelNo = (int?)r.CurrentLevelNo,
                     totalLevels    = (int?)r.TotalLevels,
