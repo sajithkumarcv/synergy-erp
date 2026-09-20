@@ -22,7 +22,7 @@ const PAGE_SIZES = [50, 100, 200, 500, 1000];
 // supplier list runs into the hundreds and the dropdown scrolls.
 const LOOKUP_PAGE_SIZE = 25;
 
-const DEFAULT_FILTERS = { searchText: '', status: '', supplierId: '', jobTypeIds: '', jobId: '', priority: '', createdBy: '', dateFrom: '', dateTo: '' };
+const DEFAULT_FILTERS = { searchText: '', status: '', supplierId: '', jobTypeIds: '', jobId: '', expenseCategoryId: '', priority: '', createdBy: '', dateFrom: '', dateTo: '' };
 
 
 const SortIcon = ({ col, sortCol, sortDir }) => {
@@ -519,7 +519,14 @@ export const Po = () => {
     // Job ID filter so its server-side search stays narrowed the same way.
     const [jobOptTypeIds,   setJobOptTypeIds]   = useState(initialFilters.jobTypeIds || '');
 
+    const [categoryOptions, setCategoryOptions] = useState([]);
+
     useEffect(() => {
+        fetch(`${variables.API_URL}Lookup/budgetcategories`, { headers: authHeaders() })
+            .then(r => r.json())
+            .then(d => setCategoryOptions((Array.isArray(d) ? d : []).map(c => ({ value: String(c.id), label: `${c.code} — ${c.name}` }))))
+            .catch(console.error);
+
         fetch(`${variables.API_URL}job/types`, { headers: authHeaders() })
             .then(r => r.json())
             .then(d => setJobTypes(Array.isArray(d) ? d : []))
@@ -555,6 +562,7 @@ export const Po = () => {
         if (af.supplierId)  q.set('supplierId',  af.supplierId);
         if (af.jobId)       q.set('jobId',       af.jobId);
         if (af.jobTypeIds)  q.set('jobTypeIds',  af.jobTypeIds);
+        if (af.expenseCategoryId) q.set('expenseCategoryId', af.expenseCategoryId);
         if (af.priority)    q.set('priority',    af.priority);
         if (af.createdBy)   q.set('createdBy',   af.createdBy);
         if (af.dateFrom)    q.set('dateFrom',    af.dateFrom);
@@ -573,7 +581,7 @@ export const Po = () => {
     // hundreds of rows, too many for a plain dropdown); `options` is the
     // preloaded list, kept so a filter that comes back already set — restored
     // for the session, or seeded by a dashboard tile — can show its name.
-    const buildDefs = (jobTypeOpts, jobOpts, supplierOpts, jobSearchTypeIds) => ({
+    const buildDefs = (jobTypeOpts, jobOpts, supplierOpts, jobSearchTypeIds, categoryOpts = []) => ({
         searchText:  { label: 'Search',     type: 'text',   placeholder: 'PO #, vendor, ref…' },
         status:      { label: 'Status',     type: 'multiselect',
                        options: getModuleStatuses('PO').map(s => ({ value: s.statusCode, label: s.statusLabel })) },
@@ -587,6 +595,7 @@ export const Po = () => {
                        search: { url: 'job/search', valueKey: 'jobId', codeKey: 'jobId', nameKey: 'projectName',
                                  params: { excludeClosedStatus: true, ...(jobSearchTypeIds ? { jobTypeIds: jobSearchTypeIds } : {}) } },
                        options: jobOpts },
+        expenseCategoryId: { label: 'Budget Category', type: 'select', placeholder: 'All Categories', options: categoryOpts },
         priority:    { label: 'Priority',   type: 'select', placeholder: 'All Priorities', options: getVList('Procurement', 'Priority') },
         createdBy:   { label: 'Created By', type: 'text',   placeholder: 'Username…' },
         dateFrom:    { label: 'Date From',  type: 'date' },
@@ -616,9 +625,10 @@ export const Po = () => {
     useEffect(() => {
         updateFilterDefs('purchaseorder', buildDefs(
             jobTypes.map(t => ({ value: t.jobTypeId, label: t.jobTypeName })),
-            jobOptions, supplierOptions, jobOptTypeIds
+            jobOptions, supplierOptions, jobOptTypeIds,
+            categoryOptions
         ));
-    }, [jobTypes, jobOptions, supplierOptions, jobOptTypeIds, getModuleStatuses, getVList]); // eslint-disable-line
+    }, [jobTypes, jobOptions, supplierOptions, jobOptTypeIds, categoryOptions, getModuleStatuses, getVList]); // eslint-disable-line
 
     const handleSort = col => {
         const dir = sortCol === col && sortDir === 'ASC' ? 'DESC' : 'ASC';

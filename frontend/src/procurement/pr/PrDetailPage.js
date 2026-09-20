@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { variables, authHeaders } from '../../Variable';
 import { PR_TABS, PRIORITY_CONFIG, fmtDate, statusBadgeCfg } from '../procurementConstants';
 import { useLookup } from '../../LookupContext';
@@ -27,7 +27,8 @@ const PrDetailPage = () => {
     const [pr,         setPr]        = useState(null);
     const [loading,    setLoading]   = useState(true);
     const [error,      setError]     = useState(null);
-    const [activeTab,  setActiveTab] = useState('overview');
+    const [searchParams] = useSearchParams();
+    const [activeTab,  setActiveTab] = useState(searchParams.get('tab') || 'overview');
     const [showPrint,    setShowPrint]    = useState(false);
     const printFmt = usePrintFormat('PR');   // configured layout (Company Settings → Print Formats)
     const [approvalTx,  setApprovalTx]  = useState(null);

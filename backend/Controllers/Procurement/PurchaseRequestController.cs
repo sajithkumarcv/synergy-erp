@@ -217,6 +217,33 @@ namespace ERPWEB.Controllers.Procurement
         }
 
         // ── LINES ────────────────────────────────────────────────────────────
+        // ── POs raised against one PR line ───────────────────────────────────
+        [HttpGet("line/{prLineId:int}/pos")]
+        public async Task<IActionResult> GetLinePos(int prLineId)
+        {
+            try
+            {
+                var rows = await _dbcon.QueryAsync<dynamic>("sp_GetBomLineDocs", new { Kind = "PO", PrLineId = prLineId });
+                return Ok(rows.Select(r => new
+                {
+                    docId     = (int)r.DocId,
+                    docNumber = (string?)r.DocNumber,
+                    docStatus = (string?)r.DocStatus,
+                    lineNum   = (int)r.LineNum,
+                    qty       = (decimal)r.Qty,
+                    uomName   = (string?)r.UomName,
+                    unitPrice = (decimal?)r.UnitPrice,
+                    currencyCode = (string?)r.CurrencyCode,
+                    docDate   = (DateTime?)r.DocDate,
+                }));
+            }
+            catch (Exception ex)
+            {
+                await _dbcon.WriteLog(ex, controller: "PurchaseRequest", action: "GetLinePos", requestPath: HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Error fetching linked POs." });
+            }
+        }
+
         [HttpGet("lines/{prId:int}")]
         public async Task<IActionResult> GetLines(int prId)
         {

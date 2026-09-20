@@ -11,6 +11,7 @@ import ApprovalStatusBanner from '../approval/ApprovalStatusBanner';
 import JobClosedBanner      from '../jobs/JobClosedBanner';
 import AmountInput          from '../common/AmountInput';
 import LastPurchaseModal    from '../common/LastPurchaseModal';
+import LinkedDocsModal      from '../common/LinkedDocsModal';
 import BomImportModal       from './BomImportModal';
 import '../inventory/Inventory.css';
 
@@ -561,6 +562,8 @@ const SectionGroup = ({ bomSectionId, sectionCode, sectionName, sectionSortOrder
 
     // Item whose last purchase price is being viewed — { itemId, itemLabel } | null
     const [pricePeek, setPricePeek] = useState(null);
+    // BOM line whose linked PRs / POs are being viewed — { bomId, kind, itemLabel } | null
+    const [docPeek, setDocPeek] = useState(null);
 
     const SORTABLE = {
         '#':        (r) => r.sortOrder ?? 0,
@@ -863,8 +866,14 @@ const SectionGroup = ({ bomSectionId, sectionCode, sectionName, sectionSortOrder
                                         <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 600 }}>{fmt(r.bomRequestedQty, 4)}</td>
                                         <td style={{ padding: '8px 10px', textAlign: 'right' }}>{r.bomPrice > 0 ? fmt(r.bomPrice) : '—'}</td>
                                         <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 600, color: '#1e3a5f' }}>{r.lineTotal > 0 ? fmt(r.lineTotal) : '—'}</td>
-                                        <td style={{ padding: '8px 10px', textAlign: 'right', color: r.prCreatedQty > 0 ? '#92400e' : '#94a3b8', fontWeight: r.prCreatedQty > 0 ? 600 : 400 }}>{r.prCreatedQty > 0 ? fmt(r.prCreatedQty, 4) : '—'}</td>
-                                        <td style={{ padding: '8px 10px', textAlign: 'right', color: r.poCreatedQty > 0 ? '#1d4ed8' : '#94a3b8', fontWeight: r.poCreatedQty > 0 ? 600 : 400 }}>{r.poCreatedQty > 0 ? fmt(r.poCreatedQty, 4) : '—'}</td>
+                                        <td onClick={r.prCreatedQty > 0 ? (() => setDocPeek({ bomId: r.bomId, kind: 'PR', itemLabel: `${r.itemCode || ''} — ${r.itemName || ''}`.trim() })) : undefined}
+                                            title={r.prCreatedQty > 0 ? 'Show the PRs raised for this line' : undefined}
+                                            style={{ padding: '8px 10px', textAlign: 'right', color: r.prCreatedQty > 0 ? '#92400e' : '#94a3b8', fontWeight: r.prCreatedQty > 0 ? 600 : 400,
+                                                     cursor: r.prCreatedQty > 0 ? 'pointer' : 'default', textDecoration: r.prCreatedQty > 0 ? 'underline dotted' : 'none' }}>{r.prCreatedQty > 0 ? fmt(r.prCreatedQty, 4) : '—'}</td>
+                                        <td onClick={r.poCreatedQty > 0 ? (() => setDocPeek({ bomId: r.bomId, kind: 'PO', itemLabel: `${r.itemCode || ''} — ${r.itemName || ''}`.trim() })) : undefined}
+                                            title={r.poCreatedQty > 0 ? 'Show the POs raised for this line' : undefined}
+                                            style={{ padding: '8px 10px', textAlign: 'right', color: r.poCreatedQty > 0 ? '#1d4ed8' : '#94a3b8', fontWeight: r.poCreatedQty > 0 ? 600 : 400,
+                                                     cursor: r.poCreatedQty > 0 ? 'pointer' : 'default', textDecoration: r.poCreatedQty > 0 ? 'underline dotted' : 'none' }}>{r.poCreatedQty > 0 ? fmt(r.poCreatedQty, 4) : '—'}</td>
                                         <td style={{ padding: '8px 10px', textAlign: 'right', color: r.bomReceivedQty > 0 ? '#166534' : '#94a3b8', fontWeight: r.bomReceivedQty > 0 ? 600 : 400 }}>{r.bomReceivedQty > 0 ? fmt(r.bomReceivedQty, 4) : '—'}</td>
                                         <td style={{ padding: '8px 10px', textAlign: 'right', color: r.balanceQty > 0 ? '#dc2626' : '#94a3b8' }}>{fmt(r.balanceQty, 4)}</td>
                                         <td style={{ padding: '8px 10px', color: '#64748b', fontSize: 11, whiteSpace: 'nowrap' }}>{r.itemReqDate ? fmtDate(r.itemReqDate) : '—'}</td>
@@ -987,6 +996,16 @@ const SectionGroup = ({ bomSectionId, sectionCode, sectionName, sectionSortOrder
                 </div>
             </div>,
             document.body
+        )}
+
+        {docPeek && (
+            <LinkedDocsModal
+                url={`bom/detail/${docPeek.bomId}/docs?kind=${docPeek.kind}`}
+                kind={docPeek.kind}
+                heading="for this BOM line"
+                itemLabel={docPeek.itemLabel}
+                onClose={() => setDocPeek(null)}
+            />
         )}
 
         {pricePeek && (

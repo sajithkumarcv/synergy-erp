@@ -8,6 +8,7 @@ import { fmt, fmtDate } from '../../procurementConstants';
 import { useFieldConfig } from '../../../FieldConfigContext';
 import AmountInput from '../../../common/AmountInput';
 import LastPurchaseModal from '../../../common/LastPurchaseModal';
+import LinkedDocsModal from '../../../common/LinkedDocsModal';
 
 // ── Confirm Modal (delete / close / cancel line) ─────────────────
 const ConfirmModal = ({ title, titleColor = '#dc2626', icon = '🗑', detail, warning, error, confirmLabel, confirmColor = '#dc2626', onConfirm, onCancel, busy }) =>
@@ -491,6 +492,7 @@ const PrLinesTab = ({ pr, onRefresh }) => {
     const [modalError,    setModalError]    = useState('');
     // Item whose last purchase price is being viewed — { itemId, itemLabel } | null
     const [pricePeek,     setPricePeek]     = useState(null);
+    const [poPeek,        setPoPeek]        = useState(null);   // { prLineId, itemLabel } — POs raised for a PR line
 
     const { canDo } = usePermission();
     const canEdit = (getStatusConfig('PR', pr.status)?.canEdit ?? (pr.status === 'Draft')) && canDo('/purchase-requests', 'EDIT');
@@ -681,6 +683,16 @@ const PrLinesTab = ({ pr, onRefresh }) => {
                 />
             )}
 
+            {poPeek && (
+                <LinkedDocsModal
+                    url={`purchaserequest/line/${poPeek.prLineId}/pos`}
+                    kind="PO"
+                    heading="for this PR line"
+                    itemLabel={poPeek.itemLabel}
+                    onClose={() => setPoPeek(null)}
+                />
+            )}
+
             {pricePeek && (
                 <LastPurchaseModal
                     itemId={pricePeek.itemId}
@@ -769,7 +781,10 @@ const PrLinesTab = ({ pr, onRefresh }) => {
                                         }
                                     </td>
                                     <td className="prd-num-cell">{fmt(l.requiredQty)}</td>
-                                    <td className="prd-num-cell" style={{ color: poColor, fontWeight: 600 }}>
+                                    <td className="prd-num-cell"
+                                        onClick={po > 0 ? (() => setPoPeek({ prLineId: l.prLineId, itemLabel: `[${l.itemCode || '—'}] ${l.itemDesc || ''}`.trim() })) : undefined}
+                                        title={po > 0 ? 'Show the POs raised for this line' : undefined}
+                                        style={{ color: poColor, fontWeight: 600, cursor: po > 0 ? 'pointer' : 'default', textDecoration: po > 0 ? 'underline dotted' : 'none' }}>
                                         {po > 0 ? fmt(po) : '—'}
                                     </td>
                                     <td>{l.uomName || '—'}</td>

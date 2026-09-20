@@ -89,6 +89,34 @@ namespace ERPWEB.Controllers.Bom
             }
         }
 
+        // ── PRs / POs raised against one BOM line ─────────────────
+        [HttpGet("detail/{bomDetailId:int}/docs")]
+        public async Task<IActionResult> GetLineDocs(int bomDetailId, [FromQuery] string kind)
+        {
+            try
+            {
+                var k = string.Equals(kind, "PO", StringComparison.OrdinalIgnoreCase) ? "PO" : "PR";
+                var rows = await _db.QueryAsync<dynamic>("sp_GetBomLineDocs", new { BomDetailId = bomDetailId, Kind = k });
+                return Ok(rows.Select(r => new
+                {
+                    docId     = (int)r.DocId,
+                    docNumber = (string?)r.DocNumber,
+                    docStatus = (string?)r.DocStatus,
+                    lineNum   = (int)r.LineNum,
+                    qty       = (decimal)r.Qty,
+                    uomName   = (string?)r.UomName,
+                    unitPrice = (decimal?)r.UnitPrice,
+                    currencyCode = (string?)r.CurrencyCode,
+                    docDate   = (DateTime?)r.DocDate,
+                }));
+            }
+            catch (Exception ex)
+            {
+                await _db.WriteLog(ex, controller: "Bom", action: "GetLineDocs", requestPath: HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Error fetching linked documents." });
+            }
+        }
+
         // ── Save BOM Header ───────────────────────────────────────
         [HttpPost("save")]
         public async Task<IActionResult> Save([FromBody] SaveBomHeaderRequest req)
