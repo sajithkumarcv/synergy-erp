@@ -675,7 +675,7 @@ export const Po = () => {
                         </div>
                         <div className="po-toolbar">
                             <select className="po-select" value={pageSize} onChange={e => changePageSize(Number(e.target.value))}>
-                                {PAGE_SIZES.map(n => <option key={n} value={n}>{n} / page</option>)}
+                                {(window.matchMedia('(max-width:768px)').matches ? [10, 20, 50, 100, 200] : PAGE_SIZES).map(n => <option key={n} value={n}>{n} / page</option>)}
                             </select>
                             {canAdd && <button className="po-btn-pri" onClick={() => setShowForm(true)}>+ New PO</button>}
                         </div>
@@ -691,7 +691,7 @@ export const Po = () => {
                             </div>
                         </div>
                     )}
-                    <table className={`po-table${loading ? ' po-tbl-loading' : ''}`}>
+                    <table className={`po-table rt-cards${loading ? ' po-tbl-loading' : ''}`}>
                         <thead>
                             <tr>
                                 <Th col="PoNumber">PO #</Th>
@@ -720,29 +720,29 @@ export const Po = () => {
                                 </td></tr>
                             ) : shownRows.map(r => (
                                 <tr key={r.poId} style={r.status === 'Draft' ? { background: '#fffbeb' } : undefined}>
-                                    <td>
+                                    <td data-label="PO #">
                                         <RowLink className="po-num-link" to={`/purchase-orders/${r.poId}`}>
                                             {r.poNumber}
                                         </RowLink>
                                     </td>
-                                    <td>{fmtDate(r.poDate)}</td>
-                                    <td>
+                                    <td data-label="Date">{fmtDate(r.poDate)}</td>
+                                    <td data-label="Job">
                                         {r.jobId
                                             ? <span style={{ fontFamily: 'Courier New', fontSize: 11, color: '#1e40af', background: '#dbeafe', padding: '2px 6px', borderRadius: 4 }}>{r.jobId}</span>
                                             : <span style={{ color: '#94a3b8' }}>—</span>
                                         }
                                     </td>
-                                    <td>{r.vendorName || '—'}</td>
-                                    <td><StatusBadge status={r.status} poId={r.poId} level={levels[r.poId]} /></td>
-                                    <td>
+                                    <td data-label="Vendor">{r.vendorName || '—'}</td>
+                                    <td data-label="Status"><StatusBadge status={r.status} poId={r.poId} level={levels[r.poId]} /></td>
+                                    <td data-label="Priority">
                                         {r.priority ? (() => {
                                             const pc = PRIORITY_CONFIG[r.priority] || {};
                                             return <span style={{ background: pc.bg, color: pc.color, padding: '2px 8px', borderRadius: 8, fontSize: 11, fontWeight: 600 }}>{r.priority}</span>;
                                         })() : <span style={{ color: '#94a3b8' }}>—</span>}
                                     </td>
-                                    <td>{r.currencyShort || r.currencyName || '—'}</td>
-                                    <td className="po-num-cell">{fmt(r.totalAmount)}</td>
-                                    <td style={{ display: 'flex', gap: 4 }}>
+                                    <td data-label="Currency">{r.currencyShort || r.currencyName || '—'}</td>
+                                    <td data-label="Total" className="po-num-cell">{fmt(r.totalAmount)}</td>
+                                    <td data-label="" style={{ display: 'flex', gap: 4 }}>
                                         <button className="po-act-btn po-act-open"
                                             onClick={() => setQuickView(r.poId)}
                                             title="Quick view — see PO details without leaving this page">

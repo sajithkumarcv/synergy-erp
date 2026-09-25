@@ -535,7 +535,7 @@ export const Invoice = () => {
                         </div>
                         <div className="po-toolbar">
                             <select className="po-select" value={pageSize} onChange={e => changePageSize(Number(e.target.value))}>
-                                {PAGE_SIZES.map(n => <option key={n} value={n}>{n} / page</option>)}
+                                {(window.matchMedia('(max-width:768px)').matches ? [10, 20, 50, 100, 200] : PAGE_SIZES).map(n => <option key={n} value={n}>{n} / page</option>)}
                             </select>
                             {canAdd && <button className="po-btn-pri" onClick={() => setShowForm(true)}>+ New Invoice</button>}
                         </div>
@@ -551,7 +551,7 @@ export const Invoice = () => {
                             </div>
                         </div>
                     )}
-                    <table className={`po-table${loading ? ' po-tbl-loading' : ''}`}>
+                    <table className={`po-table rt-cards${loading ? ' po-tbl-loading' : ''}`}>
                         <thead>
                             <tr>
                                 <Th col="InvoiceNo">Invoice No</Th>
@@ -574,27 +574,27 @@ export const Invoice = () => {
                                 </tr>
                             ) : rows.map(r => (
                                 <tr key={r.invoiceId}>
-                                    <td>
+                                    <td data-label="Invoice no">
                                         <RowLink className="po-num-link" to={`/invoices/${r.invoiceId}`}>
                                             {r.invoiceNo}
                                         </RowLink>
                                     </td>
-                                    <td>{fmtDate(r.invoiceDate)}</td>
-                                    <td style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    <td data-label="Date">{fmtDate(r.invoiceDate)}</td>
+                                    <td data-label="Customer" style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                         {r.customerName || '—'}
                                     </td>
-                                    <td>
+                                    <td data-label="LPO no">
                                         {r.lpoNo
                                             ? <span style={{ fontFamily: 'Courier New', fontSize: 11, color: '#0f766e', background: '#ccfbf1', padding: '2px 6px', borderRadius: 4 }}>{r.lpoNo}</span>
                                             : <span style={{ color: '#94a3b8' }}>—</span>}
                                     </td>
-                                    <td style={{ color: r.dueDate && new Date(r.dueDate) < new Date() && r.status === 'Draft' ? '#dc2626' : undefined }}>
+                                    <td data-label="Due date" style={{ color: r.dueDate && new Date(r.dueDate) < new Date() && r.status === 'Draft' ? '#dc2626' : undefined }}>
                                         {fmtDate(r.dueDate)}
                                     </td>
-                                    <td style={{ fontSize: 11, color: '#475569' }}>{r.currencyShort || '—'}</td>
-                                    <td className="po-num-cell">{fmt(r.totalAmount)}</td>
-                                    <td><InvStatusBadge status={r.status} level={levels[r.invoiceId]} /></td>
-                                    <td>
+                                    <td data-label="Curr" style={{ fontSize: 11, color: '#475569' }}>{r.currencyShort || '—'}</td>
+                                    <td data-label="Total" className="po-num-cell">{fmt(r.totalAmount)}</td>
+                                    <td data-label="Status"><InvStatusBadge status={r.status} level={levels[r.invoiceId]} /></td>
+                                    <td data-label="">
                                         <RowLink className="po-act-btn po-act-open" to={`/invoices/${r.invoiceId}`}>Open</RowLink>
                                     </td>
                                 </tr>

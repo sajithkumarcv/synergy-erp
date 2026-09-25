@@ -307,7 +307,7 @@ const FreeIssueGrn = () => {
                         </div>
                         <div className="po-toolbar">
                             <select className="po-select" value={pageSize} onChange={e => changePageSize(Number(e.target.value))}>
-                                {PAGE_SIZES.map(n => <option key={n} value={n}>{n} / page</option>)}
+                                {(window.matchMedia('(max-width:768px)').matches ? [10, 20, 50, 100, 200] : PAGE_SIZES).map(n => <option key={n} value={n}>{n} / page</option>)}
                             </select>
                             {canAdd && <button className="po-btn-pri" onClick={() => setShowForm(true)}>+ New</button>}
                         </div>
@@ -320,7 +320,7 @@ const FreeIssueGrn = () => {
                             <div className="po-spinner"><div className="po-spinner-ring" /><span className="po-spinner-text">Loading…</span></div>
                         </div>
                     )}
-                    <table className={`po-table${loading ? ' po-tbl-loading' : ''}`}>
+                    <table className={`po-table rt-cards${loading ? ' po-tbl-loading' : ''}`}>
                         <thead>
                             <tr>
                                 <Th col="FreeIssueGrnNumber">GRN #</Th>
@@ -341,23 +341,23 @@ const FreeIssueGrn = () => {
                                 const sc = statusOf(r.status);
                                 return (
                                     <tr key={r.freeIssueGrnId} style={r.status === 'Draft' ? { background: '#fffbeb' } : undefined}>
-                                        <td><RowLink className="po-num-link" to={`/free-issue-grn/${r.freeIssueGrnId}`}>{r.freeIssueGrnNumber}</RowLink></td>
-                                        <td>{fmtDate(r.receiptDate)}</td>
-                                        <td>
+                                        <td data-label="GRN #"><RowLink className="po-num-link" to={`/free-issue-grn/${r.freeIssueGrnId}`}>{r.freeIssueGrnNumber}</RowLink></td>
+                                        <td data-label="Date of Receipt">{fmtDate(r.receiptDate)}</td>
+                                        <td data-label="Job">
                                             {r.jobId
                                                 ? <span style={{ fontFamily: 'Courier New', fontSize: 11, color: '#065f46', background: '#d1fae5', padding: '2px 6px', borderRadius: 4 }}>{r.jobId}</span>
                                                 : <span style={{ color: '#94a3b8' }}>—</span>}
                                         </td>
-                                        <td>{r.customerName || '—'}</td>
-                                        <td>{r.briefDescription || '—'}</td>
-                                        <td>{r.deliveredBy || '—'}</td>
-                                        <td>{r.receivedBy || '—'}</td>
-                                        <td>
+                                        <td data-label="Customer">{r.customerName || '—'}</td>
+                                        <td data-label="Brief Description">{r.briefDescription || '—'}</td>
+                                        <td data-label="Delivered By">{r.deliveredBy || '—'}</td>
+                                        <td data-label="Received By">{r.receivedBy || '—'}</td>
+                                        <td data-label="Status">
                                             <span className="po-status-badge" style={{ background: sc.bg, color: sc.color }}>
                                                 <span className="po-status-dot" style={{ background: sc.dot }} />{sc.label}
                                             </span>
                                         </td>
-                                        <td><RowLink className="po-act-btn po-act-open" to={`/free-issue-grn/${r.freeIssueGrnId}`}>Open</RowLink></td>
+                                        <td data-label="Actions"><RowLink className="po-act-btn po-act-open" to={`/free-issue-grn/${r.freeIssueGrnId}`}>Open</RowLink></td>
                                     </tr>
                                 );
                             })}

@@ -11,6 +11,7 @@ import { useFieldConfig } from '../FieldConfigContext';
 import { usePermission } from '../PermissionContext';
 import './Job.css';
 import RowLink from '../common/RowLink';
+import useIsPhone from '../hooks/useIsPhone';
 import { ColFilter, applyColFilters, matchNote } from '../common/GridColumnFilter';
 
 // ── Helpers ───────────────────────────────────────────────────
@@ -23,6 +24,7 @@ const fmtAmt   = (v) => { const n = parseFloat(stripAmt(v)); return isNaN(n) ? v
 const parseAmt = (v) => parseFloat(stripAmt(String(v))) || 0;
 
 const PAGE_SIZES = [50, 100, 200, 500, 1000];
+const PAGE_SIZES_PHONE = [10, 20, 50, 100, 200];   // small pages are what make paging useful on a phone
 const DEFAULT_FILTERS = { searchText: '', customerId: '', jobTypeIds: '', jobStatusIds: '', jobStageId: '', dateFrom: '', dateTo: '' };
 
 const STATUS_MAP = {
@@ -688,6 +690,7 @@ const JobForm = ({ jobTypes, jobStages, onClose, onSaved }) => {
 // ═══════════════════════════════════════════════════════════════
 export const Job = () => {
   const navigate = useNavigate();
+  const isPhone  = useIsPhone();   // phone: cards instead of the 9-column table
   const { registerFilters, unregisterFilters, updateFilterDefs } = useFilters();
   const { canDo } = usePermission();
   const canAdd    = canDo('/jobs', 'ADD');
@@ -880,7 +883,7 @@ export const Job = () => {
             <div className="job-toolbar">
               <select className="job-select" style={{ width: 110 }} value={pageSize}
                 onChange={e => changePageSize(Number(e.target.value))}>
-                {PAGE_SIZES.map(n => <option key={n} value={n}>{n} / page</option>)}
+                {(isPhone ? PAGE_SIZES_PHONE : PAGE_SIZES).map(n => <option key={n} value={n}>{n} / page</option>)}
               </select>
               {canAdd && <button className="job-btn-pri" onClick={() => setShowForm(true)}>+ New Job</button>}
             </div>
@@ -896,6 +899,45 @@ export const Job = () => {
               </div>
             </div>
           )}
+          {isPhone ? (
+            <div className={`job-cards${loading ? ' tbl-loading' : ''}`}>
+              {shownRows.length === 0 && !loading && (
+                <div className="job-empty">
+                  {rows.length === 0 ? 'No jobs found. Use the Filters button or create a new job.' : 'No jobs match.'}
+                </div>
+              )}
+              {shownRows.map(j => (
+                <div key={j.jobId} className="job-card" onClick={() => navigate(`/jobs/${encodeURIComponent(j.jobId)}`)}>
+                  <div className="job-card-top">
+                    <span className="job-id-link">{j.jobId}</span>
+                    <StatusBadge id={j.jobStatusId} />
+                  </div>
+                  <div className="job-card-cust">
+                    {j.customerName || '—'}{j.customerCode && <span className="job-cust-code"> {j.customerCode}</span>}
+                  </div>
+                  {j.projectName && <div className="job-card-proj">{j.projectName}</div>}
+                  <div className="job-card-meta">
+                    <span className="job-type-badge">{j.jobTypeName || '—'}</span>
+                    {j.jobStageName && <span>{j.jobStageName}</span>}
+                    <span>{fmtDate(j.jobDate)}</span>
+                  </div>
+                  <div className="job-card-bottom">
+                    <ApprovalBadge status={j.approvalStatus} level={levels[j.jobNumId]} />
+                    <span className="job-card-value">
+                      {j.orderValue
+                        ? <>
+                            <span style={{ fontSize: 11.5, fontWeight: 700, color: j.jobExcRate && j.jobExcRate !== 1 ? '#7c3aed' : '#64748b', marginRight: 4 }}>
+                              {j.currencySymbol || ''}
+                            </span>
+                            {fmt(j.orderValue)}
+                          </>
+                        : '—'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
           <table className={`job-table${loading ? ' tbl-loading' : ''}`}>
             <thead><tr>
               <Th col="JobId">Job No.</Th>
@@ -958,6 +1000,7 @@ export const Job = () => {
                 ))}
             </tbody>
           </table>
+          )}
         </div>
 
         <div className="job-pagination">

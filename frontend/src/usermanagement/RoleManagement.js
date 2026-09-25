@@ -284,7 +284,7 @@ const RoleManagement = () => {
                         </div>
                         <div className="po-toolbar">
                             <select className="po-select" value={pageSize} onChange={e => changePageSize(Number(e.target.value))}>
-                                {PAGE_SIZES.map(n => <option key={n} value={n}>{n} / page</option>)}
+                                {(window.matchMedia('(max-width:768px)').matches ? [10, 20, 50, 100, 200] : PAGE_SIZES).map(n => <option key={n} value={n}>{n} / page</option>)}
                             </select>
                             {canAdd && <button className="po-btn-pri" onClick={() => { setEditRole(null); setShowForm(true); }}>
                                 + New Role
@@ -299,7 +299,7 @@ const RoleManagement = () => {
                             <div className="po-spinner"><div className="po-spinner-ring" /><span className="po-spinner-text">Loading…</span></div>
                         </div>
                     )}
-                    <table className={`po-table${loading ? ' po-tbl-loading' : ''}`}>
+                    <table className={`po-table rt-cards${loading ? ' po-tbl-loading' : ''}`}>
                         <thead>
                             <tr>
                                 <Th col="RoleName">Role Name</Th>
@@ -317,26 +317,26 @@ const RoleManagement = () => {
                                 <tr><td colSpan={8} className="po-empty">No roles found.</td></tr>
                             ) : rows.map(r => (
                                 <tr key={r.roleId}>
-                                    <td><span style={{ fontWeight: 600, color: '#1e293b' }}>{r.roleName}</span></td>
-                                    <td><span style={{ fontFamily: 'Courier New', fontSize: 11, color: '#1d4ed8', background: '#eff6ff', padding: '2px 6px', borderRadius: 4 }}>{r.roleCode}</span></td>
-                                    <td style={{ color: '#64748b', fontSize: 12, maxWidth: 260 }}>{r.description || '—'}</td>
-                                    <td style={{ textAlign: 'center' }}>
+                                    <td data-label="Role Name"><span style={{ fontWeight: 600, color: '#1e293b' }}>{r.roleName}</span></td>
+                                    <td data-label="Code"><span style={{ fontFamily: 'Courier New', fontSize: 11, color: '#1d4ed8', background: '#eff6ff', padding: '2px 6px', borderRadius: 4 }}>{r.roleCode}</span></td>
+                                    <td data-label="Description" style={{ color: '#64748b', fontSize: 12, maxWidth: 260 }}>{r.description || '—'}</td>
+                                    <td data-label="Users" style={{ textAlign: 'center' }}>
                                         <span style={{ background: '#f1f5f9', color: '#475569', borderRadius: 10, padding: '2px 10px', fontSize: 12, fontWeight: 600 }}>{r.userCount}</span>
                                     </td>
-                                    <td style={{ textAlign: 'center' }}>
+                                    <td data-label="Engineer" style={{ textAlign: 'center' }}>
                                         {r.isEngineerRole
                                             ? <span style={{ background: '#dbeafe', color: '#1e40af', borderRadius: 10, padding: '2px 10px', fontSize: 11, fontWeight: 600 }}>⚙ Yes</span>
                                             : <span style={{ color: '#94a3b8', fontSize: 12 }}>—</span>}
                                     </td>
-                                    <td>
+                                    <td data-label="Status">
                                         {r.isActive
                                             ? <span className="po-status-badge" style={{ background: '#dcfce7', color: '#166534' }}><span className="po-status-dot" style={{ background: '#22c55e' }} />Active</span>
                                             : <span className="po-status-badge" style={{ background: '#f1f5f9', color: '#475569' }}><span className="po-status-dot" style={{ background: '#94a3b8' }} />Inactive</span>}
                                     </td>
-                                    <td style={{ color: '#64748b', fontSize: 12 }}>
+                                    <td data-label="Created" style={{ color: '#64748b', fontSize: 12 }}>
                                         {r.createdDate ? new Date(r.createdDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
                                     </td>
-                                    <td>
+                                    <td data-label="Actions">
                                         {canEdit && <button className="po-act-btn"
                                             onClick={() => { setEditRole(r); setShowForm(true); }}>Edit</button>}
                                     </td>

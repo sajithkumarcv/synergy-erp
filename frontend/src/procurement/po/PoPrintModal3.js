@@ -18,6 +18,58 @@ const fmtAuthorizedDate = (d) => {
     return dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-');
 };
 
+// True on phone-width screens (<=768px). Only the information view uses it — the A4 print/PDF layout is untouched.
+const usePhone = (bp = 768) => {
+    const q = `(max-width:${bp}px)`;
+    const [m, setM] = useState(() => typeof window !== 'undefined' && window.matchMedia(q).matches);
+    useEffect(() => {
+        const mq = window.matchMedia(q);
+        const on = e => setM(e.matches);
+        mq.addEventListener ? mq.addEventListener('change', on) : mq.addListener(on);
+        return () => mq.removeEventListener ? mq.removeEventListener('change', on) : mq.removeListener(on);
+    }, [q]);
+    return m;
+};
+
+const LINE_STATUS_COLORS = { Open: ['#f1f5f9', '#475569'], Partial: ['#fef3c7', '#92400e'], Received: ['#d1fae5', '#065f46'],
+                             Closed: ['#e5e7eb', '#374151'], Cancelled: ['#fee2e2', '#991b1b'] };
+
+// Phone version of the information view's line table: one card per PO line instead of a 10-column table.
+const PoLineCards = ({ lines }) => (
+    <div className="po3-line-cards">
+        {lines.length === 0 && <div style={{ textAlign: 'center', padding: '14px 0', color: '#94a3b8', fontStyle: 'italic' }}>No items</div>}
+        {lines.map((l, i) => {
+            const recv = l.receivedQty || 0;
+            const st   = l.lineStatus || 'Open';
+            const col  = LINE_STATUS_COLORS[st] || LINE_STATUS_COLORS.Open;
+            const cell = (label, value, extra) => (
+                <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '.05em' }}>{label}</div>
+                    <div style={{ fontSize: 12.5, fontWeight: 600, ...extra }}>{value}</div>
+                </div>
+            );
+            return (
+                <div key={l.poLineId} style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '10px 12px', marginBottom: 8, background: '#fff' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                        <span style={{ color: '#94a3b8', fontSize: 11 }}>#{l.lineNum || i + 1}</span>
+                        <span style={{ fontFamily: 'Courier New', fontSize: 12, color: '#1d4ed8', fontWeight: 700, flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}>{l.itemCode || '—'}</span>
+                        <span style={{ background: col[0], color: col[1], borderRadius: 8, padding: '2px 8px', fontSize: 10, fontWeight: 700 }}>{st}</span>
+                    </div>
+                    <div style={{ fontSize: 13, lineHeight: 1.4, overflowWrap: 'anywhere' }}>{l.itemDesc || l.itemName || '—'}</div>
+                    {l.remarks && <div style={{ fontSize: 11, color: '#64748b', fontStyle: 'italic', marginTop: 2 }}>{l.remarks}</div>}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px 10px', marginTop: 8, paddingTop: 8, borderTop: '1px dashed #e2e8f0' }}>
+                        {cell('Ordered', `${l.orderedQty} ${l.uomName || ''}`.trim())}
+                        {cell('Received', recv, { color: recv > 0 ? '#16a34a' : '#94a3b8' })}
+                        {cell('Tax', l.taxPct > 0 ? `${l.taxPct}%` : '—', { color: '#64748b' })}
+                        {cell('Unit price', n(l.unitPrice), { fontFamily: 'Courier New' })}
+                        {cell('Total', n(l.lineTotal ?? (l.orderedQty * l.unitPrice)), { fontFamily: 'Courier New' })}
+                    </div>
+                </div>
+            );
+        })}
+    </div>
+);
+
 // ── Reusable label:value row ──────────────────────────────────
 const KV = ({ label, value, mono }) => !value ? null : (
     <div style={{ display: 'flex', gap: 6, marginBottom: 2.5, fontSize: 11 }}>
@@ -31,6 +83,7 @@ const KV = ({ label, value, mono }) => !value ? null : (
 // ═════════════════════════════════════════════════════════════
 const PoPrintModal3 = ({ po, onClose, preview, overBudget, infoOnly = false, statusLabel, onOpenFull }) => {
     const { company, loading: coLoading } = useOwnerCompany();
+    const isPhone = usePhone();
     const logoSrc = company?.logoPath ? getFileUrl(company.logoPath) : null;
     const { getSetting } = useLookup();
     const taxLabel = getSetting('Biz.Print.TAXLABEL', 'VAT');   // Company Settings → Print Formats
@@ -202,7 +255,7 @@ const PoPrintModal3 = ({ po, onClose, preview, overBudget, infoOnly = false, sta
                 )}
 
                 {/* ── 3. Quick info strip ── */}
-                <div style={{
+                <div className="po3-strip" style={{
                     display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
                     background: '#f8fafc', border: '1px solid #e2e8f0',
                     borderRadius: 4, marginBottom: 12, overflow: 'hidden',
@@ -230,7 +283,7 @@ const PoPrintModal3 = ({ po, onClose, preview, overBudget, infoOnly = false, sta
                 </div>
 
                 {/* ── 4. Supplier | Order Details ── */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr',
+                <div className="po3-cols2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr',
                                gap: 16, marginBottom: 12 }}>
                     <div>
                         <div style={{ fontSize: 9, fontWeight: 700, color: '#1e3a5f',
@@ -278,6 +331,8 @@ const PoPrintModal3 = ({ po, onClose, preview, overBudget, infoOnly = false, sta
                     <div style={{ textAlign: 'center', padding: '20px 0', color: '#64748b', fontSize: 13 }}>
                         Loading lines…
                     </div>
+                ) : infoOnly && isPhone ? (
+                    <PoLineCards lines={lines} />
                 ) : infoOnly ? (
                     /* Information view: every PO line as it actually is - received qty and line status included,
                        and NOT merged like the supplier print, so nothing is hidden. */
@@ -411,7 +466,7 @@ const PoPrintModal3 = ({ po, onClose, preview, overBudget, infoOnly = false, sta
                 {/* ── 6. Totals ── */}
                 <div className="po3-totals" style={{ display: 'flex', justifyContent: 'flex-end',
                                                       marginBottom: 12, marginTop: 0 }}>
-                    <div style={{ width: 300, border: '1px solid #e2e8f0',
+                    <div className="po3-totals-box" style={{ width: 300, border: '1px solid #e2e8f0',
                                   borderTop: 'none', borderRadius: '0 0 6px 6px',
                                   overflow: 'hidden' }}>
                         {/* Subtotal */}

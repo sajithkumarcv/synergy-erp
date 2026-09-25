@@ -228,7 +228,7 @@ const StockTransfer = () => {
                         </div>
                         <div className="po-toolbar">
                             <select className="po-select" value={pageSize} onChange={e => changePageSize(Number(e.target.value))}>
-                                {PAGE_SIZES.map(n => <option key={n} value={n}>{n} / page</option>)}
+                                {(window.matchMedia('(max-width:768px)').matches ? [10, 20, 50, 100, 200] : PAGE_SIZES).map(n => <option key={n} value={n}>{n} / page</option>)}
                             </select>
                             {canAdd && (
                                 <button className="po-btn-pri" onClick={() => setShowNew(true)}>+ New Transfer</button>
@@ -243,7 +243,7 @@ const StockTransfer = () => {
                             <div className="po-spinner"><div className="po-spinner-ring" /><span className="po-spinner-text">Loading…</span></div>
                         </div>
                     )}
-                    <table className={`po-table${loading ? ' po-tbl-loading' : ''}`}>
+                    <table className={`po-table rt-cards${loading ? ' po-tbl-loading' : ''}`}>
                         <thead>
                             <tr>
                                 <Th col="TransferNo">Transfer #</Th>
@@ -261,20 +261,20 @@ const StockTransfer = () => {
                                 const sCfg = statusBadgeCfg(getStatusConfig('STR', t.status));
                                 return (
                                     <tr key={t.transferId} className="po-row-link" onClick={() => navigate(`/inventory-transfer/${t.transferId}`)}>
-                                        <td><span className="po-num-link">{t.transferNo}</span></td>
-                                        <td>{fmtDate(t.transferDate)}</td>
-                                        <td>
+                                        <td data-label="Transfer #"><span className="po-num-link">{t.transferNo}</span></td>
+                                        <td data-label="Date">{fmtDate(t.transferDate)}</td>
+                                        <td data-label="From Job">
                                             <span style={{ fontFamily:'Courier New', fontSize:11, color:'#065f46', background:'#d1fae5', padding:'2px 6px', borderRadius:4 }}>
                                                 {t.fromJobId}
                                             </span>
                                         </td>
-                                        <td>
+                                        <td data-label="To Job">
                                             <span style={{ fontFamily:'Courier New', fontSize:11, color:'#1e40af', background:'#dbeafe', padding:'2px 6px', borderRadius:4 }}>
                                                 {t.toJobId}
                                             </span>
                                         </td>
-                                        <td style={{ color:'#64748b' }}>{t.lineCount}</td>
-                                        <td>
+                                        <td data-label="Lines" style={{ color:'#64748b' }}>{t.lineCount}</td>
+                                        <td data-label="Status">
                                             <span className="po-status-badge" style={{ background:sCfg.bg, color:sCfg.color }}>
                                                 <span className="po-status-dot" style={{ background:sCfg.dot }} />
                                                 {sCfg.label}

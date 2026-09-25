@@ -354,7 +354,7 @@ const PaymentVoucher = () => {
                         </div>
                         <div className="po-toolbar">
                             <select className="po-select" value={pageSize} onChange={e => changePageSize(Number(e.target.value))}>
-                                {PAGE_SIZES.map(n => <option key={n} value={n}>{n} / page</option>)}
+                                {(window.matchMedia('(max-width:768px)').matches ? [10, 20, 50, 100, 200] : PAGE_SIZES).map(n => <option key={n} value={n}>{n} / page</option>)}
                             </select>
                             {canAdd && <button className="po-btn-pri" onClick={() => setShowForm(true)}>+ New Payment</button>}
                         </div>
@@ -368,7 +368,7 @@ const PaymentVoucher = () => {
                 )}
                 <div className="po-table-wrap">
                     {loading && <div className="po-loading-overlay"><div className="po-spinner"><div className="po-spinner-ring" /><span className="po-spinner-text">Loading…</span></div></div>}
-                    <table className={`po-table${loading ? ' po-tbl-loading' : ''}`}>
+                    <table className={`po-table rt-cards${loading ? ' po-tbl-loading' : ''}`}>
                         <thead>
                             <tr>
                                 <Th col="PvNumber">PV No</Th>
@@ -390,17 +390,17 @@ const PaymentVoucher = () => {
                                 const ccy = r.currencyShort || '';
                                 return (
                                 <tr key={r.pvId}>
-                                    <td><span className="po-num-link" onClick={() => navigate(`/payment-vouchers/${r.pvId}`)}>{r.pvNumber}</span></td>
-                                    <td>{fmtDate(r.pvDate)}</td>
-                                    <td style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.supplierName || '—'}</td>
-                                    <td style={{ textAlign: 'center' }}>
+                                    <td data-label="PV No"><span className="po-num-link" onClick={() => navigate(`/payment-vouchers/${r.pvId}`)}>{r.pvNumber}</span></td>
+                                    <td data-label="Date">{fmtDate(r.pvDate)}</td>
+                                    <td data-label="Supplier" style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.supplierName || '—'}</td>
+                                    <td data-label="Ccy" style={{ textAlign: 'center' }}>
                                         {ccy && <span style={{ fontSize: 10.5, fontWeight: 700, color: '#1e40af', background: '#eff6ff', padding: '2px 7px', borderRadius: 10 }}>{ccy}</span>}
                                     </td>
-                                    <td className="po-num-cell">{fmt(r.amountPaid)}</td>
-                                    <td className="po-num-cell" style={{ color: Number(r.allocatedAmount) > 0 ? '#0f766e' : '#94a3b8' }}>
+                                    <td data-label="Amount Paid" className="po-num-cell">{fmt(r.amountPaid)}</td>
+                                    <td data-label="Allocated" className="po-num-cell" style={{ color: Number(r.allocatedAmount) > 0 ? '#0f766e' : '#94a3b8' }}>
                                         {Number(r.allocatedAmount) > 0 ? fmt(r.allocatedAmount) : '—'}
                                     </td>
-                                    <td className="po-num-cell" style={{
+                                    <td data-label="Balance" className="po-num-cell" style={{
                                         color: r.unallocatedAmount == null ? '#94a3b8'
                                              : Number(r.unallocatedAmount) <= 0 ? '#166534'
                                              : '#b45309',
@@ -408,9 +408,9 @@ const PaymentVoucher = () => {
                                     }}>
                                         {r.unallocatedAmount == null ? '—' : fmt(r.unallocatedAmount)}
                                     </td>
-                                    <td style={{ fontSize: 11, color: '#475569' }}>{r.paymentMode || '—'}</td>
-                                    <td><StatusBadge s={r.status} /></td>
-                                    <td><button className="po-act-btn po-act-open" onClick={() => navigate(`/payment-vouchers/${r.pvId}`)}>Open</button></td>
+                                    <td data-label="Mode" style={{ fontSize: 11, color: '#475569' }}>{r.paymentMode || '—'}</td>
+                                    <td data-label="Status"><StatusBadge s={r.status} /></td>
+                                    <td data-label="Actions"><button className="po-act-btn po-act-open" onClick={() => navigate(`/payment-vouchers/${r.pvId}`)}>Open</button></td>
                                 </tr>
                                 );
                             })}

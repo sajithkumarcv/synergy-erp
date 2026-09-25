@@ -495,3 +495,72 @@
 /* ── Utility ─────────────────────────────────────────────────── */
 .modal          { z-index: 1055; }
 .modal-backdrop { z-index: 1050; }
+
+/* ══════════════════════════════════════════════════════════════════
+   Phone layout (<= 768px)
+   Desktop is unchanged: the hamburger, backdrop and Filters button are
+   hidden by default and only appear here.
+   ══════════════════════════════════════════════════════════════════ */
+.erp-hamburger, .fp-mobile-toggle, .erp-backdrop { display: none; }
+
+@media (max-width: 768px) {
+  /* Header: keep logo, bell, avatar, logout; drop the rest */
+  .erp-header { padding: 0 8px; height: 52px; }
+  .erp-header-left  { gap: 6px; min-width: 0; }
+  .erp-header-right { gap: 6px; }
+  .erp-header-center, .erp-user-info, .erp-help, .erp-brand-divider,
+  .erp-header-divider, .erp-company, .theme-picker-wrap { display: none !important; }
+  .erp-logo-chip { width: 34px; height: 34px; }
+  .erp-logo-chip--wide img { max-width: 110px; }
+  .erp-logout { padding: 6px 10px; font-size: 12px; }
+  .erp-hamburger {
+    display: inline-grid; place-items: center; width: 40px; height: 40px; flex-shrink: 0;
+    background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.28);
+    color: var(--header-text, #fff); border-radius: 9px; cursor: pointer;
+  }
+
+  /* Side menu -> slide-in drawer */
+  .erp-sidenav {
+    position: fixed; top: 52px; bottom: 0; left: 0; z-index: 320;
+    width: 82vw; max-width: 300px;
+    transform: translateX(-102%); transition: transform .22s ease;
+    box-shadow: 4px 0 24px rgba(15,23,42,.25);
+  }
+  .erp-shell.nav-open .erp-sidenav { transform: none; }
+  .menu-single, .menu-header, .menu-item, .menu-subheader, .menu-subitem { min-height: 44px; }
+
+  /* Dim the page behind an open drawer / sheet */
+  .erp-backdrop {
+    display: block; position: fixed; inset: 52px 0 0 0; z-index: 310;
+    background: rgba(15,23,42,.45); opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  .erp-shell.nav-open .erp-backdrop,
+  .erp-shell.filter-open .erp-backdrop { opacity: 1; pointer-events: auto; }
+
+  /* Filter panel -> slide-up sheet with a floating button */
+  .erp-filterpanel {
+    position: fixed; left: 0; right: 0; bottom: 0; top: auto; z-index: 330;
+    width: auto; max-height: 78vh; border-right: none;
+    border-radius: 16px 16px 0 0; box-shadow: 0 -8px 30px rgba(15,23,42,.3);
+    transform: translateY(105%); transition: transform .24s ease;
+  }
+  .erp-filterpanel.mobile-open { transform: none; }
+  .fp-mobile-toggle {
+    display: inline-flex; align-items: center; gap: 6px;
+    position: fixed; right: 14px; bottom: 16px; z-index: 305;
+    padding: 11px 16px; border-radius: 999px; border: none; cursor: pointer;
+    background: var(--primary, #2e5fa3); color: #fff; font-size: 14px; font-weight: 600;
+    box-shadow: 0 6px 18px rgba(15,23,42,.35);
+  }
+  .erp-shell.filter-open .fp-mobile-toggle { display: none; }
+  .fp-apply { min-height: 44px; font-size: 15px; }
+
+  /* Content */
+  .erp-main { padding: 10px 10px 76px; }   /* bottom room so the Filters button never covers the last row */
+  .erp-page-title-bar { margin-bottom: 8px; }
+
+  /* 16px inputs stop iOS Safari zooming in when a field is focused */
+  .erp-main input:not([type=checkbox]):not([type=radio]),
+  .erp-main select, .erp-main textarea,
+  .erp-filterpanel input, .erp-filterpanel select { font-size: 16px; }
+}

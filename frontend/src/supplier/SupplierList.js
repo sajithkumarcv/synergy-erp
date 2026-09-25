@@ -407,7 +407,7 @@ const SupplierList = () => {
                         </div>
                         <div className="supp-toolbar">
                             <select className="filter-select" style={{ width: 110 }} value={pageSize} onChange={e => changePageSize(Number(e.target.value))}>
-                                {PAGE_SIZES.map(n => <option key={n} value={n}>{n} / page</option>)}
+                                {(window.matchMedia('(max-width:768px)').matches ? [10, 20, 50, 100, 200] : PAGE_SIZES).map(n => <option key={n} value={n}>{n} / page</option>)}
                             </select>
                             {canAdd && <button className="btn-pri" onClick={() => setShowCreate(true)}>+ Add Supplier</button>}
                         </div>
@@ -423,7 +423,7 @@ const SupplierList = () => {
                             </div>
                         </div>
                     )}
-                    <table className={`supp-table${loading ? ' tbl-loading' : ''}`}>
+                    <table className={`supp-table rt-cards${loading ? ' tbl-loading' : ''}`}>
                         <thead><tr>
                             <Th col="SupplierCode">Code</Th>
                             <Th col="SupplierName">Supplier Name</Th>
@@ -441,24 +441,24 @@ const SupplierList = () => {
                                 ? <tr><td colSpan="10" className="sub-empty">No suppliers found. Use filters on the left to search.</td></tr>
                                 : rows.map(supp => (
                                     <tr key={supp.supplierId}>
-                                        <td className="td-code">
+                                        <td data-label="Code" className="td-code">
                                             <RowLink className="supp-name-link" style={{ display: 'block' }} to={`/suppliers/${supp.supplierId}`}>
                                                 {supp.supplierCode}
                                             </RowLink>
                                         </td>
-                                        <td className="td-name">
+                                        <td data-label="Supplier Name" className="td-name">
                                             <RowLink className="supp-name-link" style={{ display: 'block' }} to={`/suppliers/${supp.supplierId}`}>
                                                 {supp.supplierName}
                                             </RowLink>
                                         </td>
-                                        <td>{supp.supplierType || '—'}</td>
-                                        <td>{supp.supplierCategoryName || '—'}</td>
-                                        <td>{supp.mobile || '—'}</td>
-                                        <td className="td-email">{supp.email || '—'}</td>
-                                        <td className="td-num">{supp.creditLimit != null ? fmt(supp.creditLimit) : '—'}</td>
-                                        <td>{supp.accountManager || '—'}</td>
-                                        <td><span className={`pill ${supp.isActive ? 'pill-green' : 'pill-red'}`}>{supp.statusLabel || (supp.isActive ? 'Active' : 'Inactive')}</span></td>
-                                        <td className="td-actions">
+                                        <td data-label="Type">{supp.supplierType || '—'}</td>
+                                        <td data-label="Category">{supp.supplierCategoryName || '—'}</td>
+                                        <td data-label="Mobile">{supp.mobile || '—'}</td>
+                                        <td data-label="Email" className="td-email">{supp.email || '—'}</td>
+                                        <td data-label="Credit Limit" className="td-num">{supp.creditLimit != null ? fmt(supp.creditLimit) : '—'}</td>
+                                        <td data-label="Account Manager">{supp.accountManager || '—'}</td>
+                                        <td data-label="Status"><span className={`pill ${supp.isActive ? 'pill-green' : 'pill-red'}`}>{supp.statusLabel || (supp.isActive ? 'Active' : 'Inactive')}</span></td>
+                                        <td data-label="Actions" className="td-actions">
                                             <RowLink className="act-btn act-edit" to={`/suppliers/${supp.supplierId}`}>Open</RowLink>
                                         </td>
                                     </tr>

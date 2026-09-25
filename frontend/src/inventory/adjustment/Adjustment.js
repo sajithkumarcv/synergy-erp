@@ -217,7 +217,7 @@ export const Adjustment = () => {
                         <div className="po-toolbar">
                             {error && <span style={{ fontSize: 12, color: '#dc2626', marginRight: 8 }}>{error}</span>}
                             <select className="po-select" value={pageSize} onChange={e => changePageSize(Number(e.target.value))}>
-                                {PAGE_SIZES.map(n => <option key={n} value={n}>{n} / page</option>)}
+                                {(window.matchMedia('(max-width:768px)').matches ? [10, 20, 50, 100, 200] : PAGE_SIZES).map(n => <option key={n} value={n}>{n} / page</option>)}
                             </select>
                             {canAdd && (
                                 <button className="po-btn-pri" onClick={createOpeningStock} disabled={creating}
@@ -242,7 +242,7 @@ export const Adjustment = () => {
                             <div className="po-spinner"><div className="po-spinner-ring" /><span className="po-spinner-text">Loading…</span></div>
                         </div>
                     )}
-                    <table className={`po-table${loading ? ' po-tbl-loading' : ''}`}>
+                    <table className={`po-table rt-cards${loading ? ' po-tbl-loading' : ''}`}>
                         <thead>
                             <tr>
                                 <Th col="AdjustmentNo">Adj #</Th>
@@ -260,14 +260,14 @@ export const Adjustment = () => {
                                 <tr><td colSpan={8} className="po-empty">No adjustments found.</td></tr>
                             ) : rows.map(r => (
                                 <tr key={r.adjustmentId}>
-                                    <td><RowLink className="po-num-link" to={`/inventory-adjustment/${r.adjustmentId}`}>{r.adjustmentNo}</RowLink></td>
-                                    <td>{fmtDate(r.adjustmentDate)}</td>
-                                    <td style={{ fontSize: 12, color: '#475569' }}>{r.reason || <span style={{ color: '#94a3b8' }}>—</span>}</td>
-                                    <td style={{ textAlign: 'center' }}>{r.lineCount}</td>
-                                    <td className="po-num-cell" style={{ fontWeight: 600 }}>{fmt(r.totalValue)}</td>
-                                    <td><StatusBadge status={r.status} /></td>
-                                    <td style={{ fontSize: 11, color: '#64748b' }}>{r.createdBy || '—'}</td>
-                                    <td><RowLink className="po-act-btn po-act-open" to={`/inventory-adjustment/${r.adjustmentId}`}>Open</RowLink></td>
+                                    <td data-label="Adj #"><RowLink className="po-num-link" to={`/inventory-adjustment/${r.adjustmentId}`}>{r.adjustmentNo}</RowLink></td>
+                                    <td data-label="Date">{fmtDate(r.adjustmentDate)}</td>
+                                    <td data-label="Reason" style={{ fontSize: 12, color: '#475569' }}>{r.reason || <span style={{ color: '#94a3b8' }}>—</span>}</td>
+                                    <td data-label="Lines" style={{ textAlign: 'center' }}>{r.lineCount}</td>
+                                    <td data-label="Value" className="po-num-cell" style={{ fontWeight: 600 }}>{fmt(r.totalValue)}</td>
+                                    <td data-label="Status"><StatusBadge status={r.status} /></td>
+                                    <td data-label="Created By" style={{ fontSize: 11, color: '#64748b' }}>{r.createdBy || '—'}</td>
+                                    <td data-label="Actions"><RowLink className="po-act-btn po-act-open" to={`/inventory-adjustment/${r.adjustmentId}`}>Open</RowLink></td>
                                 </tr>
                             ))}
                         </tbody>

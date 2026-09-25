@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, Outlet, useNavigate, useLocation } from 'react-router-dom';
+import ErrorBoundary from './ErrorBoundary';
+import { NotFoundPage } from './ErrorPage';
 import { variables, authHeaders } from './Variable';
 import { useAuth } from './AuthContext';
 import { useFilters } from './FilterContext';
@@ -314,7 +316,9 @@ const SearchableSelectFilter = ({ value, onChange, placeholder, search, options 
   );
 };
 
-const FilterPanel = () => {
+// `mobileOpen` / `onMobileToggle` only matter on phones (<=768px), where the panel is a slide-up
+// sheet opened from a floating "Filters" button; on desktop the panel is always visible as before.
+const FilterPanel = ({ mobileOpen = false, onMobileToggle = () => {} }) => {
   const { activePage, filterDefs, filterValues, setFilter, applyFilters, clearFilters, activeCount } = useFilters();
   const [openGroups, setOpenGroups] = useState({});
   const page   = activePage;
@@ -328,7 +332,11 @@ const FilterPanel = () => {
   if (!page || !filterDefs[page]) return null;
   const toggleGroup = (key) => setOpenGroups(prev => ({ ...prev, [key]: !prev[key] }));
   return (
-    <div className="erp-filterpanel">
+    <>
+    <button type="button" className="fp-mobile-toggle" onClick={onMobileToggle}>
+      <Icon name="filter" /> Filters{count > 0 && <span className="fp-count-badge">{count}</span>}
+    </button>
+    <div className={`erp-filterpanel${mobileOpen ? ' mobile-open' : ''}`}>
       <div className="fp-header">
         <span className="fp-title">
           <Icon name="filter" /> Filters
@@ -424,9 +432,10 @@ const FilterPanel = () => {
         })}
       </div>
       <div className="fp-footer">
-        <button className="fp-apply" onClick={() => applyFilters(page)}>Apply Filters</button>
+        <button className="fp-apply" onClick={() => { applyFilters(page); if (mobileOpen) onMobileToggle(); }}>Apply Filters</button>
       </div>
     </div>
+    </>
   );
 };
 
@@ -591,19 +600,19 @@ const PageTitle = () => {
 
 // Old settings URLs that were merged into /settings/password-manage.
 // Redirect these BEFORE the permission check so old bookmarks don't hit
-// Access-Denied (their menu rows no longer exist / are inactive).
+// Access-Denied (their menu rows no longer exist / are inactive). They are real <Route>s (see Layout)
+// because any URL that matches no route now lands on the Not-Found page.
 const LEGACY_REDIRECTS = {
   '/settings/budget-password':         '/settings/password-manage?tab=budget',
   '/settings/invoice-revise-password': '/settings/password-manage?tab=invoice',
 };
 
-// ── RouteGuard — blocks direct URL access to screens not in the user's menus ─
-const RouteGuard = ({ children }) => {
+// ── RouteGuard — layout route that blocks direct URL access to screens not in the user's menus ─
+// Only URLs that match a real screen get here; a URL matching nothing goes to the catch-all Not-Found route.
+const RouteGuard = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { canAccessPath, loaded } = usePermission();
-
-  const legacy = LEGACY_REDIRECTS[location.pathname];
-  if (legacy) return <Navigate to={legacy} replace />;
 
   // While permissions are still loading show a spinner (prevents false
   // Access-Denied flash and gives visual feedback during the initial fetch).
@@ -629,11 +638,15 @@ const RouteGuard = ({ children }) => {
         <div style={{ fontSize: 40 }}>🔒</div>
         <div style={{ fontSize: 16, fontWeight: 600, color: '#1e293b' }}>Access Denied</div>
         <div style={{ fontSize: 13 }}>You do not have permission to view this page.</div>
+        <button onClick={() => navigate('/')}
+          style={{ marginTop: 6, padding: '9px 20px', minHeight: 40, borderRadius: 8, border: 'none', background: '#1e40af', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+          Go to Dashboard
+        </button>
       </div>
     );
   }
 
-  return children;
+  return <Outlet />;
 };
 
 // ── Client company name in the header centre (read-only display) ──────────────
@@ -657,6 +670,13 @@ const Layout = () => {
   const { auth, logout } = useAuth();
   const navigate = useNavigate();
   const initials = (auth?.fullName || auth?.username || 'U').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+  const location = useLocation();
+
+  // Phone layout: the side menu is a slide-in drawer and the filter panel a slide-up sheet.
+  // Both close on navigation. (No effect on desktop — the CSS only reacts to these classes <=768px.)
+  const [navOpen,    setNavOpen]    = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+  useEffect(() => { setNavOpen(false); setFilterOpen(false); }, [location.pathname]);
 
   const handleLogout = () => {
     logout();
@@ -664,9 +684,14 @@ const Layout = () => {
   };
 
   return (
-    <div className="erp-shell">
+    <div className={`erp-shell${navOpen ? ' nav-open' : ''}${filterOpen ? ' filter-open' : ''}`}>
       <header className="erp-header">
         <div className="erp-header-left">
+          <button type="button" className="erp-hamburger" aria-label="Menu" onClick={() => setNavOpen(o => !o)}>
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M4 7h16M4 12h16M4 17h16" />
+            </svg>
+          </button>
           <span className="erp-logo-chip" title="PMS">
             <img src="/branding/default/logo.svg" alt="PMS" />
           </span>
@@ -705,12 +730,17 @@ const Layout = () => {
         </div>
       </header>
       <div className="erp-body">
+        <div className="erp-backdrop" onClick={() => { setNavOpen(false); setFilterOpen(false); }} />
         <SideNav />
-        <FilterPanel />
+        <FilterPanel mobileOpen={filterOpen} onMobileToggle={() => setFilterOpen(o => !o)} />
         <main className="erp-main">
           <PageTitle />
-          <RouteGuard>
+          <ErrorBoundary resetKey={location.pathname}>
           <Routes>
+            {Object.entries(LEGACY_REDIRECTS).map(([from, to]) => (
+              <Route key={from} path={from} element={<Navigate to={to} replace />} />
+            ))}
+            <Route element={<RouteGuard />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/country"          element={<Country />} />
             <Route path="/user-management"                          element={<UserManagement />} />
@@ -836,8 +866,11 @@ const Layout = () => {
             <Route path="/settings/user-groups"             element={<UserGroups />} />
             <Route path="/settings/email-alerts"            element={<EmailAlertConfig />} />
             <Route path="/settings/alert-logs"              element={<AlertLogs />} />
+            </Route>
+            {/* Any URL that matches no screen above */}
+            <Route path="*" element={<NotFoundPage />} />
           </Routes>
-          </RouteGuard>
+          </ErrorBoundary>
         </main>
       </div>
     </div>

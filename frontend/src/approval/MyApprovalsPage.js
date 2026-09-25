@@ -117,6 +117,7 @@ const useIsMobile = (bp = 768) => {
 // Used by both the desktop expanded row and the mobile card, so the approve
 // logic lives in exactly one place.
 const ActionPanel = ({ item, busy, onAction }) => {
+    const isMobile = useIsMobile();
     const [remarks,  setRemarks]  = useState('');
     const [password, setPassword] = useState('');
     // Remembered purely so the busy overlay can say "Approving…" vs
@@ -153,9 +154,9 @@ const ActionPanel = ({ item, busy, onAction }) => {
                 value={remarks}
                 onChange={e => setRemarks(e.target.value)}
                 placeholder="Remarks (optional for approve, recommended for reject)…"
-                rows={2}
+                rows={isMobile ? 3 : 2}
                 disabled={busy}
-                style={{ width: '100%', boxSizing: 'border-box', fontSize: 12.5, padding: '7px 10px',
+                style={{ width: '100%', boxSizing: 'border-box', fontSize: isMobile ? 16 : 12.5, padding: isMobile ? '10px 12px' : '7px 10px',
                          border: '1px solid #cbd5e1', borderRadius: 6, resize: 'vertical', fontFamily: 'inherit' }}
             />
             <div style={{ marginTop: 8, marginBottom: 8 }}>
@@ -170,15 +171,19 @@ const ActionPanel = ({ item, busy, onAction }) => {
                     placeholder="Enter your login password…"
                     disabled={busy}
                     onKeyDown={e => { if (e.key === 'Enter' && password.trim()) { setPendingAction('Approve'); onAction(item, 'Approve', remarks, null, false, password.trim()); } }}
-                    style={{ width: '100%', boxSizing: 'border-box', fontSize: 12.5, padding: '7px 10px',
+                    style={{ width: '100%', boxSizing: 'border-box', fontSize: isMobile ? 16 : 12.5, padding: isMobile ? '11px 12px' : '7px 10px',
                              border: '1px solid #bfdbfe', borderRadius: 6, fontFamily: 'inherit' }}
                 />
             </div>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            {/* Phone: full-width, thumb-sized buttons with Approve on top (column-reverse flips the DOM order) */}
+            <div style={isMobile
+                ? { display: 'flex', flexDirection: 'column-reverse', gap: 10 }
+                : { display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                 <button
                     onClick={() => { setPendingAction('Reject'); onAction(item, 'Reject', remarks); }}
                     disabled={busy}
-                    style={{ padding: '8px 16px', fontSize: 12.5, fontWeight: 600, borderRadius: 6,
+                    style={{ padding: isMobile ? '13px 16px' : '8px 16px', minHeight: isMobile ? 48 : undefined,
+                             fontSize: isMobile ? 15 : 12.5, fontWeight: 600, borderRadius: 6,
                              border: '1px solid #fca5a5', background: '#fee2e2', color: '#991b1b',
                              cursor: busy ? 'not-allowed' : 'pointer' }}>
                     {busy ? '…' : '✗ Reject'}
@@ -186,7 +191,8 @@ const ActionPanel = ({ item, busy, onAction }) => {
                 <button
                     onClick={() => { setPendingAction('Approve'); onAction(item, 'Approve', remarks, null, false, password.trim()); }}
                     disabled={busy}
-                    style={{ padding: '8px 16px', fontSize: 12.5, fontWeight: 600, borderRadius: 6,
+                    style={{ padding: isMobile ? '13px 16px' : '8px 16px', minHeight: isMobile ? 48 : undefined,
+                             fontSize: isMobile ? 15 : 12.5, fontWeight: 600, borderRadius: 6,
                              border: 'none', background: '#16a34a', color: '#fff',
                              cursor: busy ? 'not-allowed' : 'pointer' }}>
                     {busy ? '…' : '✓ Approve'}
@@ -197,8 +203,10 @@ const ActionPanel = ({ item, busy, onAction }) => {
 };
 
 // ── Expanded detail (document summary + open button + action form) ────────
-const ExpandedDetail = ({ item, route, busy, onOpen, onAction }) => (
-    <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, padding: 14 }}>
+const ExpandedDetail = ({ item, route, busy, onOpen, onAction }) => {
+    const isMobile = useIsMobile();
+    return (
+    <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, padding: isMobile ? 12 : 14 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
             <div style={{ fontSize: 12.5, color: '#475569', lineHeight: 1.8 }}>
                 <div><strong>Document:</strong> {item.documentNo}
@@ -217,13 +225,15 @@ const ExpandedDetail = ({ item, route, busy, onOpen, onAction }) => (
             <button className="po-act-btn po-act-open"
                     disabled={!route}
                     onClick={() => onOpen(item)}
+                    style={isMobile ? { width: '100%', minHeight: 44 } : undefined}
                     title={route ? 'Open the full document page' : 'No detail page available for this module'}>
                 Open full document →
             </button>
         </div>
         <ActionPanel item={item} busy={busy} onAction={onAction} />
     </div>
-);
+    );
+};
 
 // ── Approval card (mobile) ────────────────────────────────────────────────
 const ApprovalCard = ({ item, meta, expanded, onToggle, onOpen, onAction, acting, selected, onSelect, onPreview }) => {
@@ -235,12 +245,12 @@ const ApprovalCard = ({ item, meta, expanded, onToggle, onOpen, onAction, acting
             borderRadius: 8, padding: 12, marginBottom: 10, background: item.canAct ? '#fff' : '#fafafa',
             opacity: item.canAct ? 1 : 0.75,
         }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
                 {item.canAct && (
                     <input type="checkbox" checked={selected} onChange={() => onSelect(item.transactionId)}
-                           style={{ width: 16, height: 16, cursor: 'pointer', accentColor: '#16a34a', flexShrink: 0 }} />
+                           style={{ width: 22, height: 22, cursor: 'pointer', accentColor: '#16a34a', flexShrink: 0 }} />
                 )}
-                <span onClick={() => onToggle(item)} style={{ fontWeight: 700, color: '#1d4ed8', fontSize: 14, flex: 1 }}>
+                <span onClick={() => onToggle(item)} style={{ fontWeight: 700, color: '#1d4ed8', fontSize: 14, flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}>
                     {item.documentNo}
                     {item.supplierName && (
                         <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', marginTop: 1 }}>{item.supplierName}</div>
@@ -278,10 +288,10 @@ const ApprovalCard = ({ item, meta, expanded, onToggle, onOpen, onAction, acting
 
             <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                 <button onClick={() => onPreview(item)}
-                        style={{ flex: '0 0 auto', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 6, padding: '7px 12px', fontSize: 13, cursor: 'pointer' }}>
+                        style={{ flex: '0 0 auto', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 6, padding: '10px 14px', minHeight: 44, fontSize: 14, cursor: 'pointer' }}>
                     👁 Preview
                 </button>
-                <button className="po-act-btn po-act-open" style={{ flex: 1 }} onClick={() => onToggle(item)}>
+                <button className="po-act-btn po-act-open" style={{ flex: 1, minHeight: 44, fontSize: 14 }} onClick={() => onToggle(item)}>
                     {expanded ? 'Close' : 'Review'}
                 </button>
             </div>
@@ -598,6 +608,7 @@ const CategorySection = ({ moduleCode, items, onOpen, onToggle, onAction, expand
 
 // ── Bulk action bar ───────────────────────────────────────────────────────
 const BulkBar = ({ count, allActionableCount, onSelectAll, onClearAll, onApprove, busy, progress }) => {
+    const isMobile = useIsMobile();
     const [remarks,    setRemarks]    = useState('');
     const [showPwModal, setShowPwModal] = useState(false);
 
@@ -605,11 +616,11 @@ const BulkBar = ({ count, allActionableCount, onSelectAll, onClearAll, onApprove
         <div style={{
             position: 'sticky', top: 0, zIndex: 100,
             background: '#f0fdf4', border: '1px solid #86efac',
-            borderRadius: 10, padding: '12px 16px', marginBottom: 14,
+            borderRadius: 10, padding: isMobile ? '10px 12px' : '12px 16px', marginBottom: 14,
             display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10,
             boxShadow: '0 4px 16px rgba(22,163,74,0.15)',
         }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, flexShrink: 0 }}>
                 <span style={{ fontSize: 18 }}>✅</span>
                 <span style={{ fontWeight: 700, fontSize: 13.5, color: '#166534' }}>
                     {count} item{count !== 1 ? 's' : ''} selected
@@ -632,7 +643,8 @@ const BulkBar = ({ count, allActionableCount, onSelectAll, onClearAll, onApprove
                 placeholder="Common remarks for all (optional)…"
                 disabled={busy}
                 style={{
-                    flex: 1, minWidth: 200, fontSize: 12.5, padding: '6px 10px',
+                    flex: 1, minWidth: isMobile ? '100%' : 200, boxSizing: 'border-box',
+                    fontSize: isMobile ? 16 : 12.5, padding: isMobile ? '10px 12px' : '6px 10px',
                     border: '1px solid #86efac', borderRadius: 6, background: '#fff',
                     fontFamily: 'inherit',
                 }}
@@ -651,11 +663,11 @@ const BulkBar = ({ count, allActionableCount, onSelectAll, onClearAll, onApprove
                 onClick={() => setShowPwModal(true)}
                 disabled={busy}
                 style={{
-                    padding: '8px 20px', borderRadius: 7, border: 'none',
+                    padding: isMobile ? '13px 20px' : '8px 20px', borderRadius: 7, border: 'none',
                     background: busy ? '#86efac' : '#16a34a', color: '#fff',
-                    fontWeight: 700, fontSize: 13, cursor: busy ? 'default' : 'pointer',
-                    flexShrink: 0, display: 'flex', alignItems: 'center', gap: 7,
-                    whiteSpace: 'nowrap',
+                    fontWeight: 700, fontSize: isMobile ? 15 : 13, cursor: busy ? 'default' : 'pointer',
+                    flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                    whiteSpace: 'nowrap', width: isMobile ? '100%' : undefined, minHeight: isMobile ? 48 : undefined,
                 }}>
                 {busy ? (
                     <>
@@ -674,6 +686,7 @@ const BulkBar = ({ count, allActionableCount, onSelectAll, onClearAll, onApprove
 
 // ─────────────────────────────────────────────────────────────────────────
 const MyApprovalsPage = () => {
+    const isMobile = useIsMobile();
     const navigate    = useNavigate();
     const userId      = useCurrentUserId();
     const currentUser = useCurrentUser();
@@ -952,7 +965,7 @@ const MyApprovalsPage = () => {
             {confirm && <ConfirmModal {...confirm} onClose={() => setConfirm(null)} />}
             <div className="po-grid-wrap">
                 <div className="po-grid-header">
-                    <div className="po-title-row">
+                    <div className="po-title-row" style={isMobile ? { flexDirection: 'column', alignItems: 'stretch', gap: 10 } : undefined}>
                         <div>
                             <div className="po-page-title">My Approvals</div>
                             <div className="po-page-sub">
@@ -964,15 +977,15 @@ const MyApprovalsPage = () => {
                             </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <div style={{ position: 'relative' }}>
+                            <div style={{ position: 'relative', flex: isMobile ? 1 : undefined }}>
                                 <input
                                     value={quickFind}
                                     onChange={e => setQuickFind(e.target.value)}
-                                    placeholder="Find PO / PR no., submitter, amount…"
-                                    autoFocus
+                                    placeholder={isMobile ? 'Find no., submitter, amount…' : 'Find PO / PR no., submitter, amount…'}
+                                    autoFocus={!isMobile}   /* no auto-focus on a phone: it pops the keyboard over the list */
                                     style={{
-                                        width: 260, boxSizing: 'border-box',
-                                        padding: '6px 26px 6px 30px', fontSize: 12.5,
+                                        width: isMobile ? '100%' : 260, boxSizing: 'border-box',
+                                        padding: isMobile ? '10px 28px 10px 32px' : '6px 26px 6px 30px', fontSize: isMobile ? 16 : 12.5,
                                         border: '1px solid #cbd5e1', borderRadius: 6,
                                         fontFamily: 'inherit', outline: 'none',
                                     }}
@@ -1001,7 +1014,7 @@ const MyApprovalsPage = () => {
                                 if (count === 0) return null;
                                 return (
                                     <div key={m.code} style={{
-                                        flex: '0 0 auto', minWidth: 140,
+                                        flex: isMobile ? '1 1 calc(50% - 5px)' : '0 0 auto', minWidth: isMobile ? 0 : 140, boxSizing: 'border-box',
                                         background: m.bg, border: `1px solid ${m.color}30`,
                                         borderLeft: `4px solid ${m.color}`,
                                         borderRadius: 8, padding: '10px 14px',

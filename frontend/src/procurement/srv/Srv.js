@@ -268,7 +268,7 @@ export const Srv = () => {
                         </div>
                         <div className="po-toolbar">
                             <select className="po-select" value={pageSize} onChange={e => changePageSize(Number(e.target.value))}>
-                                {PAGE_SIZES.map(n => <option key={n} value={n}>{n} / page</option>)}
+                                {(window.matchMedia('(max-width:768px)').matches ? [10, 20, 50, 100, 200] : PAGE_SIZES).map(n => <option key={n} value={n}>{n} / page</option>)}
                             </select>
                             {canAdd && <button className="po-btn-pri" onClick={() => setShowForm(true)}>+ New SRV</button>}
                         </div>
@@ -281,7 +281,7 @@ export const Srv = () => {
                             <div className="po-spinner"><div className="po-spinner-ring" /><span className="po-spinner-text">Loading…</span></div>
                         </div>
                     )}
-                    <table className={`po-table${loading ? ' po-tbl-loading' : ''}`}>
+                    <table className={`po-table rt-cards${loading ? ' po-tbl-loading' : ''}`}>
                         <thead>
                             <tr>
                                 <Th col="SrvNo">SRV #</Th>
@@ -300,23 +300,23 @@ export const Srv = () => {
                                 <tr><td colSpan={9} className="po-empty">No service receipts found.</td></tr>
                             ) : rows.map(r => (
                                 <tr key={r.srvId}>
-                                    <td><RowLink className="po-num-link" to={`/service-receipts/${r.srvId}`}>{r.srvNo}</RowLink></td>
-                                    <td>{fmtDate(r.srvDate)}</td>
-                                    <td>
+                                    <td data-label="SRV #"><RowLink className="po-num-link" to={`/service-receipts/${r.srvId}`}>{r.srvNo}</RowLink></td>
+                                    <td data-label="Date">{fmtDate(r.srvDate)}</td>
+                                    <td data-label="PO #">
                                         {r.poNumber
                                             ? <span style={{ fontFamily: 'Courier New', fontSize: 11, color: '#1e40af', background: '#dbeafe', padding: '2px 6px', borderRadius: 4 }}>{r.poNumber}</span>
                                             : <span style={{ color: '#94a3b8' }}>—</span>}
                                     </td>
-                                    <td>
+                                    <td data-label="Job">
                                         {r.jobId
                                             ? <span style={{ fontFamily: 'Courier New', fontSize: 11, color: '#0f766e', background: '#ccfbf1', padding: '2px 6px', borderRadius: 4 }}>{r.jobId}</span>
                                             : <span style={{ color: '#94a3b8' }}>—</span>}
                                     </td>
-                                    <td>{r.supplierName || '—'}</td>
-                                    <td><StatusBadge status={r.status} /></td>
-                                    <td style={{ textAlign: 'center', color: '#475569' }}>{r.lineCount}</td>
-                                    <td className="po-num-cell">{fmt(r.totalCost)}</td>
-                                    <td><RowLink className="po-act-btn po-act-open" to={`/service-receipts/${r.srvId}`}>Open</RowLink></td>
+                                    <td data-label="Supplier / Vendor">{r.supplierName || '—'}</td>
+                                    <td data-label="Status"><StatusBadge status={r.status} /></td>
+                                    <td data-label="Lines" style={{ textAlign: 'center', color: '#475569' }}>{r.lineCount}</td>
+                                    <td data-label="Total Cost" className="po-num-cell">{fmt(r.totalCost)}</td>
+                                    <td data-label="Actions"><RowLink className="po-act-btn po-act-open" to={`/service-receipts/${r.srvId}`}>Open</RowLink></td>
                                 </tr>
                             ))}
                         </tbody>

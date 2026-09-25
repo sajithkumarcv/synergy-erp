@@ -423,7 +423,7 @@ const CustomerList = () => {
                         </div>
                         <div className="cust-toolbar">
                             <select className="filter-select" style={{ width: 110 }} value={pageSize} onChange={e => changePageSize(Number(e.target.value))}>
-                                {PAGE_SIZES.map(n => <option key={n} value={n}>{n} / page</option>)}
+                                {(window.matchMedia('(max-width:768px)').matches ? [10, 20, 50, 100, 200] : PAGE_SIZES).map(n => <option key={n} value={n}>{n} / page</option>)}
                             </select>
                             {canAdd && <button className="btn-pri" onClick={() => setShowCreate(true)}>+ Add Customer</button>}
                         </div>
@@ -439,7 +439,7 @@ const CustomerList = () => {
                             </div>
                         </div>
                     )}
-                    <table className={`cust-table${loading ? ' tbl-loading' : ''}`}>
+                    <table className={`cust-table rt-cards${loading ? ' tbl-loading' : ''}`}>
                         <thead><tr>
                             <Th col="CustomerCode">Code</Th>
                             <Th col="CustomerName">Customer Name</Th>
@@ -460,26 +460,26 @@ const CustomerList = () => {
                                     const flag = cust.creditFlag || 'GREEN';
                                     return (
                                         <tr key={cust.customerId} className={flag === 'BLACK' ? 'row-on-hold' : ''}>
-                                            <td className="td-code">
+                                            <td data-label="Code" className="td-code">
                                                 <RowLink className="cust-name-link" style={{ display: 'block' }} to={`/customers/${cust.customerId}`}>
                                                     {cust.customerCode}
                                                 </RowLink>
                                             </td>
-                                            <td className="td-name">
+                                            <td data-label="Customer Name" className="td-name">
                                                 <RowLink className="cust-name-link" style={{ display: 'block' }} to={`/customers/${cust.customerId}`}>
                                                     {cust.customerName}
                                                     {cust.creditHold && <span className="hold-tag" title={cust.creditHoldNote}>⚑</span>}
                                                 </RowLink>
                                             </td>
-                                            <td>{cust.customerType || '—'}</td>
-                                            <td>{cust.customerCategoryName || '—'}</td>
-                                            <td>{cust.mobile || '—'}</td>
-                                            <td className="td-email">{cust.email || '—'}</td>
-                                            <td className="td-num">{cust.creditLimit != null ? fmt(cust.creditLimit) : '—'}</td>
-                                            <td>{cust.salesPerson || '—'}</td>
-                                            <td><span className={`pill ${cust.isActive ? 'pill-green' : 'pill-red'}`}>{cust.statusLabel || (cust.isActive ? 'Active' : 'Inactive')}</span></td>
-                                            <td><CreditFlagBadge flag={flag} label={cust.creditFlagLabel} /></td>
-                                            <td className="td-actions">
+                                            <td data-label="Type">{cust.customerType || '—'}</td>
+                                            <td data-label="Category">{cust.customerCategoryName || '—'}</td>
+                                            <td data-label="Mobile">{cust.mobile || '—'}</td>
+                                            <td data-label="Email" className="td-email">{cust.email || '—'}</td>
+                                            <td data-label="Credit Limit" className="td-num">{cust.creditLimit != null ? fmt(cust.creditLimit) : '—'}</td>
+                                            <td data-label="Sales Person">{cust.salesPerson || '—'}</td>
+                                            <td data-label="Status"><span className={`pill ${cust.isActive ? 'pill-green' : 'pill-red'}`}>{cust.statusLabel || (cust.isActive ? 'Active' : 'Inactive')}</span></td>
+                                            <td data-label="Credit Flag"><CreditFlagBadge flag={flag} label={cust.creditFlagLabel} /></td>
+                                            <td data-label="Actions" className="td-actions">
                                                 <RowLink className="act-btn act-edit" to={`/customers/${cust.customerId}`}>Open</RowLink>
                                                 {canEdit && <button className={`act-btn ${cust.creditHold ? 'act-release' : 'act-hold'}`} onClick={() => setHoldCust(cust)}>
                                                     {cust.creditHold ? '🔓' : '🔒'}

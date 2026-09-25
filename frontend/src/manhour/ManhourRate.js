@@ -474,7 +474,7 @@ const ManhourRate = () => {
                             onChange={e => { setSearch(e.target.value); setPage(1); }} />
                         <select className="po-select" value={pageSize}
                             onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }}>
-                            {PAGE_SIZES.map(n => <option key={n} value={n}>{n} / page</option>)}
+                            {(window.matchMedia('(max-width:768px)').matches ? [10, 20, 50, 100, 200] : PAGE_SIZES).map(n => <option key={n} value={n}>{n} / page</option>)}
                         </select>
                     </div>
                 </div>
@@ -488,7 +488,7 @@ const ManhourRate = () => {
                             </div>
                         </div>
                     )}
-                    <table className={`po-table${loading ? ' po-tbl-loading' : ''}`}>
+                    <table className={`po-table rt-cards${loading ? ' po-tbl-loading' : ''}`}>
                         <thead>
                             <tr>
                                 <Th col="priority">Scope</Th>
@@ -507,8 +507,8 @@ const ManhourRate = () => {
                                 <tr><td colSpan={9} className="po-empty">No rates found.</td></tr>
                             ) : paginated.map(r => (
                                 <tr key={r.rateId} style={!r.isActive ? { opacity: 0.55 } : {}}>
-                                    <td><ScopeBadge label={r.scopeLabel} /></td>
-                                    <td style={{ fontWeight: 500 }}>
+                                    <td data-label="Scope"><ScopeBadge label={r.scopeLabel} /></td>
+                                    <td data-label="Job Type / Job" style={{ fontWeight: 500 }}>
                                         {r.scopeLabel === 'Job Type' && (
                                             <span style={{
                                                 fontFamily: 'Courier New', fontSize: 12, fontWeight: 700,
@@ -530,17 +530,17 @@ const ManhourRate = () => {
                                             <span style={{ color: '#64748b', fontSize: 12, fontStyle: 'italic' }}>Global Default</span>
                                         )}
                                     </td>
-                                    <td style={{ color: '#475569' }}>{fmtDate(r.effectiveFrom)}</td>
-                                    <td style={{ color: '#475569' }}>{fmtDate(r.effectiveTo)}</td>
-                                    <td style={{ textAlign: 'right', paddingRight: 24, fontWeight: 500 }}>{fmt(r.nhRate)}</td>
-                                    <td style={{ textAlign: 'right', paddingRight: 24, fontWeight: 500 }}>{fmt(r.otRate)}</td>
-                                    <td style={{ color: '#94a3b8', fontSize: 12 }}>{r.remarks || ''}</td>
-                                    <td>
+                                    <td data-label="Effective From" style={{ color: '#475569' }}>{fmtDate(r.effectiveFrom)}</td>
+                                    <td data-label="Effective To" style={{ color: '#475569' }}>{fmtDate(r.effectiveTo)}</td>
+                                    <td data-label="NH Rate" style={{ textAlign: 'right', paddingRight: 24, fontWeight: 500 }}>{fmt(r.nhRate)}</td>
+                                    <td data-label="OT Rate" style={{ textAlign: 'right', paddingRight: 24, fontWeight: 500 }}>{fmt(r.otRate)}</td>
+                                    <td data-label="Remarks" style={{ color: '#94a3b8', fontSize: 12 }}>{r.remarks || ''}</td>
+                                    <td data-label="Status">
                                         {r.isActive
                                             ? <span style={{ background: '#dcfce7', color: '#166534', padding: '2px 8px', borderRadius: 8, fontSize: 11, fontWeight: 600 }}>Active</span>
                                             : <span style={{ background: '#f1f5f9', color: '#94a3b8', padding: '2px 8px', borderRadius: 8, fontSize: 11, fontWeight: 600 }}>Inactive</span>}
                                     </td>
-                                    <td>
+                                    <td data-label="Actions">
                                         <button className="po-act-btn po-act-open" onClick={() => setFormTarget(r)}>Edit</button>
                                     </td>
                                 </tr>

@@ -454,3 +454,51 @@
 .mat-kpi-inline.mat-kpi-amber .mat-kpi-val { color:#b45309; }
 .mat-kpi-inline.mat-kpi-red   .mat-kpi-val { color:#dc2626; }
 .mat-kpi-inline.mat-kpi-green .mat-kpi-val { color:#16a34a; }
+
+/* ══════════ Phone layout (<= 768px) ══════════
+   Job detail page: stacked header, 2-up KPI grid, swipeable tab bar, single-column forms,
+   and wide tables scroll sideways inside the tab instead of widening the page. */
+@media (max-width: 768px) {
+  /* Header */
+  .jd-header { flex-direction: column; align-items: stretch; gap: 8px; padding-bottom: 10px; }
+  .jd-header-left { flex-wrap: wrap; overflow: visible; gap: 8px; }
+  .jd-header-sep { display: none; }
+  .jd-header-info { flex: 1 1 100%; flex-wrap: wrap; overflow: visible; gap: 4px 6px; }
+  .jd-header-customer, .jd-header-project { white-space: normal; max-width: 100%; }
+  .jd-header-right { width: 100%; flex-shrink: 1; gap: 8px; }
+  .jd-back-btn, .jd-edit-btn, .jd-stage-btn, .jd-action-btn { min-height: 40px; }
+  .jd-dropdown { right: auto; left: 0; max-width: 88vw; }
+
+  /* KPI strip -> 2 columns */
+  .jd-kpi-strip { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 10px; padding: 12px; }
+  .jd-kpi-div { display: none; }
+  .jd-kpi, .jd-kpi:first-child { padding: 0; min-width: 0; }
+  .jd-kpi-val { overflow-wrap: anywhere; }
+
+  /* Tab bar: one swipeable row */
+  .jd-tabs-bar { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .jd-tabs-bar::-webkit-scrollbar { display: none; }
+  .jd-tab-btn { flex: 0 0 auto; padding: 11px 13px; white-space: nowrap; font-size: 13px; }
+
+  /* Tab content: tighter padding; horizontal scroll is the safety net for any wide table */
+  .jd-tab-content { min-height: 0; overflow-x: auto; }
+  .jd-tab-body, .tab-section { padding: 12px; }
+  .tab-toolbar { align-items: stretch; }
+  .tab-table-wrap { overflow-x: auto; }
+  .tab-table { min-width: 560px; }
+
+  /* Inline add/edit forms -> one field per row, 16px inputs (no iOS zoom) */
+  .tab-form-row { flex-direction: column; gap: 10px; }
+  .tab-form-field, .tab-f2, .tab-f-sm, .tab-f-med, .tab-f-date, .tab-f-amt, .tab-f-rate, .tab-f-ref, .tab-fcheck {
+    flex: 1 1 auto; width: 100%; min-width: 0;
+  }
+  .tab-input { font-size: 16px; padding: 10px 11px; }
+  .tab-btn-pri, .tab-btn-sec, .tab-btn-amber { min-height: 40px; }
+  .tab-form-actions { flex-wrap: wrap; }
+
+  /* Dialogs and the edit slide-over */
+  .jd-modal { width: 94vw; }
+  .jd-modal-footer { flex-wrap: wrap; gap: 8px; }
+  .jd-modal-textarea { font-size: 16px; }
+  .jf-panel { width: 100% !important; max-width: 100% !important; }
+}

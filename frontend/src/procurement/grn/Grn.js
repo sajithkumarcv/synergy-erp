@@ -641,7 +641,7 @@ const Grn = () => {
                         </div>
                         <div className="po-toolbar">
                             <select className="po-select" value={pageSize} onChange={e => changePageSize(Number(e.target.value))}>
-                                {PAGE_SIZES.map(n => <option key={n} value={n}>{n} / page</option>)}
+                                {(window.matchMedia('(max-width:768px)').matches ? [10, 20, 50, 100, 200] : PAGE_SIZES).map(n => <option key={n} value={n}>{n} / page</option>)}
                             </select>
                             {canAdd && <button className="po-btn-pri" onClick={() => setShowForm(true)}>+ New GRN</button>}
                         </div>
@@ -657,7 +657,7 @@ const Grn = () => {
                             </div>
                         </div>
                     )}
-                    <table className={`po-table${loading ? ' po-tbl-loading' : ''}`}>
+                    <table className={`po-table rt-cards${loading ? ' po-tbl-loading' : ''}`}>
                         <thead>
                             <tr>
                                 <Th col="GrnNumber">GRN #</Th>
@@ -679,29 +679,29 @@ const Grn = () => {
                                 const statusCfg = statusBadgeCfg(getStatusConfig('GRN', r.status));
                                 return (
                                     <tr key={r.grnId} style={r.status === 'Draft' ? { background: '#fffbeb' } : undefined}>
-                                        <td><RowLink className="po-num-link" to={`/grn/${r.grnId}`}>{r.grnNumber}</RowLink></td>
-                                        <td>{fmtDate(r.grnDate)}</td>
-                                        <td>
+                                        <td data-label="GRN #"><RowLink className="po-num-link" to={`/grn/${r.grnId}`}>{r.grnNumber}</RowLink></td>
+                                        <td data-label="Date">{fmtDate(r.grnDate)}</td>
+                                        <td data-label="PO #">
                                             {r.poNumber
                                                 ? <span style={{ fontFamily: 'Courier New', fontSize: 11, color: '#1e40af', background: '#dbeafe', padding: '2px 6px', borderRadius: 4 }}>{r.poNumber}</span>
                                                 : <span style={{ color: '#94a3b8' }}>—</span>}
                                         </td>
-                                        <td>{r.supplierName || '—'}</td>
-                                        <td>
+                                        <td data-label="Supplier">{r.supplierName || '—'}</td>
+                                        <td data-label="Job">
                                             {r.jobId
                                                 ? <span style={{ fontFamily: 'Courier New', fontSize: 11, color: '#065f46', background: '#d1fae5', padding: '2px 6px', borderRadius: 4 }}>{r.jobId}</span>
                                                 : <span style={{ color: '#94a3b8' }}>—</span>}
                                         </td>
-                                        <td><span style={{ fontFamily: 'Courier New', fontSize: 12 }}>{r.doNo || '—'}</span></td>
-                                        <td><span style={{ fontFamily: 'Courier New', fontSize: 12 }}>{r.invoiceNo || '—'}</span></td>
-                                        <td>
+                                        <td data-label="D.O. No"><span style={{ fontFamily: 'Courier New', fontSize: 12 }}>{r.doNo || '—'}</span></td>
+                                        <td data-label="Invoice"><span style={{ fontFamily: 'Courier New', fontSize: 12 }}>{r.invoiceNo || '—'}</span></td>
+                                        <td data-label="Status">
                                             <span className="po-status-badge" style={{ background: statusCfg.bg, color: statusCfg.color }}>
                                                 <span className="po-status-dot" style={{ background: statusCfg.dot }} />
                                                 {statusCfg.label || r.status}
                                             </span>
                                         </td>
-                                        <td className="po-num-cell">{fmt(r.totalAmount)}</td>
-                                        <td><RowLink className="po-act-btn po-act-open" to={`/grn/${r.grnId}`}>Open</RowLink></td>
+                                        <td data-label="Total" className="po-num-cell">{fmt(r.totalAmount)}</td>
+                                        <td data-label=""><RowLink className="po-act-btn po-act-open" to={`/grn/${r.grnId}`}>Open</RowLink></td>
                                     </tr>
                                 );
                             })}

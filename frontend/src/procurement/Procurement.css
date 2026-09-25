@@ -237,3 +237,101 @@
 .po-modal-footer  { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 20px; border-top: 1px solid var(--side-border, #e2e8f0); flex-shrink: 0; background: #f8fafc; }
 .po-modal-close   { background: none; border: none; font-size: 18px; cursor: pointer; color: var(--side-text, #64748b); line-height: 1; padding: 2px 6px; border-radius: 4px; }
 .po-modal-close:hover { background: var(--fp-group-bg, #f1f5f9); color: #dc2626; }
+
+/* ══════════ Phone layout (<= 768px) ══════════
+   PR / PO / GRN lists: every table row becomes a card. The list JS marks the table `rt-cards` and
+   labels each cell with data-label; the header row (and column-filter row) is hidden, so filtering
+   is done from the floating Filters button, which searches every page. Also stacks the page header,
+   enlarges the pagination, and makes the "new" panels full screen. */
+@media (max-width: 768px) {
+  .pr-grid-header, .po-grid-header { padding: 10px 12px; }
+  .pr-title-row, .po-title-row { flex-direction: column; align-items: stretch; gap: 10px; }
+  .pr-toolbar, .po-toolbar { width: 100%; }
+  .pr-toolbar .pr-select, .po-toolbar .po-select { flex: 0 0 auto; width: auto !important; min-width: 118px; font-size: 14px; min-height: 44px; }
+  .pr-toolbar .pr-btn-pri, .po-toolbar .po-btn-pri { flex: 1; min-height: 44px; font-size: 15px; }
+
+  .pr-pagination, .po-pagination { flex-direction: column; align-items: stretch; gap: 8px; padding: 10px 12px; }
+  .pr-page-info, .po-page-info { text-align: center; }
+  .pr-page-controls, .po-page-controls { display: flex; justify-content: center; flex-wrap: wrap; gap: 4px; }
+  .pr-page-btn, .po-page-btn { min-width: 40px; min-height: 40px; }
+
+  /* table -> cards */
+  .rt-cards, .rt-cards tbody { display: block; width: 100%; }
+  .rt-cards thead { display: none; }
+  .pr-table-wrap, .po-table-wrap { overflow-x: visible; padding: 10px; background: var(--fp-bg, #f5f8fd); }
+  .rt-cards tr {
+    display: block; background: #fff; border: 1px solid var(--side-border, #d4dce9);
+    border-left: 4px solid var(--primary, #2e5fa3); border-radius: 8px;
+    padding: 6px 12px 8px; margin-bottom: 10px;
+  }
+  .rt-cards td {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 6px 0 !important; border-bottom: 1px solid var(--fp-border, #f0f4f8) !important;
+    text-align: right; white-space: normal !important; min-height: 32px; background: transparent !important;
+  }
+  .rt-cards td::before {
+    content: attr(data-label); flex: 0 0 auto; text-align: left;
+    font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px;
+    color: var(--side-text, #64748b);
+  }
+  .rt-cards td[data-label=""]::before { display: none; }
+  /* first cell = the document number, shown as the card title */
+  .rt-cards td:first-child { justify-content: flex-start; padding-top: 8px !important; font-size: 15px; }
+  .rt-cards td:first-child::before { display: none; }
+  /* the Actions cell: full-width, thumb-sized buttons, no divider */
+  .rt-cards td[data-label=""] { border-bottom: none !important; padding-top: 10px !important; gap: 8px; }
+  .rt-cards td[data-label=""] > * { flex: 1; min-height: 40px; display: inline-flex; align-items: center; justify-content: center; }
+  .rt-cards tr:last-child td:last-child { border-bottom: none; }
+  .rt-cards td { max-width: none !important; overflow: visible !important; text-overflow: clip !important; }
+  .rt-cards td[colspan] { display: block; text-align: center; }
+  .rt-cards tr:has(> td[colspan]) { border-left-color: transparent; }
+
+  /* "New" panels (PO / PR / GRN forms): full screen, one field per row, 16px inputs */
+  .pf-overlay { justify-content: stretch; }
+  .pf-panel { width: 100% !important; max-width: 100% !important; }
+  .pf-row { flex-direction: column; gap: 10px; }
+  .pf-field, .pf-f2 { flex: 1 1 auto !important; min-width: 0; width: 100%; }
+  .pf-input { font-size: 16px; padding: 10px 11px; }
+}
+
+/* ── Phone: PR / PO / GRN detail pages (header, KPI strip and tab bar come from JobDetail.css) ── */
+@media (max-width: 768px) {
+  .prd-page { padding: 12px; }
+  .prd-lines-wrap { overflow-x: auto; }
+  .prd-lines-table { min-width: 620px; }
+  .prd-lines-header { flex-wrap: wrap; gap: 8px; }
+  .prd-lf-row { flex-direction: column; gap: 10px; }
+  .prd-lf-field { flex: 1 1 auto; min-width: 0; width: 100%; }
+  .prd-lf-input, .prd-input { font-size: 16px; padding: 10px 11px; }
+  .prd-add-btn, .prd-lf-save, .prd-lf-cancel { min-height: 40px; }
+  .prd-ov-grid { grid-template-columns: 1fr 1fr; }
+}
+
+/* Utility: a two-column grid that stacks into one column on a phone (User Management > Assign Roles, etc.) */
+@media (max-width: 768px) {
+  .stack-on-phone { grid-template-columns: 1fr !important; gap: 12px !important; }
+}
+
+/* ── Phone: Job Overview page (job-overview) ── */
+@media (max-width: 768px) {
+  .ov-sec-body { padding: 12px !important; }
+  .ov-fin-grid { grid-template-columns: 1fr !important; column-gap: 0 !important; }
+  .ov-bud-table { min-width: 760px; }
+}
+
+/* ── Phone: Bom, Customer and Supplier lists (own class prefixes; row cards come from `.rt-cards` above) ── */
+@media (max-width: 768px) {
+  .bom-grid-header, .cust-grid-header, .supp-grid-header { padding: 10px 12px; }
+  .bom-title-row, .cust-title-row, .supp-title-row { flex-direction: column; align-items: stretch; gap: 10px; }
+  .bom-toolbar, .cust-toolbar, .supp-toolbar { width: 100%; flex-wrap: wrap; }
+  .bom-toolbar .bom-select, .cust-toolbar .filter-select, .supp-toolbar .filter-select {
+    flex: 0 0 auto; width: auto !important; min-width: 118px; font-size: 14px; min-height: 44px;
+  }
+  .bom-toolbar .bom-btn-pri { flex: 1; min-height: 44px; font-size: 15px; }
+  .bom-table-wrap, .cust-table-wrap, .supp-table-wrap { overflow-x: visible; padding: 10px; background: var(--fp-bg, #f5f8fd); }
+
+  .bom-pagination, .pagination-bar { flex-direction: column; align-items: stretch; gap: 8px; padding: 10px 12px; }
+  .bom-page-info, .pagination-bar .page-info { text-align: center; }
+  .bom-page-controls, .pagination-bar .page-controls { display: flex; justify-content: center; flex-wrap: wrap; gap: 4px; }
+  .bom-page-btn, .pagination-bar .page-btn { min-width: 40px; min-height: 40px; }
+}

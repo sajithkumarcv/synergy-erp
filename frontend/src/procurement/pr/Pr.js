@@ -401,7 +401,7 @@ export const Pr = () => {
                         </div>
                         <div className="pr-toolbar">
                             <select className="pr-select" value={pageSize} onChange={e => changePageSize(Number(e.target.value))}>
-                                {PAGE_SIZES.map(n => <option key={n} value={n}>{n} / page</option>)}
+                                {(window.matchMedia('(max-width:768px)').matches ? [10, 20, 50, 100, 200] : PAGE_SIZES).map(n => <option key={n} value={n}>{n} / page</option>)}
                             </select>
                             {canAdd && <button className="pr-btn-pri" onClick={() => setShowForm(true)}>+ New PR</button>}
                         </div>
@@ -417,7 +417,7 @@ export const Pr = () => {
                             </div>
                         </div>
                     )}
-                    <table className={`pr-table${loading ? ' pr-tbl-loading' : ''}`}>
+                    <table className={`pr-table rt-cards${loading ? ' pr-tbl-loading' : ''}`}>
                         <thead>
                             <tr>
                                 <Th col="PrNumber">PR #</Th>
@@ -447,28 +447,28 @@ export const Pr = () => {
                                 const priCfg = PRIORITY_CONFIG[r.priority] || {};
                                 return (
                                     <tr key={r.prId} style={r.status === 'Draft' ? { background: '#fffbeb' } : undefined}>
-                                        <td>
+                                        <td data-label="PR #">
                                             <RowLink className="pr-num-link" to={`/purchase-requests/${r.prId}`}>
                                                 {r.prNumber}
                                             </RowLink>
                                         </td>
-                                        <td>{fmtDate(r.prDate)}</td>
-                                        <td>{r.jobId
+                                        <td data-label="Date">{fmtDate(r.prDate)}</td>
+                                        <td data-label="Job">{r.jobId
                                             ? <span style={{ fontFamily: 'Courier New', fontSize: 11, color: '#1e40af', background: '#dbeafe', padding: '2px 6px', borderRadius: 4 }}>{r.jobId}</span>
                                             : <span style={{ color: '#94a3b8' }}>—</span>}
                                         </td>
-                                        <td><StatusBadge status={r.status} prId={r.prId} level={levels[r.prId]} /></td>
-                                        <td>{r.requestedBy}</td>
-                                        <td>
+                                        <td data-label="Status"><StatusBadge status={r.status} prId={r.prId} level={levels[r.prId]} /></td>
+                                        <td data-label="Requested by">{r.requestedBy}</td>
+                                        <td data-label="Priority">
                                             {r.priority && (
                                                 <span className="pr-priority-badge" style={{ background: priCfg.bg, color: priCfg.color }}>
                                                     {r.priority}
                                                 </span>
                                             )}
                                         </td>
-                                        <td className="pr-num-cell">{r.lineCount || 0}</td>
-                                        <td className="pr-num-cell">{r.poCount || 0}</td>
-                                        <td style={{ display: 'flex', gap: 4 }}>
+                                        <td data-label="Lines" className="pr-num-cell">{r.lineCount || 0}</td>
+                                        <td data-label="POs" className="pr-num-cell">{r.poCount || 0}</td>
+                                        <td data-label="" style={{ display: 'flex', gap: 4 }}>
                                             <button className="pr-act-btn pr-act-open"
                                                 onClick={() => setInfoPrId(r.prId)}
                                                 title="Quick view — see PR details without leaving this page">

@@ -531,7 +531,7 @@ const Delivery = () => {
                         </div>
                         <div className="po-toolbar">
                             <select className="po-select" value={pageSize} onChange={e => changePageSize(Number(e.target.value))}>
-                                {PAGE_SIZES.map(n => <option key={n} value={n}>{n} / page</option>)}
+                                {(window.matchMedia('(max-width:768px)').matches ? [10, 20, 50, 100, 200] : PAGE_SIZES).map(n => <option key={n} value={n}>{n} / page</option>)}
                             </select>
                             {canAdd && <button className="po-btn-pri" onClick={() => setShowForm(true)}>+ New Delivery Note</button>}
                         </div>
@@ -544,7 +544,7 @@ const Delivery = () => {
                             <div className="po-spinner"><div className="po-spinner-ring" /><span className="po-spinner-text">Loading…</span></div>
                         </div>
                     )}
-                    <table className={`po-table${loading ? ' po-tbl-loading' : ''}`}>
+                    <table className={`po-table rt-cards${loading ? ' po-tbl-loading' : ''}`}>
                         <thead>
                             <tr>
                                 <Th col="DeliveryNo">DN #</Th>
@@ -565,28 +565,28 @@ const Delivery = () => {
                                 const cfg = statusCfg(r.status);
                                 return (
                                     <tr key={r.deliveryId}>
-                                        <td><RowLink className="po-num-link" to={`/delivery/${r.deliveryId}`}>{r.deliveryNo || `#${r.deliveryId}`}</RowLink></td>
-                                        <td>{fmtDate(r.deliveryDate)}</td>
-                                        <td>{r.customerName}</td>
-                                        <td>
+                                        <td data-label="DN #"><RowLink className="po-num-link" to={`/delivery/${r.deliveryId}`}>{r.deliveryNo || `#${r.deliveryId}`}</RowLink></td>
+                                        <td data-label="Date">{fmtDate(r.deliveryDate)}</td>
+                                        <td data-label="Customer">{r.customerName}</td>
+                                        <td data-label="Invoice">
                                             {r.invoiceNo
                                                 ? <span style={{ fontFamily: 'Courier New', fontSize: 11, color: '#1e40af', background: '#dbeafe', padding: '2px 6px', borderRadius: 4 }}>{r.invoiceNo}</span>
                                                 : <span style={{ color: '#94a3b8' }}>—</span>}
                                         </td>
-                                        <td>
+                                        <td data-label="Job">
                                             {r.jobId
                                                 ? <span style={{ fontFamily: 'Courier New', fontSize: 11, color: '#065f46', background: '#d1fae5', padding: '2px 6px', borderRadius: 4 }}>{r.jobId}</span>
                                                 : <span style={{ color: '#94a3b8' }}>—</span>}
                                         </td>
-                                        <td><span style={{ fontFamily: 'Courier New', fontSize: 12 }}>{r.vehicleNo || '—'}</span></td>
-                                        <td>{r.deliveredBy || '—'}</td>
-                                        <td>
+                                        <td data-label="Vehicle"><span style={{ fontFamily: 'Courier New', fontSize: 12 }}>{r.vehicleNo || '—'}</span></td>
+                                        <td data-label="Delivered by">{r.deliveredBy || '—'}</td>
+                                        <td data-label="Status">
                                             <span className="po-status-badge" style={{ background: cfg.bg, color: cfg.color }}>
                                                 <span className="po-status-dot" style={{ background: cfg.dot }} />
                                                 {r.status}
                                             </span>
                                         </td>
-                                        <td><RowLink className="po-act-btn po-act-open" to={`/delivery/${r.deliveryId}`}>Open</RowLink></td>
+                                        <td data-label=""><RowLink className="po-act-btn po-act-open" to={`/delivery/${r.deliveryId}`}>Open</RowLink></td>
                                     </tr>
                                 );
                             })}

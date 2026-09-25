@@ -411,7 +411,7 @@ export const Bom = () => {
                         <div className="bom-toolbar">
                             <select className="bom-select" style={{ width: 110 }} value={pageSize}
                                 onChange={e => changePageSize(Number(e.target.value))}>
-                                {PAGE_SIZES.map(n => <option key={n} value={n}>{n} / page</option>)}
+                                {(window.matchMedia('(max-width:768px)').matches ? [10, 20, 50, 100, 200] : PAGE_SIZES).map(n => <option key={n} value={n}>{n} / page</option>)}
                             </select>
                             {canAdd && (
                                 <button className="bom-btn-sec" onClick={() => setShowCopy(true)}
@@ -433,7 +433,7 @@ export const Bom = () => {
                             </div>
                         </div>
                     )}
-                    <table className={`bom-table${loading ? ' bom-tbl-loading' : ''}`}>
+                    <table className={`bom-table rt-cards${loading ? ' bom-tbl-loading' : ''}`}>
                         <thead>
                             <tr>
                                 <Th col="JobId">Job No.</Th>
@@ -464,24 +464,24 @@ export const Bom = () => {
                             ) : (
                                 shownRows.map(r => (
                                     <tr key={r.bomHeaderId}>
-                                        <td>
+                                        <td data-label="Job No.">
                                             <button className="bom-id-link"
                                                 onClick={() => navigate(`/bom/${r.bomHeaderId}`)}>
                                                 {r.jobId}
                                             </button>
                                         </td>
-                                        <td>
+                                        <td data-label="Customer">
                                             <div className="bom-name-cell">
                                                 <span className="bom-name-main" title={r.customerName}>{r.customerName || '—'}</span>
                                             </div>
                                         </td>
-                                        <td>{fmtDate(r.bomDate)}</td>
-                                        <td><span className="bom-type-badge">{r.jobTypeName || '—'}</span></td>
-                                        <td className="bom-version">v{r.bomVersion}</td>
-                                        <td style={{ color: '#64748b' }}>{r.lineCount}</td>
-                                        <td className="bom-num-cell">{r.totalBomValue > 0 ? fmt(r.totalBomValue) : '—'}</td>
-                                        <td><StatusBadge status={r.bomStatus} statusList={bomHeaderStatuses} /></td>
-                                        <td className="bom-actions-cell">
+                                        <td data-label="Date">{fmtDate(r.bomDate)}</td>
+                                        <td data-label="Job Type"><span className="bom-type-badge">{r.jobTypeName || '—'}</span></td>
+                                        <td data-label="Ver." className="bom-version">v{r.bomVersion}</td>
+                                        <td data-label="Lines" style={{ color: '#64748b' }}>{r.lineCount}</td>
+                                        <td data-label="Total Value" className="bom-num-cell">{r.totalBomValue > 0 ? fmt(r.totalBomValue) : '—'}</td>
+                                        <td data-label="Status"><StatusBadge status={r.bomStatus} statusList={bomHeaderStatuses} /></td>
+                                        <td data-label="Actions" className="bom-actions-cell">
                                             <button className="bom-act-btn bom-act-open"
                                                 onClick={() => navigate(`/bom/${r.bomHeaderId}`)}>Open</button>
                                         </td>

@@ -447,7 +447,7 @@ const UserManagement = () => {
                         </div>
                         <div className="po-toolbar">
                             <select className="po-select" value={pageSize} onChange={e => changePageSize(Number(e.target.value))}>
-                                {PAGE_SIZES.map(n => <option key={n} value={n}>{n} / page</option>)}
+                                {(window.matchMedia('(max-width:768px)').matches ? [10, 20, 50, 100, 200] : PAGE_SIZES).map(n => <option key={n} value={n}>{n} / page</option>)}
                             </select>
                             {canAdd && <button className="po-btn-pri" onClick={() => { setEditUser(null); setShowForm(true); }}>
                                 + New User
@@ -462,7 +462,7 @@ const UserManagement = () => {
                             <div className="po-spinner"><div className="po-spinner-ring" /><span className="po-spinner-text">Loading…</span></div>
                         </div>
                     )}
-                    <table className={`po-table${loading ? ' po-tbl-loading' : ''}`}>
+                    <table className={`po-table rt-cards${loading ? ' po-tbl-loading' : ''}`}>
                         <thead>
                             <tr>
                                 <Th col="UserCode">Code</Th>
@@ -481,23 +481,23 @@ const UserManagement = () => {
                                 <tr><td colSpan={9} className="po-empty">No users found. Use the filters or create a new user.</td></tr>
                             ) : rows.map(u => (
                                 <tr key={u.userId}>
-                                    <td><span style={{ fontFamily: 'Courier New', fontSize: 11, color: '#64748b' }}>{u.userCode || '—'}</span></td>
-                                    <td>
+                                    <td data-label="Code"><span style={{ fontFamily: 'Courier New', fontSize: 11, color: '#64748b' }}>{u.userCode || '—'}</span></td>
+                                    <td data-label="Username">
                                         <span style={{ fontWeight: 600, color: '#1e293b' }}>{u.userName}</span>
                                     </td>
-                                    <td style={{ color: '#374151' }}>{u.fullName || '—'}</td>
-                                    <td style={{ color: '#64748b', fontSize: 12 }}>{u.email || '—'}</td>
-                                    <td style={{ color: '#64748b', fontSize: 12 }}>{u.mobile || '—'}</td>
-                                    <td>
+                                    <td data-label="Full name" style={{ color: '#374151' }}>{u.fullName || '—'}</td>
+                                    <td data-label="Email" style={{ color: '#64748b', fontSize: 12 }}>{u.email || '—'}</td>
+                                    <td data-label="Mobile" style={{ color: '#64748b', fontSize: 12 }}>{u.mobile || '—'}</td>
+                                    <td data-label="Role">
                                         {u.roleName
                                             ? <span style={{ background: '#eff6ff', color: '#1d4ed8', borderRadius: 4, padding: '2px 8px', fontSize: 11, fontWeight: 600 }}>{u.roleName}</span>
                                             : <span style={{ color: '#94a3b8', fontSize: 11 }}>No role</span>}
                                     </td>
-                                    <td><StatusBadge isActive={u.isActive} isLocked={u.isLocked} /></td>
-                                    <td style={{ color: '#64748b', fontSize: 12 }}>
+                                    <td data-label="Status"><StatusBadge isActive={u.isActive} isLocked={u.isLocked} /></td>
+                                    <td data-label="Created" style={{ color: '#64748b', fontSize: 12 }}>
                                         {u.createdDate ? new Date(u.createdDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
                                     </td>
-                                    <td>
+                                    <td data-label="">
                                         {canEdit && <button className="po-act-btn"
                                             onClick={() => { setEditUser(u); setShowForm(true); }}>Edit</button>}
                                         {canEdit && <button className="po-act-btn"

@@ -228,7 +228,7 @@ const Country = () => {
                             />
                             <select className="po-select" value={pageSize}
                                 onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }}>
-                                {PAGE_SIZES.map(n => <option key={n} value={n}>{n} / page</option>)}
+                                {(window.matchMedia('(max-width:768px)').matches ? [10, 20, 50, 100, 200] : PAGE_SIZES).map(n => <option key={n} value={n}>{n} / page</option>)}
                             </select>
                             {canAdd && <button className="po-btn-pri" onClick={() => setFormTarget(false)}>+ New Country</button>}
                         </div>
@@ -244,7 +244,7 @@ const Country = () => {
                             </div>
                         </div>
                     )}
-                    <table className={`po-table${loading ? ' po-tbl-loading' : ''}`}>
+                    <table className={`po-table rt-cards${loading ? ' po-tbl-loading' : ''}`}>
                         <thead>
                             <tr>
                                 <Th col="countryCode">Code</Th>
@@ -259,21 +259,21 @@ const Country = () => {
                                 <tr><td colSpan={5} className="po-empty">No countries found.</td></tr>
                             ) : paginated.map(r => (
                                 <tr key={r.countryId} style={!r.isActive ? { opacity: 0.55 } : {}}>
-                                    <td>
+                                    <td data-label="Code">
                                         <span style={{ fontFamily: 'Courier New', fontSize: 12, fontWeight: 700,
                                             background: '#f1f5f9', color: '#334155',
                                             padding: '2px 7px', borderRadius: 4 }}>
                                             {r.countryCode}
                                         </span>
                                     </td>
-                                    <td style={{ fontWeight: 500 }}>{r.countryName}</td>
-                                    <td style={{ color: '#64748b' }}>{r.sortOrder}</td>
-                                    <td>
+                                    <td data-label="Country Name" style={{ fontWeight: 500 }}>{r.countryName}</td>
+                                    <td data-label="Sort Order" style={{ color: '#64748b' }}>{r.sortOrder}</td>
+                                    <td data-label="Status">
                                         {r.isActive
                                             ? <span style={{ background: '#dcfce7', color: '#166534', padding: '2px 8px', borderRadius: 8, fontSize: 11, fontWeight: 600 }}>Active</span>
                                             : <span style={{ background: '#f1f5f9', color: '#94a3b8', padding: '2px 8px', borderRadius: 8, fontSize: 11, fontWeight: 600 }}>Inactive</span>}
                                     </td>
-                                    <td>
+                                    <td data-label="Actions">
                                         {canEdit && <button className="po-act-btn po-act-open"
                                             onClick={() => setFormTarget(r)}>Edit</button>}
                                     </td>

@@ -508,7 +508,7 @@ export const Subcontract = () => {
                         </div>
                         <div className="po-toolbar">
                             <select className="po-select" value={pageSize} onChange={e => changePageSize(Number(e.target.value))}>
-                                {PAGE_SIZES.map(n => <option key={n} value={n}>{n} / page</option>)}
+                                {(window.matchMedia('(max-width:768px)').matches ? [10, 20, 50, 100, 200] : PAGE_SIZES).map(n => <option key={n} value={n}>{n} / page</option>)}
                             </select>
                             {canAdd && (
                                 <button className="po-btn-pri" onClick={() => setShowForm(true)}>
@@ -528,7 +528,7 @@ export const Subcontract = () => {
                             </div>
                         </div>
                     )}
-                    <table className={`po-table${loading ? ' po-tbl-loading' : ''}`}>
+                    <table className={`po-table rt-cards${loading ? ' po-tbl-loading' : ''}`}>
                         <thead>
                             <tr>
                                 <Th col="SubcontractNo">SC No</Th>
@@ -549,12 +549,12 @@ export const Subcontract = () => {
                                 <tr><td colSpan={11} className="po-empty">No subcontract orders found. Use the filters on the left or create a new order.</td></tr>
                             ) : rows.map(r => (
                                 <tr key={r.subcontractId}>
-                                    <td>
+                                    <td data-label="SC No">
                                         <RowLink className="po-num-link" to={`/subcontracts/${r.subcontractId}`}>
                                             {r.subcontractNo}
                                         </RowLink>
                                     </td>
-                                    <td>
+                                    <td data-label="Type">
                                         <span style={{ fontSize: 11, fontWeight: 600,
                                             color: r.subcontractType === 'MATERIAL_OUT' ? '#1e40af' : '#6d28d9',
                                             background: r.subcontractType === 'MATERIAL_OUT' ? '#dbeafe' : '#ede9fe',
@@ -562,8 +562,8 @@ export const Subcontract = () => {
                                             {r.subcontractType === 'MATERIAL_OUT' ? 'Material Out' : 'Service Only'}
                                         </span>
                                     </td>
-                                    <td>{r.vendorName || '—'}</td>
-                                    <td>
+                                    <td data-label="Vendor">{r.vendorName || '—'}</td>
+                                    <td data-label="Output Item">
                                         {r.outputItemCode
                                             ? <span>
                                                 <span style={{ fontFamily: 'Courier New', fontSize: 11, color: '#2e5fa3', background: '#dbeafe', padding: '1px 5px', borderRadius: 3 }}>{r.outputItemCode}</span>
@@ -572,20 +572,20 @@ export const Subcontract = () => {
                                             : <span style={{ color: '#94a3b8' }}>—</span>
                                         }
                                     </td>
-                                    <td className="po-num-cell">{Number(r.outputQty || 0).toLocaleString()}</td>
-                                    <td className="po-num-cell" style={{ color: Number(r.totalReceivedQty) >= Number(r.outputQty) ? '#16a34a' : undefined }}>
+                                    <td data-label="Output Qty" className="po-num-cell">{Number(r.outputQty || 0).toLocaleString()}</td>
+                                    <td data-label="Received" className="po-num-cell" style={{ color: Number(r.totalReceivedQty) >= Number(r.outputQty) ? '#16a34a' : undefined }}>
                                         {Number(r.totalReceivedQty || 0).toLocaleString()}
                                     </td>
-                                    <td>{fmtDate(r.expectedDate)}</td>
-                                    <td>
+                                    <td data-label="Expected">{fmtDate(r.expectedDate)}</td>
+                                    <td data-label="Job">
                                         {r.jobId
                                             ? <span style={{ fontFamily: 'Courier New', fontSize: 11, color: '#1e40af', background: '#dbeafe', padding: '2px 6px', borderRadius: 4 }}>{r.jobId}</span>
                                             : <span style={{ color: '#94a3b8' }}>—</span>
                                         }
                                     </td>
-                                    <td><StatusBadge status={r.status} /></td>
-                                    <td style={{ fontSize: 11, color: '#64748b' }}>{fmtDate(r.createdDate)}</td>
-                                    <td>
+                                    <td data-label="Status"><StatusBadge status={r.status} /></td>
+                                    <td data-label="Created" style={{ fontSize: 11, color: '#64748b' }}>{fmtDate(r.createdDate)}</td>
+                                    <td data-label="Actions">
                                         <RowLink className="po-act-btn" to={`/subcontracts/${r.subcontractId}`}
                                             style={{ background: '#f1f5f9', color: '#475569', borderColor: '#cbd5e1' }}
                                             title="Open detail page">

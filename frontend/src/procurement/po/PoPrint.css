@@ -676,3 +676,44 @@
         break-inside: avoid; page-break-inside: avoid;
     }
 }
+
+/* ── Phone layout (<= 768px, screen only — print / PDF keep the A4 layout) ─────────────────
+   The PO information view (👁 in the PO grid and My Approvals) is the same document as the
+   print, fixed at 794px. On a phone it reflows: full-width page, stacked blocks, line cards
+   (see PoLineCards in PoPrintModal3.js), full-width totals. */
+@media screen and (max-width: 768px) {
+    .po-print-overlay { padding: 8px 8px 24px; }
+    .po-print-toolbar { flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+    .po-print-toolbar > div:last-child { flex-wrap: wrap; }
+    .po-print-title { font-size: 14px; }
+
+    .po3-doc {
+        width: 100%; max-width: 100%; min-height: 0;
+        padding: 14px 12px; box-sizing: border-box;
+    }
+    .po3-strip { grid-template-columns: 1fr 1fr !important; }
+    .po3-strip > div { border-right: none !important; border-bottom: 1px solid #e2e8f0; }
+    .po3-cols2 { grid-template-columns: 1fr !important; gap: 14px !important; }
+    .po3-totals { justify-content: stretch !important; }
+    .po3-totals-box { width: 100% !important; border-top: 1px solid #e2e8f0 !important; border-radius: 6px !important; }
+    .po3-footer { flex-direction: column; align-items: flex-start !important; gap: 8px; }
+    .po3-footer > div:last-child { text-align: left !important; }
+    /* any remaining wide table (annexures, etc.) scrolls sideways inside the page instead of pushing it wider */
+    .po3-doc .po3-table { display: block; max-width: 100%; overflow-x: auto; }
+    .po3-doc .po3-tc table { table-layout: fixed; }
+    .po3-doc .po3-tc td, .po3-doc .po3-tc th { overflow-wrap: anywhere; }
+}
+
+/* Same phone treatment for the PR information view (PrPrintModal uses .po-print-doc / .pop-* classes). */
+@media screen and (max-width: 768px) {
+    .po-print-doc {
+        width: 100%; max-width: 100%; min-height: 0;
+        padding: 14px 12px; box-sizing: border-box;
+    }
+    .pop-info-band { grid-template-columns: 1fr; gap: 12px; }
+    .pop-terms-strip { flex-wrap: wrap; }
+    .pop-terms-strip > * { flex: 1 1 45%; min-width: 0; border-bottom: 1px solid #e2e8f0; }
+    .pop-header { flex-wrap: wrap; gap: 10px; margin-bottom: 14px; padding-bottom: 12px; }
+    /* line tables scroll sideways inside the page rather than widening it */
+    .po-print-doc .pop-lines-table { display: block; max-width: 100%; overflow-x: auto; }
+}

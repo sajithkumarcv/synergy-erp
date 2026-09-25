@@ -185,3 +185,43 @@
 .jf-validation-banner strong { font-size:13px; color:#c0392b; display:block; margin-bottom:4px; }
 .jf-validation-list   { margin:0; padding-left:16px; }
 .jf-validation-list li { font-size:12px; color:#c0392b; padding:1px 0; }
+
+/* ── Phone layout (<= 768px) ─────────────────────────────────────
+   Job.js swaps the 9-column table for cards on a phone (useIsPhone); these rules style the
+   cards, stack the page header and pagination, and make the New Job panel full screen. */
+.job-cards { padding: 10px; background: var(--fp-bg, #f5f8fd); }
+.job-card {
+  background: #fff; border: 1px solid var(--side-border, #d4dce9); border-left: 4px solid var(--primary, #2e5fa3);
+  border-radius: 8px; padding: 11px 12px; margin-bottom: 10px; cursor: pointer;
+}
+.job-card:active { background: var(--fp-bg, #f5f8fd); }
+.job-card-top    { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.job-card-top .job-id-link { font-size: 15px; font-weight: 700; }
+.job-card-cust   { margin-top: 6px; font-size: 13.5px; font-weight: 600; color: var(--main-text, #1e293b); overflow-wrap: anywhere; }
+.job-card-proj   { margin-top: 2px; font-size: 12.5px; color: var(--side-text, #64748b); overflow-wrap: anywhere; }
+.job-card-meta   { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 8px; font-size: 12px; color: var(--side-text, #64748b); }
+.job-card-bottom { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 9px; padding-top: 8px; border-top: 1px dashed var(--fp-border, #e0e8f2); }
+.job-card-value  { font-family: 'Courier New', monospace; font-size: 13.5px; font-weight: 700; color: var(--main-text, #1e293b); }
+
+@media (max-width: 768px) {
+  .job-grid-header { padding: 10px 12px; }
+  .job-title-row { flex-direction: column; align-items: stretch; gap: 10px; }
+  .job-toolbar { width: 100%; }
+  .job-toolbar .job-select { flex: 0 0 auto; width: auto !important; min-width: 118px; font-size: 14px; min-height: 44px; }
+  .job-toolbar .job-btn-pri { flex: 1; min-height: 44px; font-size: 15px; }
+
+  .job-pagination { flex-direction: column; align-items: stretch; gap: 8px; padding: 10px 12px; }
+  .job-pagination .page-info { text-align: center; }
+  .job-pagination .page-controls { display: flex; justify-content: center; flex-wrap: wrap; gap: 4px; }
+  .job-pagination .page-btn { min-width: 40px; min-height: 40px; }
+
+  /* New Job form: full-screen panel, stacked fields, 16px inputs (no iOS zoom) */
+  .jf-overlay { justify-content: stretch; }
+  .jf-panel { width: 100%; max-width: 100%; }
+  .jf-header { padding: 14px 14px 12px; }
+  .jf-close { width: 40px; height: 40px; font-size: 16px; }
+  .jf-body { padding: 12px 12px 10px; }
+  .jf-row { flex-direction: column; gap: 10px; }
+  .jf-field, .jf-f2 { flex: 1 1 auto !important; min-width: 0; width: 100%; }
+  .jf-input { font-size: 16px; padding: 10px 11px; }
+}

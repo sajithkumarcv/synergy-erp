@@ -301,7 +301,7 @@ const IssueReturn = () => {
                         </div>
                         <div className="po-toolbar">
                             <select className="po-select" value={pageSize} onChange={e => changePageSize(Number(e.target.value))}>
-                                {PAGE_SIZES.map(n => <option key={n} value={n}>{n} / page</option>)}
+                                {(window.matchMedia('(max-width:768px)').matches ? [10, 20, 50, 100, 200] : PAGE_SIZES).map(n => <option key={n} value={n}>{n} / page</option>)}
                             </select>
                             {canAdd && <button className="po-btn-pri" onClick={() => setShowForm(true)}>+ New Return Note</button>}
                         </div>
@@ -317,7 +317,7 @@ const IssueReturn = () => {
                             </div>
                         </div>
                     )}
-                    <table className={`po-table${loading ? ' po-tbl-loading' : ''}`}>
+                    <table className={`po-table rt-cards${loading ? ' po-tbl-loading' : ''}`}>
                         <thead>
                             <tr>
                                 <Th col="ReturnNo">Return #</Th>
@@ -343,34 +343,34 @@ const IssueReturn = () => {
                                 const sCfg = statusBadgeCfg(getStatusConfig('IRN', pendingLevelCode(r.status, levels[r.returnId])) || getStatusConfig('IRN', r.status));
                                 return (
                                     <tr key={r.returnId}>
-                                        <td>
+                                        <td data-label="Return #">
                                             <RowLink className="po-num-link" to={`/inventory-issue-return/${r.returnId}`}>
                                                 {r.returnNo}
                                             </RowLink>
                                         </td>
-                                        <td>{fmtDate(r.returnDate)}</td>
-                                        <td>
+                                        <td data-label="Date">{fmtDate(r.returnDate)}</td>
+                                        <td data-label="Issue Note">
                                             <span style={{ fontFamily: 'Courier New', fontSize: 11, color: '#7c3aed', background: '#f3e8ff', padding: '2px 6px', borderRadius: 4 }}>
                                                 {r.issueNo}
                                             </span>
                                         </td>
-                                        <td>
+                                        <td data-label="Job">
                                             {r.jobId && (
                                                 <span style={{ fontFamily: 'Courier New', fontSize: 11, color: '#065f46', background: '#d1fae5', padding: '2px 6px', borderRadius: 4 }}>
                                                     {r.jobId}
                                                 </span>
                                             )}
                                         </td>
-                                        <td style={{ color: '#475569' }}>{r.returnedBy || '—'}</td>
-                                        <td style={{ color: '#64748b' }}>{r.lineCount}</td>
-                                        <td className="po-num-cell">{fmt(r.totalCost)}</td>
-                                        <td>
+                                        <td data-label="Returned By" style={{ color: '#475569' }}>{r.returnedBy || '—'}</td>
+                                        <td data-label="Lines" style={{ color: '#64748b' }}>{r.lineCount}</td>
+                                        <td data-label="Total Cost" className="po-num-cell">{fmt(r.totalCost)}</td>
+                                        <td data-label="Status">
                                             <span className="po-status-badge" style={{ background: sCfg.bg, color: sCfg.color }}>
                                                 <span className="po-status-dot" style={{ background: sCfg.dot }} />
                                                 {sCfg.label}
                                             </span>
                                         </td>
-                                        <td>
+                                        <td data-label="Actions">
                                             <RowLink className="po-act-btn po-act-open" to={`/inventory-issue-return/${r.returnId}`}>
                                                 Open
                                             </RowLink>

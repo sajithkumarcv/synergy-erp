@@ -367,7 +367,7 @@ export const Item = () => {
             <div className="item-toolbar">
               <select className="item-select" style={{ width: 110 }} value={pageSize}
                 onChange={e => changePageSize(Number(e.target.value))}>
-                {PAGE_SIZES.map(n => <option key={n} value={n}>{n} / page</option>)}
+                {(window.matchMedia('(max-width:768px)').matches ? [10, 20, 50, 100, 200] : PAGE_SIZES).map(n => <option key={n} value={n}>{n} / page</option>)}
               </select>
               {canAdd && (
                 <>
@@ -388,7 +388,7 @@ export const Item = () => {
               </div>
             </div>
           )}
-          <table className={`item-table${loading ? ' item-tbl-loading' : ''}`}>
+          <table className={`item-table rt-cards${loading ? ' item-tbl-loading' : ''}`}>
             <thead><tr>
               <Th col="ItemCode">Code</Th>
               <Th col="ItemName">Name</Th>
@@ -403,17 +403,17 @@ export const Item = () => {
                 ? <tr><td colSpan="7" className="item-empty">No items found. Use the filters on the left or create a new item.</td></tr>
                 : rows.map(item => (
                   <tr key={item.itemId}>
-                    <td>
+                    <td data-label="Code">
                       <RowLink className="item-id-link" to={`/items/${item.itemId}`}>
                         {item.itemCode || `#${item.itemId}`}
                       </RowLink>
                     </td>
-                    <td className="item-name-cell">
+                    <td data-label="Name" className="item-name-cell">
                       <span className="item-name-main" title={item.itemName}>{item.itemName}</span>
                       {item.itemNameAr && <span className="item-name-ar">{item.itemNameAr}</span>}
                     </td>
-                    <td>{item.itemTypeName ? <span className="item-type-badge">{item.itemTypeName}</span> : '—'}</td>
-                    <td>
+                    <td data-label="Type">{item.itemTypeName ? <span className="item-type-badge">{item.itemTypeName}</span> : '—'}</td>
+                    <td data-label="Category">
                       {item.parentCategoryName
                         ? <div style={{ lineHeight: 1.4 }}>
                             <div style={{ fontSize: 11.5, color: '#1e293b', fontWeight: 500 }}>{item.parentCategoryName}</div>
@@ -421,13 +421,13 @@ export const Item = () => {
                           </div>
                         : <span>{item.categoryName || '—'}</span>}
                     </td>
-                    <td>{item.baseUomName || '—'}</td>
-                    <td>
+                    <td data-label="UOM">{item.baseUomName || '—'}</td>
+                    <td data-label="Status">
                       {item.isActive
                         ? <span className="item-active-badge">Active</span>
                         : <span className="item-inactive-badge">Inactive</span>}
                     </td>
-                    <td className="item-actions-cell">
+                    <td data-label="" className="item-actions-cell">
                       <RowLink className="item-act-btn item-act-open" to={`/items/${item.itemId}`}>
                         Open
                       </RowLink>

@@ -327,7 +327,7 @@ const ReceiptVoucher = () => {
                         </div>
                         <div className="po-toolbar">
                             <select className="po-select" value={pageSize} onChange={e => changePageSize(Number(e.target.value))}>
-                                {PAGE_SIZES.map(n => <option key={n} value={n}>{n} / page</option>)}
+                                {(window.matchMedia('(max-width:768px)').matches ? [10, 20, 50, 100, 200] : PAGE_SIZES).map(n => <option key={n} value={n}>{n} / page</option>)}
                             </select>
                             {canAdd && <button className="po-btn-pri" onClick={() => setShowForm(true)}>+ New Receipt</button>}
                         </div>
@@ -336,7 +336,7 @@ const ReceiptVoucher = () => {
 
                 <div className="po-table-wrap">
                     {loading && <div className="po-loading-overlay"><div className="po-spinner"><div className="po-spinner-ring" /><span className="po-spinner-text">Loading…</span></div></div>}
-                    <table className={`po-table${loading ? ' po-tbl-loading' : ''}`}>
+                    <table className={`po-table rt-cards${loading ? ' po-tbl-loading' : ''}`}>
                         <thead>
                             <tr>
                                 <Th col="RvNumber">RV No</Th>
@@ -356,10 +356,10 @@ const ReceiptVoucher = () => {
                                 <tr><td colSpan={10} className="po-empty">No receipt vouchers found. Use the filters on the left or create one.</td></tr>
                             ) : rows.map(r => (
                                 <tr key={r.rvId}>
-                                    <td><span className="po-num-link" onClick={() => navigate(`/receipt-vouchers/${r.rvId}`)}>{r.rvNumber}</span></td>
-                                    <td>{fmtDate(r.rvDate)}</td>
-                                    <td style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.customerName || '—'}</td>
-                                    <td>
+                                    <td data-label="RV no"><span className="po-num-link" onClick={() => navigate(`/receipt-vouchers/${r.rvId}`)}>{r.rvNumber}</span></td>
+                                    <td data-label="Date">{fmtDate(r.rvDate)}</td>
+                                    <td data-label="Customer" style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.customerName || '—'}</td>
+                                    <td data-label="Ccy">
                                         {r.currencyShort && (
                                             <span style={{ fontSize: 11, fontWeight: 700, fontFamily: 'monospace',
                                                 background: '#dbeafe', color: '#1e40af',
@@ -368,12 +368,12 @@ const ReceiptVoucher = () => {
                                             </span>
                                         )}
                                     </td>
-                                    <td className="po-num-cell">{fmt(r.amountReceived)}</td>
-                                    <td className="po-num-cell">{fmt(r.allocatedAmount)}</td>
-                                    <td className="po-num-cell" style={{ color: r.unallocatedAmount > 0 ? '#b45309' : '#166534' }}>{fmt(r.unallocatedAmount)}</td>
-                                    <td style={{ fontSize: 11, color: '#475569' }}>{r.paymentMode || '—'}</td>
-                                    <td><StatusBadge s={r.status} /></td>
-                                    <td><button className="po-act-btn po-act-open" onClick={() => navigate(`/receipt-vouchers/${r.rvId}`)}>Open</button></td>
+                                    <td data-label="Received" className="po-num-cell">{fmt(r.amountReceived)}</td>
+                                    <td data-label="Allocated" className="po-num-cell">{fmt(r.allocatedAmount)}</td>
+                                    <td data-label="Unallocated" className="po-num-cell" style={{ color: r.unallocatedAmount > 0 ? '#b45309' : '#166534' }}>{fmt(r.unallocatedAmount)}</td>
+                                    <td data-label="Mode" style={{ fontSize: 11, color: '#475569' }}>{r.paymentMode || '—'}</td>
+                                    <td data-label="Status"><StatusBadge s={r.status} /></td>
+                                    <td data-label=""><button className="po-act-btn po-act-open" onClick={() => navigate(`/receipt-vouchers/${r.rvId}`)}>Open</button></td>
                                 </tr>
                             ))}
                         </tbody>

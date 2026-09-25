@@ -894,7 +894,7 @@ const Employee = () => {
 
                         <select className="po-select" value={pageSize}
                             onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }}>
-                            {PAGE_SIZES.map(n => <option key={n} value={n}>{n} / page</option>)}
+                            {(window.matchMedia('(max-width:768px)').matches ? [10, 20, 50, 100, 200] : PAGE_SIZES).map(n => <option key={n} value={n}>{n} / page</option>)}
                         </select>
                     </div>
                 </div>
@@ -908,7 +908,7 @@ const Employee = () => {
                             </div>
                         </div>
                     )}
-                    <table className={`po-table${loading ? ' po-tbl-loading' : ''}`}>
+                    <table className={`po-table rt-cards${loading ? ' po-tbl-loading' : ''}`}>
                         <thead>
                             <tr>
                                 <Th col="empType">Type</Th>
@@ -924,10 +924,10 @@ const Employee = () => {
                                 <tr><td colSpan={7} className="po-empty">No employees found.</td></tr>
                             ) : paginated.map(r => (
                                 <tr key={r.employeeId} style={!r.isActive ? { opacity: 0.55 } : {}}>
-                                    <td style={{ padding: '8px 12px' }}>
+                                    <td data-label="Type" style={{ padding: '8px 12px' }}>
                                         <EmpTypeBadge type={r.empType} empTypeOptions={empTypeOptions} />
                                     </td>
-                                    <td>
+                                    <td data-label="Emp Code">
                                         <span style={{
                                             fontFamily: 'Courier New', fontSize: 12, fontWeight: 700,
                                             background: '#f1f5f9', color: '#334155',
@@ -936,8 +936,8 @@ const Employee = () => {
                                             {r.empCode}
                                         </span>
                                     </td>
-                                    <td style={{ fontWeight: 500 }}>{r.employeeName}</td>
-                                    <td style={{ fontSize: 12, color: '#64748b' }}>
+                                    <td data-label="Employee Name" style={{ fontWeight: 500 }}>{r.employeeName}</td>
+                                    <td data-label="Subcontractor / Agency" style={{ fontSize: 12, color: '#64748b' }}>
                                         {r.supplierName
                                             ? <span>
                                                 <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#7c2d12', marginRight: 5 }}>{r.supplierCode}</span>
@@ -945,12 +945,12 @@ const Employee = () => {
                                               </span>
                                             : <span style={{ color: '#cbd5e1' }}>—</span>}
                                     </td>
-                                    <td>
+                                    <td data-label="Status">
                                         {r.isActive
                                             ? <span style={{ background: '#dcfce7', color: '#166534', padding: '2px 8px', borderRadius: 8, fontSize: 11, fontWeight: 600 }}>Active</span>
                                             : <span style={{ background: '#f1f5f9', color: '#94a3b8', padding: '2px 8px', borderRadius: 8, fontSize: 11, fontWeight: 600 }}>Inactive</span>}
                                     </td>
-                                    <td>
+                                    <td data-label="Actions">
                                         <button className="po-act-btn po-act-open"
                                             onClick={() => setFormTarget(r)}>Edit</button>
                                     </td>

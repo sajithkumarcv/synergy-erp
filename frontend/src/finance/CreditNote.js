@@ -309,7 +309,7 @@ const CreditNote = () => {
                         </div>
                         <div className="po-toolbar">
                             <select className="po-select" value={pageSize} onChange={e => changePageSize(Number(e.target.value))}>
-                                {PAGE_SIZES.map(n => <option key={n} value={n}>{n} / page</option>)}
+                                {(window.matchMedia('(max-width:768px)').matches ? [10, 20, 50, 100, 200] : PAGE_SIZES).map(n => <option key={n} value={n}>{n} / page</option>)}
                             </select>
                             {canAdd && <button className="po-btn-pri" onClick={() => setShowForm(true)}>+ New Credit Note</button>}
                         </div>
@@ -318,7 +318,7 @@ const CreditNote = () => {
 
                 <div className="po-table-wrap">
                     {loading && <div className="po-loading-overlay"><div className="po-spinner"><div className="po-spinner-ring" /><span className="po-spinner-text">Loading…</span></div></div>}
-                    <table className={`po-table${loading ? ' po-tbl-loading' : ''}`}>
+                    <table className={`po-table rt-cards${loading ? ' po-tbl-loading' : ''}`}>
                         <thead>
                             <tr>
                                 <Th col="CnNumber">CN No</Th>
@@ -337,15 +337,15 @@ const CreditNote = () => {
                                 <tr><td colSpan={9} className="po-empty">No credit notes found. Use the filters on the left or create one.</td></tr>
                             ) : rows.map(r => (
                                 <tr key={r.cnId}>
-                                    <td><span className="po-num-link" onClick={() => navigate(`/credit-notes/${r.cnId}`)}>{r.cnNumber}</span></td>
-                                    <td>{fmtDate(r.cnDate)}</td>
-                                    <td style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.customerName || '—'}</td>
-                                    <td className="po-num-cell">{fmt(r.creditAmount)}</td>
-                                    <td className="po-num-cell">{fmt(r.allocatedAmount)}</td>
-                                    <td className="po-num-cell" style={{ color: r.unallocatedAmount > 0 ? '#b45309' : '#166534' }}>{fmt(r.unallocatedAmount)}</td>
-                                    <td style={{ fontSize: 11, color: '#475569' }}>{r.creditType || '—'}</td>
-                                    <td><StatusBadge s={r.status} /></td>
-                                    <td><button className="po-act-btn po-act-open" onClick={() => navigate(`/credit-notes/${r.cnId}`)}>Open</button></td>
+                                    <td data-label="CN No"><span className="po-num-link" onClick={() => navigate(`/credit-notes/${r.cnId}`)}>{r.cnNumber}</span></td>
+                                    <td data-label="Date">{fmtDate(r.cnDate)}</td>
+                                    <td data-label="Customer" style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.customerName || '—'}</td>
+                                    <td data-label="Credit Amount" className="po-num-cell">{fmt(r.creditAmount)}</td>
+                                    <td data-label="Allocated" className="po-num-cell">{fmt(r.allocatedAmount)}</td>
+                                    <td data-label="Unallocated" className="po-num-cell" style={{ color: r.unallocatedAmount > 0 ? '#b45309' : '#166534' }}>{fmt(r.unallocatedAmount)}</td>
+                                    <td data-label="Type" style={{ fontSize: 11, color: '#475569' }}>{r.creditType || '—'}</td>
+                                    <td data-label="Status"><StatusBadge s={r.status} /></td>
+                                    <td data-label="Actions"><button className="po-act-btn po-act-open" onClick={() => navigate(`/credit-notes/${r.cnId}`)}>Open</button></td>
                                 </tr>
                             ))}
                         </tbody>

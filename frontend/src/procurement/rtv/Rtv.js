@@ -161,7 +161,7 @@ export const Rtv = () => {
                         <div className="po-toolbar">
                             {error && <span style={{ fontSize: 12, color: '#dc2626', marginRight: 8 }}>{error}</span>}
                             <select className="po-select" value={pageSize} onChange={e => changePageSize(Number(e.target.value))}>
-                                {PAGE_SIZES.map(n => <option key={n} value={n}>{n} / page</option>)}
+                                {(window.matchMedia('(max-width:768px)').matches ? [10, 20, 50, 100, 200] : PAGE_SIZES).map(n => <option key={n} value={n}>{n} / page</option>)}
                             </select>
                             {canAdd && <button className="po-btn-pri" onClick={createNew}
                                 style={{ background: '#0f766e', borderColor: '#0f766e' }}>
@@ -181,7 +181,7 @@ export const Rtv = () => {
                             </div>
                         </div>
                     )}
-                    <table className={`po-table${loading ? ' po-tbl-loading' : ''}`}>
+                    <table className={`po-table rt-cards${loading ? ' po-tbl-loading' : ''}`}>
                         <thead>
                             <tr>
                                 <Th col="RtvNumber">RTV #</Th>
@@ -204,27 +204,27 @@ export const Rtv = () => {
                                 </tr>
                             ) : rows.map(r => (
                                 <tr key={r.rtvId}>
-                                    <td>
+                                    <td data-label="RTV #">
                                         <RowLink className="po-num-link" to={`/rtv/${r.rtvId}`}>
                                             {r.rtvNumber}
                                         </RowLink>
                                     </td>
-                                    <td>{fmtDate(r.rtvDate)}</td>
-                                    <td>{r.supplierName || <span style={{ color: '#94a3b8' }}>—</span>}</td>
-                                    <td>
+                                    <td data-label="Date">{fmtDate(r.rtvDate)}</td>
+                                    <td data-label="Supplier">{r.supplierName || <span style={{ color: '#94a3b8' }}>—</span>}</td>
+                                    <td data-label="Source GRN">
                                         {r.grnNumber
                                             ? <span style={{ fontFamily: 'Courier New', fontSize: 11, color: '#1e40af', background: '#dbeafe', padding: '2px 6px', borderRadius: 4 }}>{r.grnNumber}</span>
                                             : <span style={{ color: '#94a3b8' }}>—</span>}
                                     </td>
-                                    <td>
+                                    <td data-label="PO #">
                                         {r.poNumber
                                             ? <span style={{ fontFamily: 'Courier New', fontSize: 11, color: '#065f46', background: '#d1fae5', padding: '2px 6px', borderRadius: 4 }}>{r.poNumber}</span>
                                             : <span style={{ color: '#94a3b8' }}>—</span>}
                                     </td>
-                                    <td className="po-num-cell" style={{ fontWeight: 600 }}>{fmt(r.totalAmount)}</td>
-                                    <td><StatusBadge status={r.status} /></td>
-                                    <td style={{ fontSize: 11, color: '#64748b' }}>{r.createdBy || '—'}</td>
-                                    <td>
+                                    <td data-label="Total Amount" className="po-num-cell" style={{ fontWeight: 600 }}>{fmt(r.totalAmount)}</td>
+                                    <td data-label="Status"><StatusBadge status={r.status} /></td>
+                                    <td data-label="Created By" style={{ fontSize: 11, color: '#64748b' }}>{r.createdBy || '—'}</td>
+                                    <td data-label="Actions">
                                         <RowLink className="po-act-btn po-act-open" to={`/rtv/${r.rtvId}`}>Open</RowLink>
                                     </td>
                                 </tr>

@@ -17,7 +17,7 @@ const RevisePoModal = ({ po, onClose, onSubmit }) => {
 
     return (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ background: '#fff', borderRadius: 10, padding: '28px 32px', width: 420, boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }}>
+            <div style={{ background: '#fff', borderRadius: 10, padding: '28px 32px', width: 420, maxWidth: '94vw', boxSizing: 'border-box', boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }}>
                 <h3 style={{ margin: '0 0 4px', fontSize: 15, color: '#1e293b' }}>Revise Purchase Order</h3>
                 <p style={{ margin: '0 0 18px', fontSize: 12, color: '#64748b' }}>
                     {po.poNumber} — this will reset the PO to <strong>Draft</strong> (Rev {(po.revision || 0) + 1}) so lines can be edited and re-submitted for approval.

@@ -347,7 +347,7 @@ const SupplierInvoice = () => {
                         </div>
                         <div className="po-toolbar">
                             <select className="po-select" value={pageSize} onChange={e => changePageSize(Number(e.target.value))}>
-                                {PAGE_SIZES.map(n => <option key={n} value={n}>{n} / page</option>)}
+                                {(window.matchMedia('(max-width:768px)').matches ? [10, 20, 50, 100, 200] : PAGE_SIZES).map(n => <option key={n} value={n}>{n} / page</option>)}
                             </select>
                             {canAdd && <button className="po-btn-pri" onClick={() => setShowForm(true)}>+ New Invoice</button>}
                         </div>
@@ -363,7 +363,7 @@ const SupplierInvoice = () => {
                             </div>
                         </div>
                     )}
-                    <table className={`po-table${loading ? ' po-tbl-loading' : ''}`}>
+                    <table className={`po-table rt-cards${loading ? ' po-tbl-loading' : ''}`}>
                         <thead>
                             <tr>
                                 <Th col="InvoiceNo">Invoice #</Th>
@@ -387,32 +387,32 @@ const SupplierInvoice = () => {
                                 const statusCfg = statusBadgeCfg(getStatusConfig('SINV', r.status));
                                 return (
                                     <tr key={r.supplierInvoiceId}>
-                                        <td>
+                                        <td data-label="Invoice #">
                                             <RowLink className="po-num-link" to={`/supplier-invoice/${r.supplierInvoiceId}`}>
                                                 {r.invoiceNo || `#${r.supplierInvoiceId}`}
                                             </RowLink>
                                         </td>
-                                        <td>{fmtDate(r.invoiceDate)}</td>
-                                        <td>{r.supplierName}</td>
-                                        <td>
+                                        <td data-label="Date">{fmtDate(r.invoiceDate)}</td>
+                                        <td data-label="Supplier">{r.supplierName}</td>
+                                        <td data-label="Supplier Ref">
                                             <span style={{ fontFamily: 'Courier New', fontSize: 12 }}>
                                                 {r.supplierInvRef || '—'}
                                             </span>
                                         </td>
-                                        <td>{r.dueDate ? fmtDate(r.dueDate) : <span style={{ color: '#94a3b8' }}>—</span>}</td>
-                                        <td>
+                                        <td data-label="Due Date">{r.dueDate ? fmtDate(r.dueDate) : <span style={{ color: '#94a3b8' }}>—</span>}</td>
+                                        <td data-label="Status">
                                             <span className="po-status-badge" style={{ background: statusCfg.bg, color: statusCfg.color }}>
                                                 <span className="po-status-dot" style={{ background: statusCfg.dot }} />
                                                 {statusCfg.label || r.status}
                                             </span>
                                         </td>
-                                        <td className="po-num-cell">{fmt(r.subTotal)}</td>
-                                        <td className="po-num-cell">{fmt(r.taxAmount)}</td>
-                                        <td className="po-num-cell">{fmt(r.totalAmount)}</td>
-                                        <td className="po-num-cell" style={{ color: Number(r.paidAmount) > 0 ? '#0f766e' : '#94a3b8' }}>
+                                        <td data-label="Sub Total" className="po-num-cell">{fmt(r.subTotal)}</td>
+                                        <td data-label="Tax" className="po-num-cell">{fmt(r.taxAmount)}</td>
+                                        <td data-label="Total" className="po-num-cell">{fmt(r.totalAmount)}</td>
+                                        <td data-label="Paid" className="po-num-cell" style={{ color: Number(r.paidAmount) > 0 ? '#0f766e' : '#94a3b8' }}>
                                             {Number(r.paidAmount) > 0 ? fmt(r.paidAmount) : '—'}
                                         </td>
-                                        <td className="po-num-cell" style={{
+                                        <td data-label="Balance" className="po-num-cell" style={{
                                             color: r.balanceAmount == null ? '#94a3b8'
                                                  : Number(r.balanceAmount) <= 0 ? '#166534'
                                                  : '#b45309',
@@ -420,7 +420,7 @@ const SupplierInvoice = () => {
                                         }}>
                                             {r.balanceAmount == null ? '—' : fmt(r.balanceAmount)}
                                         </td>
-                                        <td>
+                                        <td data-label="Actions">
                                             <RowLink className="po-act-btn po-act-open" to={`/supplier-invoice/${r.supplierInvoiceId}`}>
                                                 Open
                                             </RowLink>
