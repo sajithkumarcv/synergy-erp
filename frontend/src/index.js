@@ -7,9 +7,12 @@ import { BrowserRouter } from "react-router-dom";
 import ErrorBoundary from './ErrorBoundary';
 import { installGlobalErrorLogging } from './errorLog';
 import { loadBrand, hideBootLoader } from './branding';
+import MaintenanceGate, { installMaintenanceWatch } from './MaintenanceGate';
 
 // Capture uncaught errors & unhandled promise rejections app-wide → backend log.
 installGlobalErrorLogging();
+// A 503 + X-Maintenance from the API switches an already-open app to the "under maintenance" page.
+installMaintenanceWatch();
 
 // Load runtime config + per-client login branding before rendering.
 // loadBrand() reads public/config.json (API_URL + BRAND) and the selected
@@ -21,9 +24,11 @@ loadBrand()
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(
       <BrowserRouter>
-        <ErrorBoundary>
-          <App />
-        </ErrorBoundary>
+        <MaintenanceGate>
+          <ErrorBoundary>
+            <App />
+          </ErrorBoundary>
+        </MaintenanceGate>
       </BrowserRouter>
     );
     // Keep the branded splash a touch longer so it reads as intentional,

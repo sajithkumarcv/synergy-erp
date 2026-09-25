@@ -17,6 +17,7 @@ import '../../jobs/JobDetail.css';
 import '../Inventory.css';
 import '../../procurement/Procurement.css';
 
+import LoadErrorPage from '../../LoadErrorPage';
 const IssueReturnDetailPage = () => {
     const { id }              = useParams();
     const navigate            = useNavigate();
@@ -82,15 +83,7 @@ const IssueReturnDetailPage = () => {
         </div>
     );
 
-    if (error) return (
-        <div className="jd-page-loading">
-            <div style={{ color: '#dc2626', fontSize: 14, fontWeight: 600 }}>⚠ {error}</div>
-            <button className="jd-back-btn" style={{ marginTop: 12 }}
-                onClick={() => navigate('/inventory-issue-return')}>
-                ← Back to Issue Returns
-            </button>
-        </div>
-    );
+    if (error) return <LoadErrorPage error={error} what="Issue return" backTo="/inventory-issue-return" backLabel="Issue Returns" />;
 
     if (!issueReturn) return null;
 

@@ -1,4 +1,9 @@
 {
   "API_URL": "https://localhost:7151/api/",
-  "BRAND": "default"
+  "BRAND": "default",
+  "MAINTENANCE": {
+    "Enabled": false,
+    "Message": "We are carrying out scheduled maintenance. Please try again shortly.",
+    "Until": null
+  }
 }

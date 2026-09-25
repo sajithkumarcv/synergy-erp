@@ -13,6 +13,7 @@ import '../../jobs/JobDetail.css';
 import '../Procurement.css';
 
 
+import LoadErrorPage from '../../LoadErrorPage';
 const SC_TABS = [
     { key: 'overview',     label: 'Overview',     icon: '📋' },
     { key: 'components',   label: 'Components',   icon: '📦' },
@@ -108,12 +109,7 @@ const SubcontractDetailPage = () => {
             <span>Loading subcontract order…</span>
         </div>
     );
-    if (error) return (
-        <div className="jd-page-loading">
-            <div style={{ color: '#dc2626', fontSize: 14, fontWeight: 600 }}>⚠ {error}</div>
-            <button className="jd-back-btn" style={{ marginTop: 12 }} onClick={() => navigate('/subcontracts')}>← Back to Subcontracts</button>
-        </div>
-    );
+    if (error) return <LoadErrorPage error={error} what="Subcontract order" backTo="/subcontracts" backLabel="Subcontracts" />;
     if (!sc) return null;
 
     const statusCfg = getStatusConfig('SCO', sc.status) || { badgeBg: '#f1f5f9', badgeColor: '#475569', badgeDot: '#94a3b8', statusLabel: sc.status };

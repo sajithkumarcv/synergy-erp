@@ -11,6 +11,7 @@ import BankTab      from './tabs/BankTab';
 import '../jobs/JobDetail.css';
 import './SupplierDetail.css';
 
+import LoadErrorPage from '../LoadErrorPage';
 // ─── SUPPLIER DETAIL PAGE ────────────────────────────────────────
 const SupplierDetailPage = () => {
     const { supplierId } = useParams();
@@ -53,12 +54,7 @@ const SupplierDetailPage = () => {
             <span>Loading supplier…</span>
         </div>
     );
-    if (error) return (
-        <div className="jd-page-loading">
-            <div style={{ color: '#dc2626', fontSize: 14, fontWeight: 600 }}>⚠ {error}</div>
-            <button className="jd-back-btn" style={{ marginTop: 12 }} onClick={() => navigate('/suppliers')}>← Back to Suppliers</button>
-        </div>
-    );
+    if (error) return <LoadErrorPage error={error} what="Supplier" backTo="/suppliers" backLabel="Suppliers" />;
     if (!supplier) return null;
 
     return (

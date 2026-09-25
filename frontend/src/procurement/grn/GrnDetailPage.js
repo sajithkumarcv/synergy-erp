@@ -19,6 +19,7 @@ import '../Procurement.css';
 import AlertModal from '../../common/AlertModal';
 import LoginPasswordModal from '../../common/LoginPasswordModal';
 
+import LoadErrorPage from '../../LoadErrorPage';
 const GrnDetailPage = () => {
     const { grnId }          = useParams();
     const navigate           = useNavigate();
@@ -142,12 +143,7 @@ const GrnDetailPage = () => {
             <span>Loading goods receipt note…</span>
         </div>
     );
-    if (error) return (
-        <div className="jd-page-loading">
-            <div style={{ color: '#dc2626', fontSize: 14, fontWeight: 600 }}>⚠ {error}</div>
-            <button className="jd-back-btn" style={{ marginTop: 12 }} onClick={() => navigate('/grn')}>← Back to GRNs</button>
-        </div>
-    );
+    if (error) return <LoadErrorPage error={error} what="GRN" backTo="/grn" backLabel="GRNs" />;
     if (!grn) return null;
 
     const statusData  = getStatusConfig('GRN', grn.status);

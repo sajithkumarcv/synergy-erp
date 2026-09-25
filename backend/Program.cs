@@ -175,6 +175,7 @@ var app = builder.Build();
 //}
 
 app.UseCors("AllowReactApp");       // CORS before everything
+app.UseMiddleware<MaintenanceMiddleware>();   // "Maintenance:Enabled" in appsettings.json -> 503 + message for every request (after CORS so the browser can read it)
 app.UseRateLimiter();               // before auth: unauthenticated login floods must be capped too
 if (!app.Environment.IsDevelopment())
     app.UseMiddleware<LicenseMiddleware>();

@@ -12,6 +12,7 @@ import AddressesTab from './tabs/AddressesTab';
 import '../jobs/JobDetail.css';
 import './CustomerDetail.css';
 
+import LoadErrorPage from '../LoadErrorPage';
 // ─── Credit Hold Modal ───────────────────────────────────────────
 const CreditHoldModal = ({ customer, onClose, onSaved }) => {
     const currentUser = useCurrentUser();
@@ -176,12 +177,7 @@ const CustomerDetailPage = () => {
             <span>Loading customer…</span>
         </div>
     );
-    if (error) return (
-        <div className="jd-page-loading">
-            <div style={{ color: '#dc2626', fontSize: 14, fontWeight: 600 }}>⚠ {error}</div>
-            <button className="jd-back-btn" style={{ marginTop: 12 }} onClick={() => navigate('/customers')}>← Back to Customers</button>
-        </div>
-    );
+    if (error) return <LoadErrorPage error={error} what="Customer" backTo="/customers" backLabel="Customers" />;
     if (!customer) return null;
 
     const flag = customer.creditFlag || 'GREEN';

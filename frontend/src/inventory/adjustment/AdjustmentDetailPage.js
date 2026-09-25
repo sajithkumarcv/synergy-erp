@@ -12,6 +12,7 @@ import '../../jobs/JobDetail.css';
 import '../Inventory.css';
 import '../../procurement/Procurement.css';
 
+import LoadErrorPage from '../../LoadErrorPage';
 const AdjustmentDetailPage = () => {
     const { id }               = useParams();
     const navigate             = useNavigate();
@@ -50,14 +51,7 @@ const AdjustmentDetailPage = () => {
             <span>Loading adjustment…</span>
         </div>
     );
-    if (error || !header) return (
-        <div className="jd-page-loading">
-            <div style={{ color: '#dc2626', fontSize: 14, fontWeight: 600 }}>⚠ {error || 'Not found.'}</div>
-            <button className="jd-back-btn" style={{ marginTop: 12 }} onClick={() => navigate('/inventory-adjustment')}>
-                ← Back to Adjustments
-            </button>
-        </div>
-    );
+    if (error || !header) return <LoadErrorPage error={error || 'HTTP 404'} what="Stock adjustment" backTo="/inventory-adjustment" backLabel="Adjustments" />;
 
     const statusData   = getStatusConfig('ADJ', header.status);
     const statusCfg    = statusBadgeCfg(statusData);

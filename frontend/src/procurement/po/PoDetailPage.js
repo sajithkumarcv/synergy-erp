@@ -26,6 +26,7 @@ import { InlineError }      from '../../common/InlineError';
 import '../../jobs/JobDetail.css';
 import '../Procurement.css';
 
+import LoadErrorPage from '../../LoadErrorPage';
 const PoDetailPage = () => {
     const { poId }          = useParams();
     const navigate          = useNavigate();
@@ -142,12 +143,7 @@ const PoDetailPage = () => {
             <span>Loading purchase order…</span>
         </div>
     );
-    if (error) return (
-        <div className="jd-page-loading">
-            <div style={{ color: '#dc2626', fontSize: 14, fontWeight: 600 }}>⚠ {error}</div>
-            <button className="jd-back-btn" style={{ marginTop: 12 }} onClick={() => navigate('/purchase-orders')}>← Back to Purchase Orders</button>
-        </div>
-    );
+    if (error) return <LoadErrorPage error={error} what="Purchase order" backTo="/purchase-orders" backLabel="Purchase Orders" />;
     if (!po) return null;
 
     const statusData = getStatusConfig('PO', po.status);

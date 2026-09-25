@@ -14,6 +14,7 @@ import ConfirmModal from '../common/ConfirmModal';
 import '../jobs/JobDetail.css';
 import '../procurement/Procurement.css';
 
+import LoadErrorPage from '../LoadErrorPage';
 const fmt     = (n) => (n == null ? '0.00' : Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—');
 
@@ -1297,12 +1298,7 @@ const PaymentVoucherDetail = () => {
             <div className="jd-spinner" /><span className="jd-spinner-text">Loading payment voucher…</span>
         </div>
     );
-    if (error) return (
-        <div className="jd-page-loading">
-            <div style={{ color: '#dc2626', fontSize: 14, fontWeight: 600 }}>⚠ {error}</div>
-            <button className="jd-back-btn" style={{ marginTop: 12 }} onClick={() => navigate('/payment-vouchers')}>← Back to Payment Vouchers</button>
-        </div>
-    );
+    if (error) return <LoadErrorPage error={error} what="Payment voucher" backTo="/payment-vouchers" backLabel="Payment Vouchers" />;
     if (!pv) return null;
 
     const cfg        = STATUS_CFG[pv.status] || STATUS_CFG.Draft;

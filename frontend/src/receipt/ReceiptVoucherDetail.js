@@ -15,6 +15,7 @@ import ConfirmModal from '../common/ConfirmModal';
 import '../jobs/JobDetail.css';
 import '../procurement/Procurement.css';
 
+import LoadErrorPage from '../LoadErrorPage';
 const fmt = (n) => (n == null ? '0.00' : Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—');
 
@@ -417,14 +418,7 @@ const ReceiptVoucherDetail = () => {
             <span>Loading receipt voucher…</span>
         </div>
     );
-    if (error) return (
-        <div className="jd-page-loading">
-            <div style={{ color: '#dc2626', fontSize: 14, fontWeight: 600 }}>⚠ {error}</div>
-            <button className="jd-back-btn" style={{ marginTop: 12 }} onClick={() => navigate('/receipt-vouchers')}>
-                ← Back to Receipt Vouchers
-            </button>
-        </div>
-    );
+    if (error) return <LoadErrorPage error={error} what="Receipt voucher" backTo="/receipt-vouchers" backLabel="Receipt Vouchers" />;
     if (!rv) return null;
 
     const cfg        = STATUS_CFG[rv.status] || STATUS_CFG.Draft;

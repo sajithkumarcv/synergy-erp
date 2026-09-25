@@ -17,6 +17,7 @@ import '../Procurement.css';
 import '../../inventory/Inventory.css';
 import AlertModal from '../../common/AlertModal';
 
+import LoadErrorPage from '../../LoadErrorPage';
 const SrvDetailPage = () => {
     const { id }               = useParams();
     const navigate             = useNavigate();
@@ -109,14 +110,7 @@ const SrvDetailPage = () => {
             <span>Loading service receipt…</span>
         </div>
     );
-    if (error || !srv) return (
-        <div className="jd-page-loading">
-            <div style={{ color: '#dc2626', fontSize: 14, fontWeight: 600 }}>⚠ {error || 'Not found.'}</div>
-            <button className="jd-back-btn" style={{ marginTop: 12 }} onClick={() => navigate('/service-receipts')}>
-                ← Back to Service Receipts
-            </button>
-        </div>
-    );
+    if (error || !srv) return <LoadErrorPage error={error || 'HTTP 404'} what="Service receipt" backTo="/service-receipts" backLabel="Service Receipts" />;
 
     const statusData  = getStatusConfig('SRV', srv.status);
     const statusCfg   = statusBadgeCfg(statusData);

@@ -9,6 +9,7 @@ import AlertModal from '../common/AlertModal';
 import '../jobs/JobDetail.css';
 import './Item.css';
 
+import LoadErrorPage from '../LoadErrorPage';
 const fmt = (n) => n != null ? Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
 
 const ITEM_TABS = [
@@ -547,15 +548,16 @@ const ItemDetailPage = () => {
   const [uoms,        setUoms]      = useState([]);
   const [budgetCategories, setBudgetCategories] = useState([]);
   const [showEdit,    setShowEdit]  = useState(false);
+  const [loadError,   setLoadError] = useState(null);   // load failure (e.g. HTTP 404) -> error page
 
   const loadItem = useCallback(() => {
     setLoading(true);
     fetch(`${variables.API_URL}item/${encodeURIComponent(itemId)}`, { headers: authHeaders() })
-      .then(r => { if (!r.ok) throw new Error('Not found'); return r.json(); })
-      .then(d => setItem(d))
-      .catch(() => navigate('/items'))
+      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then(d => { setItem(d); setLoadError(null); })
+      .catch(e => setLoadError(e?.message || 'Error'))
       .finally(() => setLoading(false));
-  }, [itemId, navigate]);
+  }, [itemId]);
 
   useEffect(() => { loadItem(); }, [loadItem]);
   useEffect(() => {
@@ -577,6 +579,7 @@ const ItemDetailPage = () => {
   };
 
   if (loading) return <div className="jd-page-loading"><div className="jd-page-spinner" /><span>Loading item…</span></div>;
+  if (!item && loadError) return <LoadErrorPage error={loadError} what="Item" backTo="/items" backLabel="Items" />;
   if (!item)   return null;
 
   return (

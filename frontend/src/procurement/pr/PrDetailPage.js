@@ -18,6 +18,7 @@ import JobClosedBanner      from '../../jobs/JobClosedBanner';
 import '../../jobs/JobDetail.css';
 import '../Procurement.css';
 
+import LoadErrorPage from '../../LoadErrorPage';
 const PrDetailPage = () => {
     const { prId }      = useParams();
     const navigate      = useNavigate();
@@ -89,12 +90,7 @@ const PrDetailPage = () => {
             <span>Loading purchase request…</span>
         </div>
     );
-    if (error) return (
-        <div className="jd-page-loading">
-            <div style={{ color: '#dc2626', fontSize: 14, fontWeight: 600 }}>⚠ {error}</div>
-            <button className="jd-back-btn" style={{ marginTop: 12 }} onClick={() => navigate('/purchase-requests')}>← Back to Purchase Requests</button>
-        </div>
-    );
+    if (error) return <LoadErrorPage error={error} what="Purchase request" backTo="/purchase-requests" backLabel="Purchase Requests" />;
     if (!pr) return null;
 
     const statusData = getStatusConfig('PR', pr.status);

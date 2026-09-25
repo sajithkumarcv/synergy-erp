@@ -15,6 +15,7 @@ import LinkedDocsModal      from '../common/LinkedDocsModal';
 import BomImportModal       from './BomImportModal';
 import '../inventory/Inventory.css';
 
+import LoadErrorPage from '../LoadErrorPage';
 // ── BOM line status colours ─────────────────────────────────────
 const LINE_STATUS = {
     Pending:         { bg: '#f1f5f9', color: '#64748b' },
@@ -1288,16 +1289,7 @@ const BomDetailPage = () => {
     };
 
     if (loading) return <div className="inv-page"><div className="inv-loading"><div className="inv-spinner" />Loading BOM…</div></div>;
-    if (loadError) return (
-        <div className="inv-page" style={{ padding: 32 }}>
-            <div style={{ maxWidth: 520, background: '#fee2e2', border: '1px solid #fca5a5',
-                          borderRadius: 10, padding: '20px 24px', color: '#991b1b' }}>
-                <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>⚠️ Could not load BOM</div>
-                <div style={{ fontSize: 13, marginBottom: 16 }}>{loadError}</div>
-                <button className="inv-btn inv-btn-ghost" onClick={() => navigate('/bom')}>← Back to BOMs</button>
-            </div>
-        </div>
-    );
+    if (loadError) return <LoadErrorPage error={loadError} what="BOM" backTo="/bom" backLabel="BOMs" />;
     if (!header) return null;
 
     return (

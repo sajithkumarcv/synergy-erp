@@ -22,6 +22,7 @@ import AlertModal from '../common/AlertModal';
 import './JobDetail.css';
 
 
+import LoadErrorPage from '../LoadErrorPage';
 // ─────────────────────────────────────────────────────────────
 // JobDetailPage  — Full page document-centric job view
 // ─────────────────────────────────────────────────────────────
@@ -62,15 +63,16 @@ const JobDetailPage = () => {
     const [readinessPhase,     setReadinessPhase]     = useState('checks');  // 'checks' | 'confirm'
     const [closeReason,        setCloseReason]        = useState('');
     const [closePassword,      setClosePassword]      = useState('');
+    const [loadError,          setLoadError]          = useState(null);   // load failure (e.g. HTTP 404) -> error page
 
     const loadJob = useCallback(() => {
         setLoading(true);
         fetch(`${variables.API_URL}job/${encodeURIComponent(jobId)}`, { headers: authHeaders() })
-            .then(r => { if (!r.ok) throw new Error('Not found'); return r.json(); })
-            .then(d => setJob(d))
-            .catch(() => navigate('/jobs'))
+            .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+            .then(d => { setJob(d); setLoadError(null); })
+            .catch(e => setLoadError(e?.message || 'Error'))
             .finally(() => setLoading(false));
-    }, [jobId, navigate]);
+    }, [jobId]);
 
     useEffect(() => { loadJob(); }, [loadJob]);
 
@@ -302,6 +304,7 @@ const JobDetailPage = () => {
             <span>Loading job…</span>
         </div>
     );
+    if (!job && loadError) return <LoadErrorPage error={loadError} what="Job" backTo="/jobs" backLabel="Jobs" />;
     if (!job) return null;
 
     const status   = STATUS[job.jobStatusId] || STATUS[1];

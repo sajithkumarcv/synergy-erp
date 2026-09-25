@@ -12,6 +12,7 @@ import '../Procurement.css';
 import AlertModal from '../../common/AlertModal';
 import LoginPasswordModal from '../../common/LoginPasswordModal';
 
+import LoadErrorPage from '../../LoadErrorPage';
 const SINV_TABS = [
     { key: 'overview', label: 'Overview', icon: '📋' },
     { key: 'lines',    label: 'Lines',    icon: '📦', badge: true },
@@ -532,12 +533,7 @@ const SupplierInvoiceDetailPage = () => {
             <span>Loading invoice…</span>
         </div>
     );
-    if (error) return (
-        <div className="jd-page-loading">
-            <div style={{ color: '#dc2626', fontSize: 14, fontWeight: 600 }}>⚠ {error}</div>
-            <button className="jd-back-btn" style={{ marginTop: 12 }} onClick={() => navigate('/supplier-invoice')}>← Back</button>
-        </div>
-    );
+    if (error) return <LoadErrorPage error={error} what="Supplier invoice" backTo="/supplier-invoice" backLabel="the list" />;
     if (!invoice) return null;
 
     const cfg         = sinvStatusCfg(invoice.status);

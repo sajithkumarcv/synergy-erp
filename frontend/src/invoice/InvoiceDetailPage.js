@@ -20,6 +20,7 @@ import { InlineError } from '../common/InlineError';
 import '../jobs/JobDetail.css';
 import '../procurement/Procurement.css';
 
+import LoadErrorPage from '../LoadErrorPage';
 // ── Copy Invoice Modal ────────────────────────────────────────────────
 const CopyInvoiceModal = ({ invoice, onClose, onCopied }) => {
     const currentUser  = useCurrentUser();
@@ -58,7 +59,7 @@ const CopyInvoiceModal = ({ invoice, onClose, onCopied }) => {
 
     return (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ background: '#fff', borderRadius: 10, width: 460, boxShadow: '0 8px 32px rgba(0,0,0,0.18)', overflow: 'hidden' }}>
+            <div style={{ background: '#fff', borderRadius: 10, width: 460, maxWidth: '94vw', boxShadow: '0 8px 32px rgba(0,0,0,0.18)', overflow: 'hidden' }}>
                 {/* Header */}
                 <div style={{ background: 'var(--primary,#2e5fa3)', padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div>
@@ -151,7 +152,7 @@ const ReviseModal = ({ invoiceNo, onClose, onConfirm }) => {
 
     return (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ background: '#fff', borderRadius: 10, width: 440, boxShadow: '0 8px 32px rgba(0,0,0,0.18)', overflow: 'hidden' }}>
+            <div style={{ background: '#fff', borderRadius: 10, width: 440, maxWidth: '94vw', boxShadow: '0 8px 32px rgba(0,0,0,0.18)', overflow: 'hidden' }}>
                 <div style={{ background: '#b45309', padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div>
                         <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>✎ Revise Confirmed Invoice</div>
@@ -330,14 +331,7 @@ const InvoiceDetailPage = () => {
             <span>Loading invoice…</span>
         </div>
     );
-    if (error) return (
-        <div className="jd-page-loading">
-            <div style={{ color: '#dc2626', fontSize: 14, fontWeight: 600 }}>⚠ {error}</div>
-            <button className="jd-back-btn" style={{ marginTop: 12 }} onClick={() => navigate('/invoices')}>
-                ← Back to Invoices
-            </button>
-        </div>
-    );
+    if (error) return <LoadErrorPage error={error} what="Invoice" backTo="/invoices" backLabel="Invoices" />;
     if (!invoice) return null;
 
     const statusData = getStatusConfig('INV', invoice.status);

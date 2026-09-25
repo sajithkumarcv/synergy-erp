@@ -11,6 +11,7 @@ import PostRtvModal   from './PostRtvModal';
 import '../../jobs/JobDetail.css';
 import '../Procurement.css';
 
+import LoadErrorPage from '../../LoadErrorPage';
 const RTV_TABS = [
     { key: 'overview', label: 'Overview', icon: '📋' },
     { key: 'lines',    label: 'Lines',    icon: '↩️', badge: true },
@@ -103,12 +104,7 @@ const RtvDetailPage = () => {
             <span>Loading return to vendor…</span>
         </div>
     );
-    if (error) return (
-        <div className="jd-page-loading">
-            <div style={{ color: '#dc2626', fontSize: 14, fontWeight: 600 }}>⚠ {error}</div>
-            <button className="jd-back-btn" style={{ marginTop: 12 }} onClick={() => navigate('/rtv')}>← Back to RTVs</button>
-        </div>
-    );
+    if (error) return <LoadErrorPage error={error} what="Return to vendor" backTo="/rtv" backLabel="RTVs" />;
     if (!rtv) return null;
 
     const isDraft    = rtv.status === 'Draft';

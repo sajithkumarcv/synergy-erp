@@ -15,6 +15,7 @@ import '../../jobs/JobDetail.css';
 import '../Inventory.css';
 import '../../procurement/Procurement.css';
 
+import LoadErrorPage from '../../LoadErrorPage';
 const StockTransferDetailPage = () => {
     const { id }              = useParams();
     const [searchParams]      = useSearchParams();
@@ -70,14 +71,7 @@ const StockTransferDetailPage = () => {
             <span>Loading transfer…</span>
         </div>
     );
-    if (error || !transfer) return (
-        <div className="jd-page-loading">
-            <div style={{ color:'#dc2626', fontSize:14, fontWeight:600 }}>⚠ {error || 'Not found.'}</div>
-            <button className="jd-back-btn" style={{ marginTop:12 }} onClick={() => navigate('/inventory-transfer')}>
-                ← Back to Stock Transfers
-            </button>
-        </div>
-    );
+    if (error || !transfer) return <LoadErrorPage error={error || 'HTTP 404'} what="Stock transfer" backTo="/inventory-transfer" backLabel="Stock Transfers" />;
 
     const statusData = getStatusConfig('STR', transfer.status);
     const statusCfg  = statusBadgeCfg(statusData);

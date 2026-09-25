@@ -13,6 +13,7 @@ import FreeIssueGrnLineImportModal from './FreeIssueGrnLineImportModal';
 import '../../jobs/JobDetail.css';
 import '../Procurement.css';
 
+import LoadErrorPage from '../../LoadErrorPage';
 const FI_TABS = [
     { key: 'overview',  label: 'Overview',  icon: '📋' },
     { key: 'lines',     label: 'Lines',     icon: '📦', badge: true },
@@ -584,12 +585,7 @@ const FreeIssueGrnDetailPage = () => {
     if (loading) return (
         <div className="jd-page-loading"><div className="jd-page-spinner" /><span>Loading free issue GRN…</span></div>
     );
-    if (error) return (
-        <div className="jd-page-loading">
-            <div style={{ color: '#dc2626', fontSize: 14, fontWeight: 600 }}>⚠ {error}</div>
-            <button className="jd-back-btn" style={{ marginTop: 12 }} onClick={() => navigate('/free-issue-grn')}>← Back</button>
-        </div>
-    );
+    if (error) return <LoadErrorPage error={error} what="Free-issue GRN" backTo="/free-issue-grn" backLabel="the list" />;
     if (!grn) return null;
 
     const sc = statusOf(grn.status);

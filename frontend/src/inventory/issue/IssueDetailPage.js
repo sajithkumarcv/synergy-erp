@@ -18,6 +18,7 @@ import '../../procurement/Procurement.css';
 import AlertModal from '../../common/AlertModal';
 import LoginPasswordModal from '../../common/LoginPasswordModal';
 
+import LoadErrorPage from '../../LoadErrorPage';
 const IssueDetailPage = () => {
     const { id }              = useParams();
     const navigate            = useNavigate();
@@ -145,14 +146,7 @@ const IssueDetailPage = () => {
             <span>Loading issue note…</span>
         </div>
     );
-    if (error) return (
-        <div className="jd-page-loading">
-            <div style={{ color: '#dc2626', fontSize: 14, fontWeight: 600 }}>⚠ {error}</div>
-            <button className="jd-back-btn" style={{ marginTop: 12 }} onClick={() => navigate('/inventory-issue')}>
-                ← Back to Issue Notes
-            </button>
-        </div>
-    );
+    if (error) return <LoadErrorPage error={error} what="Issue note" backTo="/inventory-issue" backLabel="Issue Notes" />;
     if (!issue) return null;
 
     const statusData  = getStatusConfig('ISN', issue.status);

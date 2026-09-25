@@ -13,6 +13,7 @@ import '../procurement/Procurement.css';
 import AlertModal from '../common/AlertModal';
 import ConfirmModal from '../common/ConfirmModal';
 
+import LoadErrorPage from '../LoadErrorPage';
 const DeliveryDetailPage = () => {
     const { deliveryId }  = useParams();
     const navigate        = useNavigate();
@@ -97,14 +98,7 @@ const DeliveryDetailPage = () => {
             <span>Loading delivery note…</span>
         </div>
     );
-    if (error) return (
-        <div className="jd-page-loading">
-            <div style={{ color: '#dc2626', fontSize: 14, fontWeight: 600 }}>⚠ {error}</div>
-            <button className="jd-back-btn" style={{ marginTop: 12 }} onClick={() => navigate('/delivery')}>
-                ← Back to Delivery Notes
-            </button>
-        </div>
-    );
+    if (error) return <LoadErrorPage error={error} what="Delivery note" backTo="/delivery" backLabel="Delivery Notes" />;
     if (!delivery) return null;
 
     const statusCfg  = getDeliveryStatusConfig(delivery.status);
