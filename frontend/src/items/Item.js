@@ -54,6 +54,7 @@ const ItemForm = ({ categories, itemTypes, uoms, budgetCategories = [], onClose,
   const save = async () => {
     if (!form.itemName.trim()) { setAlertMsg('Item Name is required.'); return; }
     if (!form.itemTypeId)      { setAlertMsg('Item Type is required.'); return; }
+    if (!form.budgetCategoryId) { setAlertMsg('Budget Header is required.'); return; }
     setSaving(true);
     try {
       const res = await fetch(`${variables.API_URL}item/save`, {
@@ -147,7 +148,7 @@ const ItemForm = ({ categories, itemTypes, uoms, budgetCategories = [], onClose,
           </div>
           <div className="if-row">
             <div className="if-field">
-              <label>Budget Header</label>
+              <label>Budget Header <span className="req">*</span></label>
               <select name="budgetCategoryId" className="if-input" value={form.budgetCategoryId} onChange={handle}>
                 <option value="">-- Select --</option>
                 {budgetCategories.map(b => <option key={b.id} value={b.id}>{b.code ? `${b.code} — ` : ''}{b.name}</option>)}

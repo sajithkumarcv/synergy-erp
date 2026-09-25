@@ -128,6 +128,17 @@ namespace ERPWEB.Controllers.Item
         {
             try
             {
+                // A NEW item must carry a Budget Header (TBL_JOB_EXPENSE_CATEGORY). Enforced here, not in the database
+                // (the column stays nullable), so existing items without one can still be edited.
+                if (model.ItemId == 0)
+                {
+                    if (model.BudgetCategoryId == null || model.BudgetCategoryId <= 0)
+                        return BadRequest(new { message = "Budget Header is required for a new item." });
+                    var cats = await _db.QueryAsync<dynamic>("sp_GetExpenseCategoryList");
+                    if (!cats.Any(c => (int)c.ExpenseCategoryId == model.BudgetCategoryId))
+                        return BadRequest(new { message = "The selected Budget Header does not exist." });
+                }
+
                 var p = new
                 {
                     ItemId           = model.ItemId == 0 ? (int?)null : model.ItemId,
@@ -230,6 +241,7 @@ namespace ERPWEB.Controllers.Item
                     if (string.IsNullOrWhiteSpace(row.ItemName))   errors.Add("ItemName is required");
                     if (string.IsNullOrWhiteSpace(row.ItemTypeName)) errors.Add("ItemTypeName is required");
                     if (string.IsNullOrWhiteSpace(row.BaseUom))    errors.Add("BaseUom is required");
+                    if (string.IsNullOrWhiteSpace(row.BudgetHeader)) errors.Add("BudgetHeader is required");
 
                     // ── Resolve lookups ───────────────────────────
                     int? categoryId  = null;
@@ -241,8 +253,7 @@ namespace ERPWEB.Controllers.Item
                     int? budgetCategoryId = null;
                     if (!string.IsNullOrWhiteSpace(row.CategoryName))
                         categoryId    = Resolve(row.CategoryName, "Category",   catIds,  catByCode,  catByName,  errors);
-                    // BudgetHeader is optional now — items are no longer required to carry a
-                    // budget category at creation; it's resolved at PR/PO line level instead.
+                    // BudgetHeader is required for a new item (checked above); an unknown value is reported by Resolve().
                     if (!string.IsNullOrWhiteSpace(row.BudgetHeader))
                         budgetCategoryId = Resolve(row.BudgetHeader, "BudgetHeader", budgetIds, budgetByCode, budgetByName, errors);
                     if (!string.IsNullOrWhiteSpace(row.ItemTypeName))
