@@ -108,7 +108,7 @@ const Section = ({ title, count, icon, children, defaultOpen = true }) => {
                 )}
                 <span style={{ color: '#94a3b8', fontSize: 11, marginLeft: 4 }}>{open ? '▲' : '▼'}</span>
             </div>
-            {open && <div style={{ padding: '16px 18px' }}>{children}</div>}
+            {open && <div className="ov-sec-body" style={{ padding: '16px 18px' }}>{children}</div>}
         </div>
     );
 };
@@ -348,7 +348,7 @@ const PasswordModal = ({ title, message, onCancel, onConfirm, busy }) => {
             {/* Financial approval modal — does not close on an outside click,
                 so a stray click (e.g. a browser password-manager popup) can't
                 silently discard the typed reason/password. */}
-            <div style={{ background: '#fff', borderRadius: 10, width: 420, padding: 22, boxShadow: '0 8px 24px rgba(0,0,0,.25)' }}>
+            <div style={{ background: '#fff', borderRadius: 10, width: 420, maxWidth: '92vw', boxSizing: 'border-box', padding: 22, boxShadow: '0 8px 24px rgba(0,0,0,.25)' }}>
                 <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', marginBottom: 8 }}>{title}</div>
                 <div style={{ fontSize: 12.5, color: '#475569', marginBottom: 14, lineHeight: 1.5 }}>{message}</div>
 
@@ -674,7 +674,7 @@ const JobSearchSelect = ({ jobList, loading, value, onSelect }) => {
 
     const inputStyle = {
         padding: '5px 30px 5px 10px', border: '1px solid #d1d5db', borderRadius: 6,
-        fontSize: 13, outline: 'none', height: 32, width: 520, boxSizing: 'border-box',
+        fontSize: 13, outline: 'none', height: 32, width: 'min(520px, 86vw)', boxSizing: 'border-box',
         fontWeight: value ? 600 : 400,
         borderColor: value ? '#3b82f6' : '#d1d5db',
         color: value ? '#1d4ed8' : '#334155',
@@ -757,6 +757,8 @@ const JobOverview = () => {
     const [budgetHeader,  setBudgetHeader] = useState({ currentRvNo: 0, isApproved: false, approvedBy: null, approvedDate: null, totalRevisions: 0 });
     const [budgetRows,    setBudgetRows]   = useState([]);
     const [budgetLoading, setBudgetLoading]= useState(false);
+    const [budgetItems,   setBudgetItems]  = useState([]);   // budget lines, shown when a cost category is expanded
+    const [budExpanded,   setBudExpanded]  = useState({});   // { [costCategoryId]: true }
     // Same "only headers with entries" default used on the Job Budget page
     // (editor + summary) — most cost headers on a job type go untouched, so
     // default to just the budgeted ones here too, with a toggle to see all.
@@ -865,13 +867,38 @@ const JobOverview = () => {
     }, []);
 
     const loadBudget = useCallback(jobId => {
-        if (!jobId) { setBudgetRows([]); setBudgetHeader({ currentRvNo: 0, isApproved: false, approvedBy: null, approvedDate: null, totalRevisions: 0 }); return; }
+        if (!jobId) { setBudgetRows([]); setBudgetItems([]); setBudgetHeader({ currentRvNo: 0, isApproved: false, approvedBy: null, approvedDate: null, totalRevisions: 0 }); return; }
         setBudgetLoading(true);
-        fetch(`${variables.API_URL}jobbudget/${encodeURIComponent(jobId)}`, { headers: authHeaders() })
-            .then(r => r.json())
-            .then(d => {
+        const H  = { headers: authHeaders() };
+        const id = encodeURIComponent(jobId);
+        Promise.all([
+            fetch(`${variables.API_URL}jobbudget/${id}`, H).then(r => r.json()),
+            fetch(`${variables.API_URL}jobbudget/${id}/breakdown`, H).then(r => r.ok ? r.json() : []).catch(() => []),
+            fetch(`${variables.API_URL}jobbudget/${id}/items`, H).then(r => r.ok ? r.json() : []).catch(() => []),
+        ])
+            .then(([d, bd, items]) => {
                 setBudgetHeader(d?.header || { currentRvNo: 0, isApproved: false, totalRevisions: 0 });
-                setBudgetRows(Array.isArray(d?.lines) ? d.lines : Array.isArray(d) ? d : []);
+                const lines = Array.isArray(d?.lines) ? d.lines : Array.isArray(d) ? d : [];
+                // Actual per category = PO (+ manhours / expenses) + Issued stock - Returned stock.
+                // Issue / Return come from the item's budget category; only Include-in-Costing issue notes count.
+                const bdMap = new Map();
+                (Array.isArray(bd) ? bd : []).forEach(b => bdMap.set(b.costCategoryId, b));
+                const known = new Set(lines.map(l => l.costCategoryId));
+                const adj = lines.map(l => {
+                    const b   = bdMap.get(l.costCategoryId) || {};
+                    const iss = b.issueAmount || 0, ret = b.returnAmount || 0;
+                    return { ...l, poAmount: b.poAmount || 0, issueAmount: iss, returnAmount: ret,
+                             actualAmount: (l.actualAmount || 0) + iss - ret,
+                             variance:     (l.variance     || 0) - (iss - ret) };
+                });
+                // Issued stock whose item has no budget category (or one not used for budgeting)
+                let ui = 0, ur = 0;
+                bdMap.forEach((b, k) => { if (k == null || !known.has(k)) { ui += b.issueAmount || 0; ur += b.returnAmount || 0; } });
+                if (ui || ur) adj.push({ costCategoryId: 'unallocated', categoryName: 'Unallocated', isUnallocated: true,
+                    budgetedAmount: 0, amountInBaseCurrency: 0, poAmount: 0, issueAmount: ui, returnAmount: ur,
+                    actualAmount: ui - ur, variance: -(ui - ur) });
+                setBudgetRows(adj);
+                setBudgetItems(Array.isArray(items) ? items : []);
             })
             .catch(console.error)
             .finally(() => setBudgetLoading(false));
@@ -1012,7 +1039,10 @@ const JobOverview = () => {
     const budTotalVar       = budTotalBudget - budTotalActual;
     const budUsedPct        = budTotalBudget > 0 ? Math.min((budTotalActual / budTotalBudget) * 100, 999) : 0;
     const setBudgetCount    = budgetRows.filter(r => r.budgetedAmount > 0).length;
-    const visibleBudgetRows = budgetOnlyWithEntries ? budgetRows.filter(r => r.budgetedAmount > 0) : budgetRows;
+    const visibleBudgetRows = budgetOnlyWithEntries ? budgetRows.filter(r => r.budgetedAmount > 0 || r.isUnallocated) : budgetRows;
+    const budTotalPo        = budgetRows.reduce((s, r) => s + (r.poAmount     || 0), 0);
+    const budTotalIssue     = budgetRows.reduce((s, r) => s + (r.issueAmount  || 0), 0);
+    const budTotalReturn    = budgetRows.reduce((s, r) => s + (r.returnAmount || 0), 0);
     const currentRvNo       = budgetHeader.currentRvNo;
     const budgetApproved    = budgetHeader.isApproved;
     // All closed statuses (Freezed=3, Completed=4, Cancelled=5) block every
@@ -1470,7 +1500,7 @@ const JobOverview = () => {
                                     )}
 
                                     {/* ── 2-column financial summary ─────────────────────── */}
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: 40, rowGap: 2 }}>
+                                    <div className="ov-fin-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: 40, rowGap: 2 }}>
                                         {/* LEFT column */}
                                         <Row label="Main Order Value"        value={mainOrderValue} />
                                         {/* RIGHT column */}
@@ -1694,12 +1724,17 @@ const JobOverview = () => {
                         {budgetLoading
                             ? <div style={{ padding: 24, textAlign: 'center', color: '#64748b' }}>Loading…</div>
                             : visibleBudgetRows.length > 0 && (
-                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+                                <div style={{ overflowX: 'auto' }}>
+                                <table className="ov-bud-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
                                     <thead>
                                         <tr style={{ background: '#f1f5f9' }}>
+                                            <th style={{ ...BudTH, width: 28, padding: '8px 6px' }}></th>
                                             <th style={BudTH}>Cost Category</th>
                                             <th style={{ ...BudTH, textAlign: 'right', minWidth: 180 }}>Budget</th>
-                                            <th style={{ ...BudTH, textAlign: 'right' }}>Actual</th>
+                                            <th style={{ ...BudTH, textAlign: 'right' }} title="Committed purchase orders">PO</th>
+                                            <th style={{ ...BudTH, textAlign: 'right' }} title="Stock issued to the job (Include in Costing)">Issue</th>
+                                            <th style={{ ...BudTH, textAlign: 'right' }} title="Issued stock returned">Return</th>
+                                            <th style={{ ...BudTH, textAlign: 'right' }} title="PO + Issue - Return (also manhours and approved expenses where the category has them)">Actual</th>
                                             <th style={{ ...BudTH, textAlign: 'right' }}>Variance</th>
                                             <th style={{ ...BudTH, width: 160 }}>Spend</th>
                                         </tr>
@@ -1710,8 +1745,22 @@ const JobOverview = () => {
                                             const spendPct = row.budgetedAmount > 0
                                                 ? Math.min((row.actualAmount / row.budgetedAmount) * 100, 100).toFixed(0)
                                                 : null;
+                                            const isOpen   = !!budExpanded[row.costCategoryId];
+                                            const catItems = isOpen ? budgetItems.filter(i => i.costCategoryId === row.costCategoryId) : [];
+                                            const catPos   = isOpen ? (data.purchaseOrders || []).filter(r => r.status !== 'Draft' && (r.expenseCategoryName || 'Uncategorised') === row.categoryName) : [];
+                                            const numCell  = (v) => ({ ...BudTD, textAlign: 'right', fontFamily: 'Courier New', color: v > 0 ? '#1e293b' : '#94a3b8' });
                                             return (
-                                                <tr key={row.costCategoryId} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                                <React.Fragment key={row.costCategoryId}>
+                                                <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                                    <td style={{ ...BudTD, padding: '10px 6px', textAlign: 'center' }}>
+                                                        {!row.isUnallocated && (
+                                                            <span onClick={() => setBudExpanded(p => ({ ...p, [row.costCategoryId]: !p[row.costCategoryId] }))}
+                                                                title={isOpen ? 'Hide details' : 'Show budget lines and purchase orders'}
+                                                                style={{ cursor: 'pointer', color: '#7c3aed', fontWeight: 700, fontSize: 15, userSelect: 'none' }}>
+                                                                {isOpen ? '−' : '+'}
+                                                            </span>
+                                                        )}
+                                                    </td>
                                                     <td style={BudTD}>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                                             <span style={{ fontSize: 16 }}>{src.icon || '•'}</span>
@@ -1722,13 +1771,16 @@ const JobOverview = () => {
                                                         </div>
                                                     </td>
                                                     <td style={{ ...BudTD, textAlign: 'right' }}>
-                                                        <EditableCell row={row} canEdit={budgetCanEdit} uoms={uoms}
+                                                        {row.isUnallocated ? <span style={{ color: '#cbd5e1' }}>—</span> : <EditableCell row={row} canEdit={budgetCanEdit} uoms={uoms}
                                                             currencies={lookups.currencies || []}
                                                             job={{ jobCurrencyId: h?.currencyId, jobExcRate: h?.exchangeRate }}
                                                             baseCurrencyCode={baseCurrencyCode}
                                                             onSave={(fields) => handleBudgetSave(row, fields)}
-                                                            onDelete={handleBudgetDelete} />
+                                                            onDelete={handleBudgetDelete} />}
                                                     </td>
+                                                    <td style={numCell(row.poAmount)}>{row.poAmount > 0 ? fmt(row.poAmount) : '—'}</td>
+                                                    <td style={numCell(row.issueAmount)}>{row.issueAmount > 0 ? fmt(row.issueAmount) : '—'}</td>
+                                                    <td style={numCell(row.returnAmount)}>{row.returnAmount > 0 ? fmt(row.returnAmount) : '—'}</td>
                                                     <td style={{ ...BudTD, textAlign: 'right', fontFamily: 'Courier New', fontWeight: 500, color: (row.actualAmount || 0) > 0 ? '#1e293b' : '#94a3b8' }}>
                                                         {(row.actualAmount || 0) > 0 ? fmt(row.actualAmount) : '—'}
                                                     </td>
@@ -1746,13 +1798,82 @@ const JobOverview = () => {
                                                             : <span style={{ color: '#cbd5e1', fontSize: 11 }}>—</span>}
                                                     </td>
                                                 </tr>
+                                                {isOpen && (
+                                                    <tr>
+                                                        <td colSpan={9} style={{ padding: '4px 12px 14px 40px', background: '#fafbfd', borderBottom: '1px solid #e2e8f0' }}>
+                                                            <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', margin: '8px 0 4px' }}>BUDGET LINES</div>
+                                                            {catItems.length === 0
+                                                                ? <div style={{ fontSize: 12, color: '#94a3b8' }}>No budget lines under this category.</div>
+                                                                : (
+                                                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                                                                    <thead><tr style={{ color: '#64748b', fontSize: 10.5, textTransform: 'uppercase' }}>
+                                                                        <th style={{ textAlign: 'left', padding: '4px 8px' }}>Item</th>
+                                                                        <th style={{ textAlign: 'left', padding: '4px 8px' }}>UOM</th>
+                                                                        <th style={{ textAlign: 'left', padding: '4px 8px' }}>Remarks</th>
+                                                                        <th style={{ textAlign: 'right', padding: '4px 8px' }}>Qty</th>
+                                                                        <th style={{ textAlign: 'right', padding: '4px 8px' }}>Unit Price</th>
+                                                                        <th style={{ textAlign: 'right', padding: '4px 8px' }}>Amount</th>
+                                                                    </tr></thead>
+                                                                    <tbody>
+                                                                        {catItems.map(i => (
+                                                                            <tr key={i.budgetItemId} style={{ borderTop: '1px solid #eef2f7' }}>
+                                                                                <td style={{ padding: '4px 8px' }}>{i.itemCode} <span style={{ color: '#64748b' }}>{i.itemName}</span></td>
+                                                                                <td style={{ padding: '4px 8px', color: '#64748b' }}>{i.uomCode || '—'}</td>
+                                                                                <td style={{ padding: '4px 8px', color: '#64748b' }}>{i.notes || '—'}</td>
+                                                                                <td style={{ padding: '4px 8px', textAlign: 'right' }}>{fmt(i.qty, 2)}</td>
+                                                                                <td style={{ padding: '4px 8px', textAlign: 'right' }}>{fmt(i.unitPrice)}</td>
+                                                                                <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 600 }}>{fmt(i.lineTotal)}</td>
+                                                                            </tr>
+                                                                        ))}
+                                                                        <tr style={{ borderTop: '1px solid #cbd5e1', fontWeight: 700 }}>
+                                                                            <td colSpan={5} style={{ padding: '4px 8px', textAlign: 'right', color: '#64748b' }}>Sub Total</td>
+                                                                            <td style={{ padding: '4px 8px', textAlign: 'right' }}>{fmt(catItems.reduce((a, i) => a + (Number(i.lineTotal) || 0), 0))}</td>
+                                                                        </tr>
+                                                                    </tbody>
+                                                                </table>)}
+                                                            <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', margin: '12px 0 4px' }}>PURCHASE ORDERS</div>
+                                                            {catPos.length === 0
+                                                                ? <div style={{ fontSize: 12, color: '#94a3b8' }}>No purchase orders against this category.</div>
+                                                                : (
+                                                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                                                                    <thead><tr style={{ color: '#64748b', fontSize: 10.5, textTransform: 'uppercase' }}>
+                                                                        <th style={{ textAlign: 'left', padding: '4px 8px' }}>PO Ref #</th>
+                                                                        <th style={{ textAlign: 'left', padding: '4px 8px' }}>PO Date</th>
+                                                                        <th style={{ textAlign: 'left', padding: '4px 8px' }}>Supplier</th>
+                                                                        <th style={{ textAlign: 'right', padding: '4px 8px' }}>PO Amount ({baseCurrencyCode})</th>
+                                                                        <th style={{ textAlign: 'right', padding: '4px 8px' }}>Paid</th>
+                                                                        <th style={{ textAlign: 'right', padding: '4px 8px' }}>Balance</th>
+                                                                    </tr></thead>
+                                                                    <tbody>
+                                                                        {catPos.map(r => (
+                                                                            <tr key={r.poId} style={{ borderTop: '1px solid #eef2f7' }}>
+                                                                                <td style={{ padding: '4px 8px' }}>
+                                                                                    <span onClick={() => triggerPrint('po', r.poId)} style={{ fontFamily: 'Courier New', fontSize: 11, background: '#f1f5f9', padding: '1px 6px', borderRadius: 4, cursor: 'pointer', color: '#1e40af' }}>{r.poNumber}</span>
+                                                                                </td>
+                                                                                <td style={{ padding: '4px 8px' }}>{fmtDate(r.poDate)}</td>
+                                                                                <td style={{ padding: '4px 8px' }}>{r.vendorName}</td>
+                                                                                <td style={{ padding: '4px 8px', textAlign: 'right' }}>{fmt(r.totalAmountBase ?? r.totalAmount)}</td>
+                                                                                <td style={{ padding: '4px 8px', textAlign: 'right' }}>{fmt(r.paidAmountBase ?? r.paidAmount ?? 0)}</td>
+                                                                                <td style={{ padding: '4px 8px', textAlign: 'right' }}>{fmt(r.balanceAmountBase ?? r.balanceAmount ?? 0)}</td>
+                                                                            </tr>
+                                                                        ))}
+                                                                    </tbody>
+                                                                </table>)}
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                                </React.Fragment>
                                             );
                                         })}
                                     </tbody>
                                     <tfoot>
                                         <tr style={{ background: '#1e3a5f', color: '#fff' }}>
+                                            <td style={BudTD}></td>
                                             <td style={{ ...BudTD, fontWeight: 700, color: '#fff' }}>TOTAL</td>
                                             <td style={{ ...BudTD, textAlign: 'right', fontFamily: 'Courier New', fontWeight: 700, color: '#fff' }}>{fmtDualFromBase(budTotalBudget)}</td>
+                                            <td style={{ ...BudTD, textAlign: 'right', fontFamily: 'Courier New', fontWeight: 700, color: '#fff' }}>{fmt(budTotalPo)}</td>
+                                            <td style={{ ...BudTD, textAlign: 'right', fontFamily: 'Courier New', fontWeight: 700, color: '#fff' }}>{fmt(budTotalIssue)}</td>
+                                            <td style={{ ...BudTD, textAlign: 'right', fontFamily: 'Courier New', fontWeight: 700, color: '#fff' }}>{fmt(budTotalReturn)}</td>
                                             <td style={{ ...BudTD, textAlign: 'right', fontFamily: 'Courier New', fontWeight: 700, color: '#fff' }}>{fmtDualFromBase(budTotalActual)}</td>
                                             <td style={{ ...BudTD, textAlign: 'right', fontFamily: 'Courier New', fontWeight: 700, color: budTotalVar >= 0 ? '#86efac' : '#fca5a5' }}>
                                                 {(budTotalVar >= 0 ? '' : '− ') + fmtDualFromBase(Math.abs(budTotalVar))}
@@ -1768,11 +1889,18 @@ const JobOverview = () => {
                                         </tr>
                                     </tfoot>
                                 </table>
+                                </div>
                             )
                         }
 
+                        {budTotalIssue > 0 && (
+                            <div style={{ marginTop: 10, fontSize: 13, fontWeight: 700, color: '#166534' }}>
+                                Total Issue Cost - {baseCurrencyCode} {fmt(budTotalIssue)}
+                                {budTotalReturn > 0 && <span style={{ fontWeight: 500, color: '#64748b' }}> &nbsp;(returned {fmt(budTotalReturn)} · net {fmt(budTotalIssue - budTotalReturn)})</span>}
+                            </div>
+                        )}
                         <div style={{ marginTop: 12, fontSize: 10.5, color: '#94a3b8' }}>
-                            Actual costs: Committed POs + Confirmed SRVs + Confirmed Timesheets + Stock Issues + Approved Expenses
+                            Actual per category = PO + Stock Issued (Include in Costing only) - Stock Returned. Manhour and expense categories also include approved timesheets / expenses, so their PO / Issue / Return columns need not add up to Actual. Issued items with no budget category appear under "Unallocated".
                         </div>
 
                         {/* Reason + password modal for approve / revise */}

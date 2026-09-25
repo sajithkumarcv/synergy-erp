@@ -162,6 +162,28 @@ namespace ERPWEB.Controllers.Job
             }
         }
 
+        // ── PO / Issue / Return per cost category (Job Overview) ─
+        [HttpGet("{jobId}/breakdown")]
+        public async Task<IActionResult> GetBreakdown(string jobId)
+        {
+            try
+            {
+                var rows = await _dbcon.QueryAsync<dynamic>("sp_GetJobBudgetBreakdown", new { JobId = jobId });
+                return Ok((rows ?? Enumerable.Empty<dynamic>()).Select(r => new
+                {
+                    costCategoryId = (int?)r.CostCategoryId,
+                    poAmount       = (decimal?)r.PoAmount ?? 0m,
+                    issueAmount    = (decimal?)r.IssueAmount ?? 0m,
+                    returnAmount   = (decimal?)r.ReturnAmount ?? 0m,
+                }));
+            }
+            catch (Exception ex)
+            {
+                await _dbcon.WriteLog(ex, controller: "JobBudget", action: "GetBreakdown", requestPath: HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Error fetching budget breakdown." });
+            }
+        }
+
         // ── Budget ITEMS under a header (drives BOM on approval) ─
         [HttpGet("{jobId}/items")]
         public async Task<IActionResult> GetItems(string jobId, [FromQuery] int? rvNo = null, [FromQuery] int? costCategoryId = null)
