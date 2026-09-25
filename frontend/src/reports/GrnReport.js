@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { variables, authHeaders } from '../Variable';
 import { useLookup } from '../LookupContext';
 import { fmtDate, fmt, statusBadgeCfg } from '../procurement/procurementConstants';
+import JobTypeMultiSelect from '../jobs/JobTypeMultiSelect';
+import useJobTypeJobs from './useJobTypeJobs';
 import './Reports.css';
 
 const today        = () => new Date().toISOString().slice(0, 10);
@@ -14,6 +16,7 @@ const DEFAULT_FILTERS = {
     dateFrom:   firstOfMonth(),
     dateTo:     today(),
     supplierId: '',
+    jobTypeIds: '',   // comma-joined JobTypeIds, '' = all
     jobId:      '',
     status:     '',
     createdBy:  '',
@@ -116,19 +119,16 @@ const GrnReport = () => {
     const [pageSize,  setPageSize] = useState(200);
 
     const [suppliers, setSuppliers] = useState([]);
-    const [jobs,      setJobs]      = useState([]);
 
     const setF = (k, v) => setFilters(f => ({ ...f, [k]: v }));
+    // Job Type filter narrows the Job dropdown; a job of another type is dropped from the selection.
+    const { jobTypes, jobs } = useJobTypeJobs(filters.jobTypeIds, filters.jobId, () => setF('jobId', ''));
 
     useEffect(() => {
         const h = authHeaders();
         fetch(`${variables.API_URL}supplier/search?pageSize=500&page=1`, { headers: h })
             .then(r => r.ok ? r.json() : { data: [] })
             .then(d => setSuppliers((d.data || []).sort((a, b) => a.supplierName.localeCompare(b.supplierName))))
-            .catch(() => {});
-        fetch(`${variables.API_URL}job/search?pageSize=500&page=1&sortCol=JobId&sortDir=ASC&approvalStatus=Approved`, { headers: h })
-            .then(r => r.ok ? r.json() : { data: [] })
-            .then(d => setJobs(d.data || []))
             .catch(() => {});
     }, []);
 
@@ -139,6 +139,7 @@ const GrnReport = () => {
         if (filters.dateTo)     p.set('dateTo',     filters.dateTo);
         if (filters.supplierId) p.set('supplierId', filters.supplierId);
         if (filters.jobId)      p.set('jobId',      filters.jobId);
+        if (filters.jobTypeIds) p.set('jobTypeIds', filters.jobTypeIds);
         if (filters.status)     p.set('status',     filters.status);
         if (filters.createdBy)  p.set('createdBy',  filters.createdBy);
         try {
@@ -236,6 +237,15 @@ const GrnReport = () => {
                                 <option key={s.supplierId} value={s.supplierId}>{s.supplierName}</option>
                             ))}
                         </select>
+                    </div>
+
+                    <div className="rpt-filter-group w200">
+                        <span className="rpt-filter-label">Job Type</span>
+                        <JobTypeMultiSelect
+                            options={jobTypes.map(t => ({ value: t.jobTypeId, label: t.jobTypeName }))}
+                            value={filters.jobTypeIds}
+                            onChange={v => setF('jobTypeIds', v)}
+                            placeholder="All Types" allLabel="All Types" />
                     </div>
 
                     <div className="rpt-filter-group w200">

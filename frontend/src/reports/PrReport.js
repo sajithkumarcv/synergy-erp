@@ -1,8 +1,10 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { variables, authHeaders } from '../Variable';
 import { useLookup } from '../LookupContext';
 import { fmtDate, statusBadgeCfg } from '../procurement/procurementConstants';
+import JobTypeMultiSelect from '../jobs/JobTypeMultiSelect';
+import useJobTypeJobs from './useJobTypeJobs';
 import './Reports.css';
 
 const today        = () => new Date().toISOString().slice(0, 10);
@@ -15,6 +17,7 @@ const DEFAULT_FILTERS = {
     dateTo:    today(),
     status:    '',
     priority:  '',
+    jobTypeIds: '',   // comma-joined JobTypeIds, '' = all
     jobId:     '',
     createdBy: '',
     noPOOnly:  false,
@@ -118,17 +121,9 @@ const PrReport = () => {
     const [page,     setPage]     = useState(1);
     const [pageSize, setPageSize] = useState(200);
 
-    const [jobs, setJobs] = useState([]);
-
     const setF = (k, v) => setFilters(f => ({ ...f, [k]: v }));
-
-    // ── Load jobs dropdown ───────────────────────────────────────────────
-    useEffect(() => {
-        fetch(`${variables.API_URL}job/search?pageSize=500&page=1&sortCol=JobId&sortDir=ASC&approvalStatus=Approved`, { headers: authHeaders() })
-            .then(r => r.ok ? r.json() : { data: [] })
-            .then(d => setJobs(d.data || []))
-            .catch(() => {});
-    }, []);
+    // Job Type filter narrows the Job dropdown; a job of another type is dropped from the selection.
+    const { jobTypes, jobs } = useJobTypeJobs(filters.jobTypeIds, filters.jobId, () => setF('jobId', ''));
 
     // ── Run report ───────────────────────────────────────────────────────
     const runReport = useCallback(async () => {
@@ -139,6 +134,7 @@ const PrReport = () => {
         if (filters.status)    p.set('status',    filters.status);
         if (filters.priority)  p.set('priority',  filters.priority);
         if (filters.jobId)     p.set('jobId',     filters.jobId);
+        if (filters.jobTypeIds) p.set('jobTypeIds', filters.jobTypeIds);
         if (filters.createdBy) p.set('createdBy', filters.createdBy);
         if (filters.noPOOnly)  p.set('noPOOnly',  'true');
         try {
@@ -228,6 +224,15 @@ const PrReport = () => {
                         <input className="rpt-filter-input" type="date"
                             value={filters.dateTo}
                             onChange={e => setF('dateTo', e.target.value)} />
+                    </div>
+
+                    <div className="rpt-filter-group w200">
+                        <span className="rpt-filter-label">Job Type</span>
+                        <JobTypeMultiSelect
+                            options={jobTypes.map(t => ({ value: t.jobTypeId, label: t.jobTypeName }))}
+                            value={filters.jobTypeIds}
+                            onChange={v => setF('jobTypeIds', v)}
+                            placeholder="All Types" allLabel="All Types" />
                     </div>
 
                     <div className="rpt-filter-group w200">

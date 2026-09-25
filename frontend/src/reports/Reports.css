@@ -461,7 +461,17 @@
     display: flex;
     flex-direction: column;
     min-height: 0;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;   /* was hidden: on a short window the rows and the pager below were clipped with no way to scroll */
+}
+/* Inside a tab the table sits in a box no taller than 62% of the window that scrolls BOTH ways
+   (so the horizontal scrollbar is always on screen, and the header row stays put), and the pager
+   sits right under it. If the window is very short the panel itself scrolls to reach the pager. */
+.rpt-tab-panel .rpt-table-wrap {
+    flex: 0 1 auto;
+    max-height: 62vh;
+    min-height: 220px;
+    overflow: auto;
 }
 
 /* ── Inline filter bar (used inside tabs) ─────────────────────────────── */

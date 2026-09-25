@@ -21,6 +21,7 @@ namespace ERPWEB.Controllers.Reports
             [FromQuery] string? status    = null,
             [FromQuery] string? priority  = null,
             [FromQuery] string? jobId     = null,
+            [FromQuery] string? jobTypeIds = null,
             [FromQuery] string? createdBy = null,
             [FromQuery] bool    noPOOnly  = false)
         {
@@ -33,6 +34,7 @@ namespace ERPWEB.Controllers.Reports
                     Status    = string.IsNullOrWhiteSpace(status)    ? null : status,
                     Priority  = string.IsNullOrWhiteSpace(priority)  ? null : priority,
                     JobId     = string.IsNullOrWhiteSpace(jobId)     ? null : jobId.Trim(),
+                    JobTypeIds = string.IsNullOrWhiteSpace(jobTypeIds) ? null : jobTypeIds.Trim(),
                     CreatedBy = string.IsNullOrWhiteSpace(createdBy) ? null : createdBy.Trim(),
                     NoPOOnly  = noPOOnly ? 1 : 0,
                 };
@@ -654,6 +656,7 @@ namespace ERPWEB.Controllers.Reports
             [FromQuery] string? dateTo     = null,
             [FromQuery] int?    supplierId = null,
             [FromQuery] string? jobId      = null,
+            [FromQuery] string? jobTypeIds = null,
             [FromQuery] string? status     = null,
             [FromQuery] string? createdBy  = null)
         {
@@ -665,6 +668,7 @@ namespace ERPWEB.Controllers.Reports
                     DateTo     = string.IsNullOrWhiteSpace(dateTo)    ? null : dateTo,
                     SupplierId = supplierId,
                     JobId      = string.IsNullOrWhiteSpace(jobId)     ? null : jobId.Trim(),
+                    JobTypeIds = string.IsNullOrWhiteSpace(jobTypeIds) ? null : jobTypeIds.Trim(),
                     Status     = string.IsNullOrWhiteSpace(status)    ? null : status,
                     CreatedBy  = string.IsNullOrWhiteSpace(createdBy) ? null : createdBy.Trim(),
                 };
@@ -1261,6 +1265,7 @@ namespace ERPWEB.Controllers.Reports
             [FromQuery] int?    supplierId = null,
             [FromQuery] string? status     = null,
             [FromQuery] string? jobId      = null,
+            [FromQuery] string? jobTypeIds = null,
             [FromQuery] string? createdBy  = null,
             [FromQuery] string? priority   = null,
             [FromQuery] bool    noGrnOnly  = false,
@@ -1277,6 +1282,7 @@ namespace ERPWEB.Controllers.Reports
                     SupplierId  = supplierId,
                     Status      = string.IsNullOrWhiteSpace(status)     ? null : status,
                     JobId       = string.IsNullOrWhiteSpace(jobId)      ? null : jobId.Trim(),
+                    JobTypeIds  = string.IsNullOrWhiteSpace(jobTypeIds) ? null : jobTypeIds.Trim(),
                     CreatedBy   = string.IsNullOrWhiteSpace(createdBy)  ? null : createdBy.Trim(),
                     Priority    = string.IsNullOrWhiteSpace(priority)   ? null : priority,
                     NoGrnOnly   = noGrnOnly ? 1 : 0,

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { variables, authHeaders } from '../Variable';
 import { fmtDate, fmt } from '../procurement/procurementConstants';
 import { useLookup } from '../LookupContext';
+import JobTypeMultiSelect from '../jobs/JobTypeMultiSelect';
 import './Reports.css';
 
 const today        = () => new Date().toISOString().slice(0, 10);
@@ -293,14 +294,12 @@ const JobReport = () => {
 
                     <div className="rpt-filter-group w160">
                         <span className="rpt-filter-label">Job Type</span>
-                        <select className="rpt-filter-select"
+                        {/* Same multiselect as the Jobs page; value is a comma-joined list of JobTypeIds, '' = all. */}
+                        <JobTypeMultiSelect
+                            options={jobTypes.map(t => ({ value: t.jobTypeId, label: t.jobTypeName }))}
                             value={filters.jobTypeId}
-                            onChange={e => setF('jobTypeId', e.target.value)}>
-                            <option value="">All Types</option>
-                            {jobTypes.map(t => (
-                                <option key={t.jobTypeId} value={t.jobTypeId}>{t.jobTypeName}</option>
-                            ))}
-                        </select>
+                            onChange={v => setF('jobTypeId', v)}
+                            placeholder="All Types" allLabel="All Types" />
                     </div>
 
                     <div className="rpt-filter-group w160">

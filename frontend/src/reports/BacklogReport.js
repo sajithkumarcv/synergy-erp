@@ -112,7 +112,7 @@ const BomToPrTab = ({ jobs }) => {
     const [sortCol,  setSortCol]  = useState('jobId');
     const [sortDir,  setSortDir]  = useState('asc');
     const [page,     setPage]     = useState(1);
-    const [pageSize, setPageSize] = useState(200);
+    const [pageSize, setPageSize] = useState(50);
 
     const run = useCallback(async () => {
         setLoading(true); setError(''); setPage(1);
@@ -295,7 +295,7 @@ const PrToPoTab = ({ jobs }) => {
     const [sortCol,  setSortCol]  = useState('prDate');
     const [sortDir,  setSortDir]  = useState('desc');
     const [page,     setPage]     = useState(1);
-    const [pageSize, setPageSize] = useState(200);
+    const [pageSize, setPageSize] = useState(50);
 
     const run = useCallback(async () => {
         setLoading(true); setError(''); setPage(1);
@@ -468,7 +468,7 @@ const PoToGrnTab = ({ jobs, suppliers }) => {
     const [sortCol,    setSortCol]    = useState('poDate');
     const [sortDir,    setSortDir]    = useState('desc');
     const [page,       setPage]       = useState(1);
-    const [pageSize,   setPageSize]   = useState(200);
+    const [pageSize,   setPageSize]   = useState(50);
 
     const run = useCallback(async () => {
         setLoading(true); setError(''); setPage(1);
@@ -650,7 +650,7 @@ const IssueItemsTab = ({ jobs }) => {
     const [sortCol,  setSortCol]  = useState('issueDate');
     const [sortDir,  setSortDir]  = useState('desc');
     const [page,     setPage]     = useState(1);
-    const [pageSize, setPageSize] = useState(200);
+    const [pageSize, setPageSize] = useState(50);
 
     const ISSUE_STATUSES = ['Draft', 'Approved', 'Issued', 'Cancelled'];
 
