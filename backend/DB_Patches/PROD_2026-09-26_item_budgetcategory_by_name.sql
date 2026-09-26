@@ -89,6 +89,12 @@ UPDATE i SET i.BudgetCategoryId = (SELECT ExpenseCategoryId FROM PROJ.TBL_JOB_EX
 FROM PROJ.TBL_ITEM i LEFT JOIN PROJ.TBL_ITEM_CATEGORY c ON c.CategoryId = i.CategoryId
 WHERE i.BudgetCategoryId IS NULL AND LTRIM(RTRIM(c.CategoryName)) = 'Electrical accessories';
 
--- Check: how many are still without a category, and which (machines and anything unusual - decide these by hand)
+-- 15. Machines (forklift, laser, printing and rolling machines) -> Miscellaneous
+UPDATE i SET i.BudgetCategoryId = (SELECT ExpenseCategoryId FROM PROJ.TBL_JOB_EXPENSE_CATEGORY WHERE CategoryCode = 'MISC')
+FROM PROJ.TBL_ITEM i
+WHERE i.BudgetCategoryId IS NULL AND (i.ItemName LIKE '%fiber laser machine%' OR i.ItemName LIKE '%forklift%'
+   OR i.ItemName LIKE '%ferrule printing machine%' OR i.ItemName LIKE '%rolling machine%');
+
+-- Check: how many are still without a category, and which (anything unusual - decide these by hand)
 SELECT COUNT(*) AS StillWithoutCategory FROM PROJ.TBL_ITEM WHERE BudgetCategoryId IS NULL;
 SELECT ItemId, ItemCode, ItemName FROM PROJ.TBL_ITEM WHERE BudgetCategoryId IS NULL ORDER BY ItemName;
