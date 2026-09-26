@@ -101,7 +101,7 @@ const PoDetailPage = () => {
     // until the job's total budget covers it.
     useEffect(() => {
         if (!po?.jobId) { setOverBudget(false); return; }
-        fetch(`${variables.API_URL}purchaseorder/budget-check?jobId=${encodeURIComponent(po.jobId)}`,
+        fetch(`${variables.API_URL}purchaseorder/budget-check?jobId=${encodeURIComponent(po.jobId)}&poId=${po.poId}`,
             { headers: authHeaders() })
             .then(r => r.ok ? r.json() : null)
             .then(d => setOverBudget(d ? Number(d.committed ?? d.Committed ?? 0) > Number(d.budgeted ?? d.Budgeted ?? 0) : false))

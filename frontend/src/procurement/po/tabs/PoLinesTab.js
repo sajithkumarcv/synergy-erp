@@ -835,7 +835,7 @@ const PoLinesTab = ({ po, onRefresh, initialPrId }) => {
     useEffect(() => {
         if (!po.jobId || !po.expenseCategoryId) { setBudgetInfo(null); return; }
         fetch(
-            `${variables.API_URL}purchaseorder/budget-check?jobId=${encodeURIComponent(po.jobId)}&categoryId=${po.expenseCategoryId}`,
+            `${variables.API_URL}purchaseorder/budget-check?jobId=${encodeURIComponent(po.jobId)}&categoryId=${po.expenseCategoryId}&poId=${po.poId}`,
             { headers: authHeaders() }
         )
             .then(r => r.json())
@@ -977,7 +977,7 @@ const PoLinesTab = ({ po, onRefresh, initialPrId }) => {
                 // Refresh budget committed figure after saving
                 if (po.jobId && po.expenseCategoryId) {
                     fetch(
-                        `${variables.API_URL}purchaseorder/budget-check?jobId=${encodeURIComponent(po.jobId)}&categoryId=${po.expenseCategoryId}`,
+                        `${variables.API_URL}purchaseorder/budget-check?jobId=${encodeURIComponent(po.jobId)}&categoryId=${po.expenseCategoryId}&poId=${po.poId}`,
                         { headers: authHeaders() }
                     )
                         .then(r => r.json())

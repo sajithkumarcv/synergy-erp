@@ -1,4 +1,4 @@
-using Dapper;
+﻿using Dapper;
 using ERPWEB.Dbcontext;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -411,13 +411,15 @@ namespace ERPWEB.Controllers.Procurement
         /// Pass excludePoLineId when editing an existing line so its current
         /// value is not double-counted in "committed". Omit categoryId (or
         /// pass 0) to check the whole job's budget across all categories
-        /// combined instead of one specific category.
+        /// combined instead of one specific category. Draft POs do not reserve
+        /// budget; pass poId so the PO on screen still counts its own draft lines.
         /// </summary>
         [HttpGet("budget-check")]
         public async Task<IActionResult> GetBudgetCheck(
             [FromQuery] string jobId,
             [FromQuery] int    categoryId = 0,
-            [FromQuery] int    excludePoLineId = 0)
+            [FromQuery] int    excludePoLineId = 0,
+            [FromQuery] int    poId = 0)
         {
             if (string.IsNullOrWhiteSpace(jobId))
                 return BadRequest(new { message = "jobId is required." });
@@ -426,7 +428,7 @@ namespace ERPWEB.Controllers.Procurement
             {
                 var rows = await _dbcon.QueryAsync<POBudgetCheckResult>(
                     "sp_GetPOBudgetCheck",
-                    new { JobId = jobId.Trim(), CostCategoryId = categoryId > 0 ? (int?)categoryId : null, ExcludePoLineId = excludePoLineId });
+                    new { JobId = jobId.Trim(), CostCategoryId = categoryId > 0 ? (int?)categoryId : null, ExcludePoLineId = excludePoLineId, PoId = poId });
 
                 var result = rows?.FirstOrDefault();
                 if (result == null)
