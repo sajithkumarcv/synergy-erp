@@ -1969,8 +1969,12 @@ const JobOverview = () => {
                                 const g = groups[groupIdx.get(key)];
                                 g.rows.push(r);
                                 // Sum in BASE/job currency — POs may each be in a different
-                                // currency, so raw totalAmount must not be added together.
-                                g.totalPo   += Number(r.totalAmountBase   ?? r.totalAmount  ?? 0);
+                                // currency, so raw amounts must not be added together.
+                                // PO column is EXCLUDING GST so it reconciles with Budget vs
+                                // Actual above; GST is recovered from the customer and is not
+                                // a project cost. Paid/Balance stay tax-inclusive — they are
+                                // cash, and the supplier is paid the GST-inclusive amount.
+                                g.totalPo   += Number(r.poAmountExTaxBase ?? r.poAmountExTax ?? r.totalAmountBase ?? r.totalAmount ?? 0);
                                 g.totalPaid += Number(r.paidAmountBase    ?? r.paidAmount    ?? 0);
                                 g.totalBal  += Number(r.balanceAmountBase ?? r.balanceAmount ?? 0);
                             }
@@ -1990,9 +1994,9 @@ const JobOverview = () => {
                                                 <th style={{ ...th, width: 110 }}>PO Ref #</th>
                                                 <th style={{ ...th, width: 100 }}>PO Date</th>
                                                 <th style={th}>Supplier</th>
-                                                <th style={{ ...th, textAlign: 'right' }}>PO Amount</th>
-                                                <th style={{ ...th, textAlign: 'right' }}>Paid</th>
-                                                <th style={{ ...th, textAlign: 'right' }}>Balance</th>
+                                                <th style={{ ...th, textAlign: 'right' }}>PO Amount<div style={{ fontWeight: 400, fontSize: 10, color: '#94a3b8' }}>excl. GST</div></th>
+                                                <th style={{ ...th, textAlign: 'right' }}>Paid<div style={{ fontWeight: 400, fontSize: 10, color: '#94a3b8' }}>incl. GST</div></th>
+                                                <th style={{ ...th, textAlign: 'right' }}>Balance<div style={{ fontWeight: 400, fontSize: 10, color: '#94a3b8' }}>incl. GST</div></th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -2015,9 +2019,9 @@ const JobOverview = () => {
                                                             <td style={td}>{fmtDate(r.poDate)}</td>
                                                             <td style={td}>{r.vendorName}</td>
                                                             <td style={tdRight}>
-                                                                {r.currencyCode || baseCurrencyCode} {fmt(r.totalAmount)}
+                                                                {r.currencyCode || baseCurrencyCode} {fmt(r.poAmountExTax ?? r.totalAmount)}
                                                                 {Number(r.exchangeRate) !== 1 && (
-                                                                    <div style={{ fontSize: 10, color: '#94a3b8' }}>@ {fmt(r.exchangeRate)} = {baseCurrencyCode} {fmt(r.totalAmountBase)}</div>
+                                                                    <div style={{ fontSize: 10, color: '#94a3b8' }}>@ {fmt(r.exchangeRate)} = {baseCurrencyCode} {fmt(r.poAmountExTaxBase ?? r.totalAmountBase)}</div>
                                                                 )}
                                                             </td>
                                                             <td style={tdRight}>{r.currencyCode || baseCurrencyCode} {fmt(r.paidAmount || 0)}</td>
