@@ -1975,8 +1975,8 @@ const JobOverview = () => {
                                 // a project cost. Paid/Balance stay tax-inclusive — they are
                                 // cash, and the supplier is paid the GST-inclusive amount.
                                 g.totalPo   += Number(r.poAmountExTaxBase ?? r.poAmountExTax ?? r.totalAmountBase ?? r.totalAmount ?? 0);
-                                g.totalPaid += Number(r.paidAmountBase    ?? r.paidAmount    ?? 0);
-                                g.totalBal  += Number(r.balanceAmountBase ?? r.balanceAmount ?? 0);
+                                g.totalPaid += Number(r.paidAmountExTaxBase ?? r.paidAmountExTax ?? r.paidAmountBase    ?? r.paidAmount    ?? 0);
+                                g.totalBal  += Number(r.balanceExTaxBase    ?? r.balanceExTax    ?? r.balanceAmountBase ?? r.balanceAmount ?? 0);
                             }
                             const grandPo   = groups.reduce((s, g) => s + g.totalPo,   0);
                             const grandPaid = groups.reduce((s, g) => s + g.totalPaid, 0);
@@ -1995,8 +1995,8 @@ const JobOverview = () => {
                                                 <th style={{ ...th, width: 100 }}>PO Date</th>
                                                 <th style={th}>Supplier</th>
                                                 <th style={{ ...th, textAlign: 'right' }}>PO Amount<div style={{ fontWeight: 400, fontSize: 10, color: '#94a3b8' }}>excl. GST</div></th>
-                                                <th style={{ ...th, textAlign: 'right' }}>Paid<div style={{ fontWeight: 400, fontSize: 10, color: '#94a3b8' }}>incl. GST</div></th>
-                                                <th style={{ ...th, textAlign: 'right' }}>Balance<div style={{ fontWeight: 400, fontSize: 10, color: '#94a3b8' }}>incl. GST</div></th>
+                                                <th style={{ ...th, textAlign: 'right' }}>Paid<div style={{ fontWeight: 400, fontSize: 10, color: '#94a3b8' }}>excl. GST</div></th>
+                                                <th style={{ ...th, textAlign: 'right' }}>Balance<div style={{ fontWeight: 400, fontSize: 10, color: '#94a3b8' }}>excl. GST</div></th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -2024,8 +2024,8 @@ const JobOverview = () => {
                                                                     <div style={{ fontSize: 10, color: '#94a3b8' }}>@ {fmt(r.exchangeRate)} = {baseCurrencyCode} {fmt(r.poAmountExTaxBase ?? r.totalAmountBase)}</div>
                                                                 )}
                                                             </td>
-                                                            <td style={tdRight}>{r.currencyCode || baseCurrencyCode} {fmt(r.paidAmount || 0)}</td>
-                                                            <td style={tdRight}>{r.currencyCode || baseCurrencyCode} {fmt(r.balanceAmount || 0)}</td>
+                                                            <td style={tdRight}>{r.currencyCode || baseCurrencyCode} {fmt(r.paidAmountExTax ?? r.paidAmount ?? 0)}</td>
+                                                            <td style={tdRight}>{r.currencyCode || baseCurrencyCode} {fmt(r.balanceExTax ?? r.balanceAmount ?? 0)}</td>
                                                         </tr>
                                                     ))}
                                                     <tr style={{ background: '#f8fafc' }}>
