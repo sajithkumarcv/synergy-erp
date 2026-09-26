@@ -52,6 +52,7 @@ const ItemForm = ({ categories, itemTypes, uoms, budgetCategories = [], onClose,
   };
 
   const save = async () => {
+    if (!form.itemCode.trim()) { setAlertMsg('Item Code is required.'); return; }
     if (!form.itemName.trim()) { setAlertMsg('Item Name is required.'); return; }
     if (!form.itemTypeId)      { setAlertMsg('Item Type is required.'); return; }
     if (!form.budgetCategoryId) { setAlertMsg('Budget Header is required.'); return; }
@@ -102,8 +103,8 @@ const ItemForm = ({ categories, itemTypes, uoms, budgetCategories = [], onClose,
           <Sec label="Identity" />
           <div className="if-row">
             <div className="if-field" style={{ flex: '0 0 150px' }}>
-              <label>Item Code</label>
-              <input name="itemCode" className="if-input" value={form.itemCode} onChange={handle} placeholder="Auto if blank" />
+              <label>Item Code <span className="req">*</span></label>
+              <input name="itemCode" className="if-input" value={form.itemCode} onChange={handle} placeholder="Required" />
             </div>
             <div className="if-field if-f2">
               <label>Item Name {isReq('itemName') && <span className="req">*</span>}</label>

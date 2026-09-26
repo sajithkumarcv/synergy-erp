@@ -128,6 +128,11 @@ namespace ERPWEB.Controllers.Item
         {
             try
             {
+                // The code is never generated: a blank one used to be stored as '' (UQ_ITEM_CODE then allowed exactly one).
+                if (string.IsNullOrWhiteSpace(model.ItemCode))
+                    return BadRequest(new { message = "Item Code is required." });
+                model.ItemCode = model.ItemCode.Trim();
+
                 // A NEW item must carry a Budget Header (TBL_JOB_EXPENSE_CATEGORY). Enforced here, not in the database
                 // (the column stays nullable), so existing items without one can still be edited.
                 if (model.ItemId == 0)
@@ -238,6 +243,7 @@ namespace ERPWEB.Controllers.Item
 
                     // ── Validate required fields ──────────────────
                     var errors = new List<string>();
+                    if (string.IsNullOrWhiteSpace(row.ItemCode))   errors.Add("ItemCode is required");
                     if (string.IsNullOrWhiteSpace(row.ItemName))   errors.Add("ItemName is required");
                     if (string.IsNullOrWhiteSpace(row.ItemTypeName)) errors.Add("ItemTypeName is required");
                     if (string.IsNullOrWhiteSpace(row.BaseUom))    errors.Add("BaseUom is required");

@@ -462,6 +462,7 @@ const ItemEditSlideOver = ({ item, categories, itemTypes, uoms, budgetCategories
   };
 
   const save = async () => {
+    if (!(form.itemCode || '').trim()) { setAlertMsg('Item Code is required.'); return; }
     if (!form.itemName.trim()) { setAlertMsg('Item Name is required.'); return; }
     if (!form.itemTypeId)      { setAlertMsg('Item Type is required.'); return; }
     setSaving(true);
@@ -490,7 +491,7 @@ const ItemEditSlideOver = ({ item, categories, itemTypes, uoms, budgetCategories
         <div className="jf-body">
           <Sec label="Identity" />
           <div className="jf-row">
-            <div className="jf-field" style={{ flex:'0 0 150px' }}><label>Item Code</label><input name="itemCode" className="jf-input" value={form.itemCode || ''} onChange={handle} /></div>
+            <div className="jf-field" style={{ flex:'0 0 150px' }}><label>Item Code <span className="req">*</span></label><input name="itemCode" className="jf-input" value={form.itemCode || ''} onChange={handle} placeholder="Required" /></div>
             <div className="jf-field jf-f2"><label>Item Name {isReqItem('itemName') && <span className="req">*</span>}</label><input name="itemName" className="jf-input" value={form.itemName} onChange={handle} /></div>
             <div className="jf-field jf-f2"><label>Arabic Name</label><input name="itemNameAr" className="jf-input" value={form.itemNameAr || ''} onChange={handle} dir="rtl" /></div>
           </div>
