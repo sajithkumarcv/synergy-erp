@@ -157,7 +157,8 @@ const GrnUnregReport = () => {
         if (!rows || rows.length === 0) return null;
         return {
             count:       rows.length,
-            totalAmount: rows.reduce((s, r) => s + (r.totalAmount || 0), 0),
+            // total in BASE currency - rows can be in different currencies (2026-09-27)
+            totalAmountBase: rows.reduce((s, r) => s + (r.totalAmountBase ?? r.totalAmount ?? 0), 0),
         };
     }, [rows]);
 
@@ -276,8 +277,8 @@ const GrnUnregReport = () => {
                         <div className="rpt-summary-val" style={{ color: '#dc2626' }}>{totals.count}</div>
                     </div>
                     <div className="rpt-summary-item">
-                        <div className="rpt-summary-label">Total Amount</div>
-                        <div className="rpt-summary-val blue">{fmt(totals.totalAmount)}</div>
+                        <div className="rpt-summary-label">Total Amount (base)</div>
+                        <div className="rpt-summary-val blue">{fmt(totals.totalAmountBase)}</div>
                     </div>
                 </div>
             )}

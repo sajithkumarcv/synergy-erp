@@ -107,7 +107,7 @@ const Pagination = ({ page, totalPages, pageSize, totalRows, onPage, onPageSize 
 // ═══════════════════════════════════════════════════════════════════════
 const GrnReport = () => {
     const navigate            = useNavigate();
-    const { getStatusConfig, getModuleStatuses } = useLookup();
+    const { getStatusConfig, getModuleStatuses, baseCurrencyCode } = useLookup();
 
     const [filters,   setFilters]  = useState({ ...DEFAULT_FILTERS });
     const [rows,      setRows]     = useState(null);
@@ -174,7 +174,8 @@ const GrnReport = () => {
         if (!rows || rows.length === 0) return null;
         return {
             count:       rows.length,
-            totalAmount: rows.reduce((s, r) => s + (r.totalAmount || 0), 0),
+            // total in BASE currency - rows can be in different currencies (2026-09-27)
+            totalAmountBase: rows.reduce((s, r) => s + (r.totalAmountBase ?? r.totalAmount ?? 0), 0),
         };
     }, [rows]);
 
@@ -306,8 +307,8 @@ const GrnReport = () => {
                         <div className="rpt-summary-val">{totals.count}</div>
                     </div>
                     <div className="rpt-summary-item">
-                        <div className="rpt-summary-label">Total Amount</div>
-                        <div className="rpt-summary-val blue">{fmt(totals.totalAmount)}</div>
+                        <div className="rpt-summary-label">Total Amount ({baseCurrencyCode})</div>
+                        <div className="rpt-summary-val blue">{fmt(totals.totalAmountBase)}</div>
                     </div>
                 </div>
             )}

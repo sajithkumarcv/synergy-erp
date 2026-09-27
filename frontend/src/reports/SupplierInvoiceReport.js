@@ -86,7 +86,11 @@ const SupplierInvoiceReport = () => {
 
     const totals = useMemo(() => {
         if (!rows || rows.length === 0) return null;
-        return { count: rows.length, totalAmount: rows.reduce((s, r) => s + (r.totalAmount || 0), 0), paidAmount: rows.reduce((s, r) => s + (r.paidAmount || 0), 0), balanceAmount: rows.reduce((s, r) => s + (r.balanceAmount || 0), 0) };
+        // totals in BASE currency - invoices can be in different currencies (2026-09-27)
+        return { count: rows.length,
+                 totalAmountBase:   rows.reduce((s, r) => s + (r.totalAmountBase   ?? r.totalAmount   ?? 0), 0),
+                 paidAmountBase:    rows.reduce((s, r) => s + (r.paidAmountBase    ?? r.paidAmount    ?? 0), 0),
+                 balanceAmountBase: rows.reduce((s, r) => s + (r.balanceAmountBase ?? r.balanceAmount ?? 0), 0) };
     }, [rows]);
 
     const Th = ({ col, label, cls }) => <th className={cls} onClick={() => handleSort(col)}>{label}<SortIcon col={col} sc={sortCol} sd={sortDir} /></th>;
@@ -133,9 +137,9 @@ const SupplierInvoiceReport = () => {
             {totals && (
                 <div className="rpt-summary">
                     <div className="rpt-summary-item"><div className="rpt-summary-label">Total Invoices</div><div className="rpt-summary-val">{totals.count}</div></div>
-                    <div className="rpt-summary-item"><div className="rpt-summary-label">Total Amount</div><div className="rpt-summary-val blue">{fmt(totals.totalAmount)}</div></div>
-                    <div className="rpt-summary-item"><div className="rpt-summary-label">Paid</div><div className="rpt-summary-val green">{fmt(totals.paidAmount)}</div></div>
-                    <div className="rpt-summary-item"><div className="rpt-summary-label">Outstanding</div><div className="rpt-summary-val amber">{fmt(totals.balanceAmount)}</div></div>
+                    <div className="rpt-summary-item"><div className="rpt-summary-label">Total Amount (base)</div><div className="rpt-summary-val blue">{fmt(totals.totalAmountBase)}</div></div>
+                    <div className="rpt-summary-item"><div className="rpt-summary-label">Paid (base)</div><div className="rpt-summary-val green">{fmt(totals.paidAmountBase)}</div></div>
+                    <div className="rpt-summary-item"><div className="rpt-summary-label">Outstanding (base)</div><div className="rpt-summary-val amber">{fmt(totals.balanceAmountBase)}</div></div>
                 </div>
             )}
 
@@ -185,9 +189,9 @@ const SupplierInvoiceReport = () => {
                                     <tfoot>
                                         <tr style={{ background: '#f1f5f9', borderTop: '2px solid #cbd5e1', fontWeight: 700 }}>
                                             <td colSpan={7} style={{ textAlign: 'right', padding: '8px 10px', color: '#334155', fontSize: 12 }}>Totals — {totals.count} invoice{totals.count !== 1 ? 's' : ''}</td>
-                                            <td style={{ textAlign: 'right', padding: '8px 6px', fontFamily: 'monospace', color: '#1e40af', fontWeight: 700 }}>{fmt(totals.totalAmount)}</td>
-                                            <td style={{ textAlign: 'right', padding: '8px 6px', fontFamily: 'monospace', color: '#166534' }}>{fmt(totals.paidAmount)}</td>
-                                            <td style={{ textAlign: 'right', padding: '8px 6px', fontFamily: 'monospace', color: '#dc2626', fontWeight: 700 }}>{fmt(totals.balanceAmount)}</td>
+                                            <td style={{ textAlign: 'right', padding: '8px 6px', fontFamily: 'monospace', color: '#1e40af', fontWeight: 700 }}>{fmt(totals.totalAmountBase)}</td>
+                                            <td style={{ textAlign: 'right', padding: '8px 6px', fontFamily: 'monospace', color: '#166534' }}>{fmt(totals.paidAmountBase)}</td>
+                                            <td style={{ textAlign: 'right', padding: '8px 6px', fontFamily: 'monospace', color: '#dc2626', fontWeight: 700 }}>{fmt(totals.balanceAmountBase)}</td>
                                             <td colSpan={2} />
                                         </tr>
                                     </tfoot>
