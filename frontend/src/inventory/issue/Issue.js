@@ -124,11 +124,11 @@ const IssueForm = ({ onClose, onSaved, issueTypes }) => {
                         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexShrink: 0 }}>
                             <button onClick={() => setDraftWarn(null)}
                                 style={{ padding: '6px 18px', borderRadius: 6, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#475569', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>
-                                Create Anyway
+                                Create anyway
                             </button>
                             <button onClick={() => { setDraftWarn(null); setForm(f => ({ ...f, jobId: '' })); setJobSearch(''); setJobLabel(''); setJobCustomer(''); setJobProject(''); }}
                                 style={{ padding: '6px 18px', borderRadius: 6, border: 'none', background: '#1e40af', color: '#fff', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>
-                                Cancel
+                                Choose another job
                             </button>
                         </div>
                     </div>
