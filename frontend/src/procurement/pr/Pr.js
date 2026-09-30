@@ -149,15 +149,15 @@ const PrForm = ({ onClose, onSaved }) => {
             {/* ── Draft PRs warning modal ── */}
             {draftWarn && (
                 <div style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div style={{ background: '#fff', borderRadius: 10, padding: 24, maxWidth: 480, width: '92%', boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                    <div style={{ background: '#fff', borderRadius: 10, padding: 24, maxWidth: 480, width: '92%', maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexShrink: 0 }}>
                             <span style={{ fontSize: 22 }}>⚠️</span>
                             <div>
                                 <div style={{ fontWeight: 700, fontSize: 14, color: '#92400e' }}>Draft PRs already exist for this job</div>
-                                <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Consider opening one of these before creating a new PR.</div>
+                                <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{draftWarn.length} draft{draftWarn.length !== 1 ? 's' : ''} on this job — consider opening one before creating a new PR.</div>
                             </div>
                         </div>
-                        <div style={{ borderRadius: 6, border: '1px solid #fde68a', background: '#fffbeb', padding: '8px 0', marginBottom: 16 }}>
+                        <div style={{ borderRadius: 6, border: '1px solid #fde68a', background: '#fffbeb', padding: '8px 0', marginBottom: 16, overflowY: 'auto', flex: '1 1 auto', minHeight: 0 }}>
                             {draftWarn.map(r => (
                                 <div key={r.prId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 12px', borderBottom: '1px solid #fef3c7' }}>
                                     <span style={{ fontFamily: 'Courier New', fontSize: 12, fontWeight: 700, color: '#1e40af', background: '#dbeafe', padding: '2px 7px', borderRadius: 4 }}>
@@ -174,7 +174,7 @@ const PrForm = ({ onClose, onSaved }) => {
                                 </div>
                             ))}
                         </div>
-                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexShrink: 0 }}>
                             <button onClick={() => setDraftWarn(null)}
                                 style={{ padding: '6px 18px', borderRadius: 6, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#475569', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>
                                 Create Anyway
