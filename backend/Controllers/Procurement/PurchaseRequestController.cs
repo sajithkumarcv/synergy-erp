@@ -217,6 +217,59 @@ namespace ERPWEB.Controllers.Procurement
         }
 
         // ── LINES ────────────────────────────────────────────────────────────
+        // ── PRs with lines still waiting for a PO (purchaser worklist) ───────────────────────────────────
+        [HttpGet("pending-po")]
+        public async Task<IActionResult> PendingPo(
+            [FromQuery] string? status   = null,
+            [FromQuery] string? jobId    = null,
+            [FromQuery] string? priority = null)
+        {
+            try
+            {
+                var rows = await _dbcon.QueryAsync<dynamic>("sp_GetPrPendingPo", new
+                {
+                    Status   = string.IsNullOrWhiteSpace(status)   ? "Approved,Partial" : status.Trim(),
+                    JobId    = string.IsNullOrWhiteSpace(jobId)    ? null : jobId.Trim(),
+                    Priority = string.IsNullOrWhiteSpace(priority) ? null : priority.Trim(),
+                });
+                return Ok(rows.Select(r => new
+                {
+                    prId         = (int)r.PrId,
+                    prNumber     = (string)r.PrNumber,
+                    prDate       = (DateTime?)r.PrDate,
+                    jobId        = (string?)r.JobId,
+                    jobName      = (string?)r.JobName,
+                    priority     = (string?)r.Priority,
+                    prStatus     = (string?)r.PrStatus,
+                    requestedBy  = (string?)r.RequestedBy,
+                    approvedDate = (DateTime?)r.ApprovedDate,
+                    daysWaiting  = (int?)r.DaysWaiting ?? 0,
+                    prLineId     = (int)r.PrLineId,
+                    lineNum      = (int)r.LineNum,
+                    itemCode     = (string?)r.ItemCode,
+                    itemDesc     = (string?)r.ItemDesc,
+                    uomName      = (string?)r.UomName,
+                    requiredQty  = (decimal)r.RequiredQty,
+                    poCreatedQty = (decimal)r.PoCreatedQty,
+                    pendingQty   = (decimal)r.PendingQty,
+                    estUnitPrice = (decimal?)r.EstUnitPrice,
+                    pendingValue = (decimal?)r.PendingValue ?? 0m,
+                    requiredDate = (DateTime?)r.RequiredDate,
+                    lineStatus   = (string?)r.LineStatus,
+                    totalLines   = (int)r.TotalLines,
+                    lastPrice         = (decimal?)r.LastPrice,
+                    lastPriceCurrency = (string?)r.LastPriceCurrency,
+                    lastSupplier      = (string?)r.LastSupplier,
+                    lastPoDate        = (DateTime?)r.LastPoDate,
+                }));
+            }
+            catch (Exception ex)
+            {
+                await _dbcon.WriteLog(ex, controller: "PurchaseRequest", action: "PendingPo", requestPath: HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Error fetching PRs pending PO." });
+            }
+        }
+
         // ── POs raised against one PR line ───────────────────────────────────
         [HttpGet("line/{prLineId:int}/pos")]
         public async Task<IActionResult> GetLinePos(int prLineId)

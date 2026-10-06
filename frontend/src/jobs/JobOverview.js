@@ -1077,7 +1077,7 @@ const JobOverview = () => {
                             value={jobTypeFilter} onChange={setJobTypeFilter}
                             placeholder="Select Job Type" allLabel="All Types" />
                         <select style={sel} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
-                            <option value="">All Statuses</option>
+                            <option value="">All (not completed / cancelled)</option>
                             {jobStatuses.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                         </select>
                         <select style={sel} value={custId || ''} onChange={e => setCustId(e.target.value || null)}>

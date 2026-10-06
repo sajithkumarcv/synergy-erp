@@ -1,0 +1,38 @@
+/* PRs pending PO - purchaser worklist */
+.ppo-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.ppo-tile { background: #fff; border: 1px solid var(--side-border, #d4dce9); border-radius: 8px; padding: 8px 12px; display: flex; flex-direction: column; gap: 2px; }
+.ppo-tile span { font-size: 11px; color: var(--side-text, #64748b); }
+.ppo-tile b { font-size: 20px; font-weight: 600; color: var(--main-text, #1e293b); }
+.ppo-tile-red { background: #fef2f2; border-color: #fca5a5; }
+.ppo-tile-red span, .ppo-tile-red b { color: #b91c1c; }
+
+.ppo-filters { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center; }
+.ppo-search { min-width: 220px; }
+.ppo-status-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; }
+.ppo-status-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; color: var(--side-text, #64748b); margin-right: 2px; }
+.ppo-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; padding: 3px 10px; border: 1px solid var(--side-border, #cbd5e1); border-radius: 999px; background: #fff; cursor: pointer; user-select: none; }
+.ppo-chip input { display: none; }
+.ppo-chip.on { background: var(--primary-light, #dbeafe); border-color: var(--primary, #2e5fa3); color: var(--primary, #1e40af); font-weight: 600; }
+
+.ppo-error { margin: 10px 16px; padding: 8px 12px; background: #fee2e2; border: 1px solid #fca5a5; border-radius: 6px; color: #991b1b; font-size: 12.5px; }
+.ppo-row { cursor: pointer; }
+.ppo-arrow { display: inline-block; width: 16px; color: #64748b; }
+.ppo-muted { color: #94a3b8; font-weight: 400; }
+.ppo-age-amber { color: #b45309; font-weight: 600; }
+.ppo-age-red   { color: #dc2626; font-weight: 600; }
+.ppo-detail > td { background: #f8fafc; padding: 6px 12px 10px 36px !important; }
+
+.ppo-lines { display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
+.ppo-line { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 2.4fr); gap: 10px; padding: 4px 0; border-bottom: 1px solid #eef2f7; align-items: baseline; }
+.ppo-line > span { overflow-wrap: anywhere; }
+.ppo-line-head { font-size: 10.5px; text-transform: uppercase; letter-spacing: .4px; color: #64748b; font-weight: 600; }
+
+@media (max-width: 768px) {
+  .ppo-tiles { grid-template-columns: 1fr 1fr; }
+  .ppo-search { min-width: 0; width: 100%; }
+  .ppo-filters .po-select { flex: 1 1 45%; min-height: 44px; font-size: 14px; }
+  .ppo-chip { min-height: 36px; font-size: 13px; }
+  .ppo-detail > td { padding: 8px 12px !important; }
+  .ppo-line { grid-template-columns: 1fr; gap: 2px; padding: 8px 0; }
+  .ppo-line-head { display: none; }
+}

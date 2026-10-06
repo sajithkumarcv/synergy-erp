@@ -1333,6 +1333,83 @@ namespace ERPWEB.Controllers.Reports
             }
         }
 
+        // ── PO REPORT — ITEM LINES (one row per PO line; same filters as the PO grid) ──
+        [HttpGet("po-lines")]
+        public async Task<IActionResult> PoLinesReport(
+            [FromQuery] string? searchText = null,
+            [FromQuery] string? status     = null,
+            [FromQuery] int?    supplierId = null,
+            [FromQuery] string? jobId      = null,
+            [FromQuery] string? jobTypeIds = null,
+            [FromQuery] int?    expenseCategoryId = null,
+            [FromQuery] string? priority   = null,
+            [FromQuery] string? createdBy  = null,
+            [FromQuery] string? dateFrom   = null,
+            [FromQuery] string? dateTo     = null)
+        {
+            try
+            {
+                var p = new
+                {
+                    SearchText = string.IsNullOrWhiteSpace(searchText) ? null : searchText.Trim(),
+                    Status     = string.IsNullOrWhiteSpace(status)     ? null : status.Trim(),
+                    SupplierId = supplierId,
+                    JobId      = string.IsNullOrWhiteSpace(jobId)      ? null : jobId.Trim(),
+                    JobTypeIds = string.IsNullOrWhiteSpace(jobTypeIds) ? null : jobTypeIds.Trim(),
+                    ExpenseCategoryId = expenseCategoryId,
+                    Priority   = string.IsNullOrWhiteSpace(priority)   ? null : priority,
+                    CreatedBy  = string.IsNullOrWhiteSpace(createdBy)  ? null : createdBy.Trim(),
+                    DateFrom   = string.IsNullOrWhiteSpace(dateFrom)   ? null : dateFrom,
+                    DateTo     = string.IsNullOrWhiteSpace(dateTo)     ? null : dateTo,
+                };
+
+                var rows   = await _dbcon.QueryAsync<dynamic>("sp_ReportPoLines", p);
+                var result = (rows ?? Enumerable.Empty<dynamic>()).Select(r => new
+                {
+                    poId               = (int)r.PoId,
+                    poNumber           = (string)r.PoNumber,
+                    poDate             = (DateTime?)r.PoDate,
+                    poStatus           = (string?)r.PoStatus,
+                    priority           = (string?)r.Priority,
+                    supplierId         = (int?)r.SupplierId,
+                    vendorName         = (string?)r.VendorName,
+                    vendorRef          = (string?)r.VendorRef,
+                    jobId              = (string?)r.JobId,
+                    jobTitle           = (string?)r.JobTitle,
+                    expenseCategoryCode = (string?)r.ExpenseCategoryCode,
+                    expenseCategoryName = (string?)r.ExpenseCategoryName,
+                    currencyShort      = (string?)r.CurrencyShort,
+                    exchangeRate       = (decimal?)r.ExchangeRate,
+                    deliveryDate       = (DateTime?)r.DeliveryDate,
+                    createdBy          = (string?)r.CreatedBy,
+                    poLineId           = (int)r.PoLineId,
+                    lineNum            = (int?)r.LineNum,
+                    itemId             = (int?)r.ItemId,
+                    itemCode           = (string?)r.ItemCode,
+                    itemDesc           = (string?)r.ItemDesc,
+                    uomName            = (string?)r.UomName,
+                    orderedQty         = (decimal?)r.OrderedQty,
+                    receivedQty        = (decimal?)r.ReceivedQty,
+                    balanceQty         = (decimal?)r.BalanceQty,
+                    unitPrice          = (decimal?)r.UnitPrice,
+                    taxPct             = (decimal?)r.TaxPct,
+                    lineStatus         = (string?)r.LineStatus,
+                    lineAmount         = (decimal?)r.LineAmount,
+                    lineAmountWithTax  = (decimal?)r.LineAmountWithTax,
+                    lineAmountBase     = (decimal?)r.LineAmountBase,
+                    receivedAmountBase = (decimal?)r.ReceivedAmountBase,
+                    prNumber           = (string?)r.PrNumber,
+                    remarks            = (string?)r.Remarks,
+                });
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                await _dbcon.WriteLog(ex, controller: "Reports", action: "PoLinesReport", requestPath: HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Error generating PO item-line report." });
+            }
+        }
+
         // ── JOB ITEM LEDGER — LOOKUPS ────────────────────────────────────────
         [HttpGet("job-item-ledger/lookups")]
         public async Task<IActionResult> JobItemLedgerLookups()

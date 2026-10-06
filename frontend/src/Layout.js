@@ -30,6 +30,7 @@ import ItemDetailPage from './items/ItemDetailPage';
 import { Bom } from './bom/Bom';
 import BomDetailPage from './bom/BomDetailPage';
 import { Pr } from './procurement/pr/Pr';
+import PrPendingPo from './procurement/pr/PrPendingPo';
 import PrDetailPage from './procurement/pr/PrDetailPage';
 import { Po } from './procurement/po/Po';
 import PoDetailPage from './procurement/po/PoDetailPage';
@@ -101,6 +102,7 @@ import Employee              from './manhour/Employee';
 import ManhourRate           from './manhour/ManhourRate';
 import MenuManagement        from './usermanagement/MenuManagement';
 import PoReport             from './reports/PoReport';
+import PoLineReport         from './reports/PoLineReport';
 import InventoryGrnReport   from './reports/InventoryGrnReport';
 import StockBalanceReport   from './reports/StockBalanceReport';
 import StockAdjustmentReport from './reports/StockAdjustmentReport';
@@ -763,6 +765,7 @@ const Layout = () => {
             <Route path="/bom/:bomId"       element={<BomDetailPage />} />
             <Route path="/procurement-analytics"      element={<ProcurementDashboard />} />
             <Route path="/purchase-requests"          element={<Pr />} />
+            <Route path="/pr-pending-po"              element={<PrPendingPo />} />
             <Route path="/purchase-requests/:prId"    element={<PrDetailPage />} />
             <Route path="/purchase-orders"            element={<Po />} />
             <Route path="/purchase-orders/:poId"      element={<PoDetailPage />} />
@@ -834,6 +837,7 @@ const Layout = () => {
             <Route path="/user-management/menus"               element={<MenuManagement />} />
             {/* ── Reports ── */}
             <Route path="/reports/po"           element={<PoReport />} />
+            <Route path="/reports/po-lines"     element={<PoLineReport />} />
             <Route path="/reports/pr"           element={<PrReport />} />
             <Route path="/reports/job"          element={<JobReport />} />
             <Route path="/reports/job-budget"   element={<JobBudgetReport />} />
