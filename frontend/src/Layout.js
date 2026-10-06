@@ -64,6 +64,8 @@ import { Grn } from './inventory/grn/Grn';
 import GrnDetailPage from './inventory/grn/GrnDetailPage';
 import { Issue } from './inventory/issue/Issue';
 import IssueDetailPage from './inventory/issue/IssueDetailPage';
+import { IssueRequest } from './inventory/issuerequest/IssueRequest';
+import IssueRequestDetailPage from './inventory/issuerequest/IssueRequestDetailPage';
 import { IssueReturn } from './inventory/issuereturn/IssueReturn';
 import IssueReturnDetailPage from './inventory/issuereturn/IssueReturnDetailPage';
 import { Adjustment } from './inventory/adjustment/Adjustment';
@@ -796,6 +798,8 @@ const Layout = () => {
             <Route path="/inventory-grn/:id"          element={<GrnDetailPage />} />
             <Route path="/inventory-issue"                    element={<Issue />} />
             <Route path="/inventory-issue/:id"              element={<IssueDetailPage />} />
+            <Route path="/inventory-issue-request"          element={<IssueRequest />} />
+            <Route path="/inventory-issue-request/:id"      element={<IssueRequestDetailPage />} />
             <Route path="/inventory-issue-return"           element={<IssueReturn />} />
             <Route path="/inventory-issue-return/:id"       element={<IssueReturnDetailPage />} />
             <Route path="/inventory-adjustment"             element={<Adjustment />} />

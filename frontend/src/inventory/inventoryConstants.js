@@ -54,6 +54,13 @@ export const IRN_TABS = [
   { key: 'approval', label: 'Approval', icon: '✔',  description: 'Approval status and history' },
 ];
 
+// ── Issue Request Tab definitions ─────────────────────────────
+export const ISR_TABS = [
+  { key: 'overview', label: 'Overview', icon: '📋', description: 'Header info and notes' },
+  { key: 'lines',    label: 'Lines',    icon: '📦', description: 'Requested items',      badge: true },
+  { key: 'approval', label: 'Approval', icon: '✔',  description: 'Approval status and history' },
+];
+
 // ── Stock Adjustment Tab definitions ─────────────────────────
 export const ADJ_TABS = [
   { key: 'overview', label: 'Overview', icon: '📋', description: 'Header info and notes' },

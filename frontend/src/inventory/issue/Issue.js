@@ -62,12 +62,33 @@ const IssueForm = ({ onClose, onSaved, issueTypes }) => {
         return () => clearTimeout(t);
     }, [jobSearch]);
 
+    // Approved Issue Requests for the chosen job. Optional until the issue type has
+    // RequiresRequest = 1 (TBL_ISSUE_TYPE), then the note must quote one.
+    const [requests,   setRequests]   = useState([]);
+    const [reqLoading, setReqLoading] = useState(false);
+
+    useEffect(() => {
+        setForm(f => (f.requestId ? { ...f, requestId: '' } : f));   // a request belongs to one job
+        if (!form.jobId) { setRequests([]); return; }
+        setReqLoading(true);
+        fetch(`${variables.API_URL}issuerequest/search?jobId=${encodeURIComponent(form.jobId)}&status=Approved,PartiallyIssued&pageSize=100&page=1`,
+              { headers: authHeaders() })
+            .then(r => r.ok ? r.json() : { data: [] })
+            .then(d => setRequests(d.data || []))
+            .catch(() => setRequests([]))
+            .finally(() => setReqLoading(false));
+    }, [form.jobId]);
+
+    const requestRequired = !!issueTypes.find(t => t.issueTypeCode === form.costingType)?.requiresRequest;
+
     const validate = (f) => {
         const e = {};
         if (!f.issueDate)         e.issueDate   = 'Issue Date is required.';
         if (!f.costingType)       e.costingType = 'Issue Type is required.';
         if (!f.jobId.trim())      e.jobId       = 'Job is required.';
         if (!f.issuedTo.trim())   e.issuedTo    = 'Issued To is required.';
+        // Blocked here as well as in the proc so the user finds out now, not at confirm time.
+        if (requestRequired && !f.requestId) e.requestId = 'An approved Issue Request is required for this issue type.';
         return e;
     };
 
@@ -78,7 +99,7 @@ const IssueForm = ({ onClose, onSaved, issueTypes }) => {
         setServerErr(''); setSaving(true);
         fetch(`${variables.API_URL}stockissue/save`, {
             method: 'POST', headers: authHeaders(),
-            body: JSON.stringify({ issueId: 0, issueDate: form.issueDate, jobId: form.jobId, costingType: form.costingType, issuedTo: form.issuedTo.trim(), notes: form.notes || null, createdBy: currentUser }),
+            body: JSON.stringify({ issueId: 0, issueDate: form.issueDate, jobId: form.jobId, costingType: form.costingType, issuedTo: form.issuedTo.trim(), notes: form.notes || null, requestId: form.requestId ? Number(form.requestId) : null, createdBy: currentUser }),
         })
             .then(r => r.json().then(d => ({ ok: r.ok, d })))
             .then(({ ok, d }) => { if (!ok) { setServerErr(d.message || 'Error saving.'); return; } onSaved(d.issueId); })
@@ -233,6 +254,40 @@ const IssueForm = ({ onClose, onSaved, issueTypes }) => {
                             <FieldErr msg={errors.jobId} />
                         </div>
                     </div>
+
+                    {/* ── Issue Request ──────────────────────────────────────
+                        Optional while the issue type has RequiresRequest = 0, mandatory once it is 1
+                        (enforced by sp_ConfirmStockIssue). The note takes its issue type from the request. */}
+                    {form.jobId && (
+                        <div className="pf-row">
+                            <div className="pf-field pf-f2">
+                                <label>Issue Request {requestRequired && <span className="req">*</span>}</label>
+                                {reqLoading ? (
+                                    <div className="pf-input" style={{ background: '#f8fafc', color: '#64748b' }}>⏳ Loading approved requests…</div>
+                                ) : requests.length === 0 ? (
+                                    <div className="pf-input" style={requestRequired
+                                        ? { background: '#fffbeb', borderColor: '#fcd34d', color: '#92400e' }
+                                        : { background: '#f8fafc', color: '#64748b' }}>
+                                        {requestRequired
+                                            ? 'No approved Issue Request for this job — raise one and get it approved first.'
+                                            : 'No approved Issue Request for this job (optional).'}
+                                    </div>
+                                ) : (
+                                    <select className={`pf-input${errors.requestId ? ' pf-input-err' : ''}`}
+                                        value={form.requestId || ''}
+                                        onChange={e => { setForm(f => ({ ...f, requestId: e.target.value })); setErrors(p => ({ ...p, requestId: undefined })); }}>
+                                        <option value="">{requestRequired ? '— Select the approved request —' : '— None (issue without a request) —'}</option>
+                                        {requests.map(r => (
+                                            <option key={r.requestId} value={r.requestId}>
+                                                {r.requestNo} — {r.requestedBy} ({r.status}, {r.lineCount} line{r.lineCount !== 1 ? 's' : ''})
+                                            </option>
+                                        ))}
+                                    </select>
+                                )}
+                                <FieldErr msg={errors.requestId} />
+                            </div>
+                        </div>
+                    )}
 
                     {/* Customer & Project — auto-filled from selected Job */}
                     {(jobCustomer || jobProject) && (

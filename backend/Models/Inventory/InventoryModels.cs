@@ -85,6 +85,14 @@ namespace ERPWEB.Models.Inventory
         public string?  CustomerName { get; set; }
         public string?  ProjectName  { get; set; }
 
+        // The Issue Request this note satisfies. RequestId drives the "Pull from
+        // Request" button on the lines tab; without it the note cannot credit the
+        // request when it is confirmed.
+        public int?     RequestId     { get; set; }
+        public int?     IssueTypeId   { get; set; }
+        public string?  RequestNo     { get; set; }
+        public string?  RequestStatus { get; set; }
+
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         public DateTime  CreatedDate  { get; set; }
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
@@ -114,6 +122,9 @@ namespace ERPWEB.Models.Inventory
         public decimal  UnitCost    { get; set; }
         public decimal  TotalCost   { get; set; }
         public string?  Notes       { get; set; }
+        /// <summary>The Issue Request line this satisfies. Must survive an edit, or
+        /// the line silently stops crediting the request on confirm.</summary>
+        public int?     RequestLineId { get; set; }
         public string   CreatedBy   { get; set; } = string.Empty;
         public string?  ModifiedBy  { get; set; }
 
@@ -254,6 +265,8 @@ namespace ERPWEB.Models.Inventory
         public string  IssueTypeName { get; set; } = string.Empty;
         public string? Description   { get; set; }
         public int     SortOrder     { get; set; }
+        // When true, a note of this type cannot be confirmed without an approved Issue Request.
+        public bool    RequiresRequest { get; set; }
     }
 
     // Item with available job-stock qty (for EXC_COSTING item picker)
@@ -307,6 +320,9 @@ namespace ERPWEB.Models.Inventory
         public string   CostingType  { get; set; } = "INC_COSTING";
         public string?  IssuedTo     { get; set; }
         public string?  Notes        { get; set; }
+        /// <summary>The approved Issue Request this note satisfies. Required in
+        /// practice whenever the issue type has RequiresRequest = 1.</summary>
+        public int?     RequestId    { get; set; }
         public string?  CreatedBy    { get; set; }
         public string?  ModifiedBy   { get; set; }
     }
@@ -322,8 +338,34 @@ namespace ERPWEB.Models.Inventory
         public int?     UomId       { get; set; }
         public decimal  UnitCost    { get; set; }
         public string?  Notes       { get; set; }
+        /// <summary>The Issue Request line this satisfies; drives IssuedQty write-back.</summary>
+        public int?     RequestLineId { get; set; }
         public string?  CreatedBy   { get; set; }
         public string?  ModifiedBy  { get; set; }
+    }
+
+    /// <summary>One open-balance request line offered by the "pull from request" picker.</summary>
+    public class RequestLineForIssue
+    {
+        public int       RequestLineId { get; set; }
+        public int       RequestId     { get; set; }
+        public string    RequestNo     { get; set; } = string.Empty;
+        public DateTime  RequestDate   { get; set; }
+        public string?   JobId         { get; set; }
+        public int       IssueTypeId   { get; set; }
+        public string?   IssueTypeCode { get; set; }
+        public int       LineNum       { get; set; }
+        public int       ItemId        { get; set; }
+        public string?   ItemCode      { get; set; }
+        public string?   ItemName      { get; set; }
+        public decimal   RequestedQty  { get; set; }
+        public decimal   IssuedQty     { get; set; }
+        public decimal   BalanceQty    { get; set; }
+        public int?      UomId         { get; set; }
+        public string?   UomName       { get; set; }
+        public DateTime? RequiredDate  { get; set; }
+        public string?   LineStatus    { get; set; }
+        public string?   Notes         { get; set; }
     }
 
     // ────────────────────────────────────────────────────────────

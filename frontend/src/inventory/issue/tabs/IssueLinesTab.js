@@ -234,6 +234,76 @@ const IssueLinesTab = ({ issue, lines, onRefresh }) => {
             .catch(() => { setConversions([]); setBaseCost(null); });
     };
 
+    // ── Pull from request ─────────────────────────────────────────────────
+    const [showPull,    setShowPull]    = useState(false);
+    const [pullLines,   setPullLines]   = useState([]);
+    const [pullSel,     setPullSel]     = useState({});   // requestLineId -> { line, qty }
+    const [pullLoading, setPullLoading] = useState(false);
+    const [pullSaving,  setPullSaving]  = useState(false);
+    const [pullError,   setPullError]   = useState('');
+
+    const openPull = () => {
+        setShowPull(true); setPullError(''); setPullSel({}); setPullLoading(true);
+        fetch(`${variables.API_URL}stockissue/request-lines?requestId=${issue.requestId}`, { headers: authHeaders() })
+            .then(r => r.ok ? r.json() : [])
+            .then(d => setPullLines(Array.isArray(d) ? d : []))
+            .catch(() => setPullLines([]))
+            .finally(() => setPullLoading(false));
+    };
+
+    const togglePull = (p, on) => setPullSel(s => {
+        const next = { ...s };
+        // Default to the whole outstanding balance — the common case is "give me
+        // whatever is left"; the user trims it for a partial issue.
+        if (on) next[p.requestLineId] = { line: p, qty: String(p.balanceQty) };
+        else    delete next[p.requestLineId];
+        return next;
+    });
+
+    const setPullQty = (p, v) => setPullSel(s =>
+        s[p.requestLineId] ? { ...s, [p.requestLineId]: { ...s[p.requestLineId], qty: v } } : s);
+
+    // One save per selected line: the proc validates each against the request
+    // balance, so a bad row reports itself and the others still go in.
+    const savePulled = async () => {
+        const picked = Object.values(pullSel);
+        if (picked.length === 0) return;
+        setPullSaving(true); setPullError('');
+        const failures = [];
+        for (const { line, qty } of picked) {
+            const q = Number(qty);
+            if (!q || q <= 0) { failures.push(`${line.itemCode}: enter a quantity`); continue; }
+            try {
+                const res = await fetch(`${variables.API_URL}stockissue/line/save`, {
+                    method: 'POST', headers: authHeaders(),
+                    body: JSON.stringify({
+                        issueLineId:   0,
+                        issueId:       issue.issueId,
+                        lineNum:       0,
+                        itemId:        line.itemId,
+                        itemDesc:      null,
+                        qty:           q,
+                        uomId:         line.uomId ?? null,
+                        unitCost:      0,
+                        notes:         null,
+                        requestLineId: line.requestLineId,
+                        createdBy:     currentUser,
+                    }),
+                });
+                if (!res.ok) {
+                    const d = await res.json().catch(() => ({}));
+                    failures.push(`${line.itemCode}: ${d?.message || 'failed'}`);
+                }
+            } catch {
+                failures.push(`${line.itemCode}: network error`);
+            }
+        }
+        setPullSaving(false);
+        if (failures.length) { setPullError(failures.join(' · ')); }
+        else { setShowPull(false); setPullSel({}); }
+        onRefresh();
+    };
+
     const lineTotal = () => (Number(form.qty) || 0) * (Number(form.unitCost) || 0);
 
     const save = () => {
@@ -257,6 +327,10 @@ const IssueLinesTab = ({ issue, lines, onRefresh }) => {
                 uomId:       form.uomId ? Number(form.uomId) : null,
                 unitCost:    Number(form.unitCost),
                 notes:       form.notes.trim() || null,
+                // Preserve the link when editing a line that was pulled from the
+                // request — omitting it would silently unlink the line and the
+                // request would never be credited on confirm.
+                requestLineId: editLine?.requestLineId ?? null,
                 createdBy:   currentUser,
                 modifiedBy:  editLine ? currentUser : null,
             }),
@@ -313,9 +387,88 @@ const IssueLinesTab = ({ issue, lines, onRefresh }) => {
                 <div className="prd-lines-header">
                     <span className="prd-lines-title">Lines ({lines.length})</span>
                     {canEdit && (
-                        <button className="prd-add-btn" onClick={openAdd}>+ Add Line</button>
+                        <span style={{ display: 'flex', gap: 8 }}>
+                            {/* Pulling from the request is what links the line back to it.
+                                Without a RequestLineId the confirm writes nothing to
+                                IssuedQty and the request never shows as issued. */}
+                            {issue.requestId && (
+                                <button className="prd-add-btn"
+                                    style={{ background: '#0f766e' }}
+                                    onClick={openPull}>⇩ Pull from Request</button>
+                            )}
+                            <button className="prd-add-btn" onClick={openAdd}>+ Add Line</button>
+                        </span>
                     )}
                 </div>
+
+                {/* ── Pull-from-request picker ── */}
+                {showPull && (
+                    <div className="prd-line-form">
+                        <div className="prd-line-form-title">Pull lines from the Issue Request</div>
+                        {pullError && <div className="pf-err" style={{ marginBottom: 8 }}>{pullError}</div>}
+                        {pullLoading ? (
+                            <div style={{ fontSize: 12, color: '#64748b', padding: '8px 0' }}>⏳ Loading open request lines…</div>
+                        ) : pullLines.length === 0 ? (
+                            <div style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic', padding: '8px 0' }}>
+                                Nothing left to issue on this request — every line is fully issued.
+                            </div>
+                        ) : (
+                            <>
+                                <div style={{ overflowX: 'auto' }}>
+                                    <table className="prd-lines-table">
+                                        <thead>
+                                            <tr>
+                                                <th style={{ width: 32 }}></th>
+                                                <th>Item Code</th>
+                                                <th>Description</th>
+                                                <th style={{ textAlign: 'right' }}>Balance</th>
+                                                <th>UOM</th>
+                                                <th style={{ textAlign: 'right' }}>Issue Qty</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {pullLines.map(p => (
+                                                <tr key={p.requestLineId}>
+                                                    <td>
+                                                        <input type="checkbox"
+                                                            checked={!!pullSel[p.requestLineId]}
+                                                            onChange={e => togglePull(p, e.target.checked)} />
+                                                    </td>
+                                                    <td>
+                                                        <span style={{ fontFamily: 'Courier New', fontSize: 11, color: '#2e5fa3', background: '#dbeafe', padding: '2px 6px', borderRadius: 4 }}>
+                                                            {p.itemCode}
+                                                        </span>
+                                                    </td>
+                                                    <td style={{ color: '#1e293b' }}>{p.itemName}</td>
+                                                    <td className="prd-num-cell" style={{ fontWeight: 600, color: '#b45309' }}>{fmt(p.balanceQty, 4)}</td>
+                                                    <td style={{ color: '#475569' }}>{p.uomName || '—'}</td>
+                                                    <td>
+                                                        <input className="prd-lf-input" type="number" min="0" step="0.0001"
+                                                            style={{ textAlign: 'right', width: 110 }}
+                                                            disabled={!pullSel[p.requestLineId]}
+                                                            value={pullSel[p.requestLineId]?.qty ?? ''}
+                                                            onChange={e => setPullQty(p, e.target.value)} />
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div style={{ fontSize: 11, color: '#64748b', marginTop: 6 }}>
+                                    Quantities default to the full outstanding balance — reduce one to issue part of it now
+                                    and the rest later. Over-issuing is refused.
+                                </div>
+                            </>
+                        )}
+                        <div className="prd-lf-actions">
+                            <button className="prd-lf-cancel" onClick={() => { setShowPull(false); setPullError(''); }}>Cancel</button>
+                            <button className="prd-lf-save" onClick={savePulled}
+                                disabled={pullSaving || Object.keys(pullSel).length === 0}>
+                                {pullSaving ? 'Adding…' : `Add ${Object.keys(pullSel).length || ''} line${Object.keys(pullSel).length === 1 ? '' : 's'}`}
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 {/* Table */}
                 <div style={{ overflowX: 'auto' }}>

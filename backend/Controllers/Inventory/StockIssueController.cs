@@ -119,6 +119,9 @@ namespace ERPWEB.Controllers.Inventory
                     CostingType = model.CostingType ?? "INC_COSTING",
                     IssuedTo    = string.IsNullOrWhiteSpace(model.IssuedTo) ? null : model.IssuedTo.Trim(),
                     Notes       = model.Notes,
+                    // The proc validates the request is approved and for this job,
+                    // and copies its issue type onto the note.
+                    RequestId   = model.RequestId,
                     CreatedBy   = model.CreatedBy,
                     ModifiedBy  = model.ModifiedBy
                 };
@@ -185,6 +188,9 @@ namespace ERPWEB.Controllers.Inventory
                     UomId       = model.UomId,
                     UnitCost    = model.UnitCost,
                     Notes       = model.Notes,
+                    // Links this line to the request line it satisfies — what drives
+                    // IssuedQty back onto the request when the note is confirmed.
+                    RequestLineId = model.RequestLineId,
                     CreatedBy   = model.CreatedBy,
                     ModifiedBy  = model.ModifiedBy
                 };
@@ -200,6 +206,31 @@ namespace ERPWEB.Controllers.Inventory
             {
                 await _dbcon.WriteLog(ex, controller: "StockIssue", action: "SaveLine", requestPath: HttpContext.Request.Path);
                 return StatusCode(500, new { message = "Error saving Issue Note line." });
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════
+        // PULL FROM REQUEST — open-balance lines of approved Issue Requests
+        // GET: api/stockissue/request-lines?jobId=&requestId=
+        // ═══════════════════════════════════════════════════════
+        [HttpGet("request-lines")]
+        public async Task<IActionResult> GetRequestLines(
+            [FromQuery] string? jobId     = null,
+            [FromQuery] int?    requestId = null)
+        {
+            try
+            {
+                var rows = await _dbcon.QueryAsync<RequestLineForIssue>("sp_GetRequestLinesForIssue", new
+                {
+                    JobId     = string.IsNullOrWhiteSpace(jobId) ? null : jobId,
+                    RequestId = requestId
+                });
+                return Ok(rows ?? Enumerable.Empty<RequestLineForIssue>());
+            }
+            catch (Exception ex)
+            {
+                await _dbcon.WriteLog(ex, controller: "StockIssue", action: "GetRequestLines", requestPath: HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Error fetching request lines." });
             }
         }
 
