@@ -29,6 +29,7 @@ namespace ERPWEB.Models.Approval
         public int      SortOrder    { get; set; }
         public string   CreatedBy    { get; set; } = string.Empty;
         public DateTime CreatedDate  { get; set; }
+        public string?  JobTypeId    { get; set; }   // PO policies: scoped to one job type; null = every job type
     }
 
     public class ApprovalLevel
@@ -45,6 +46,7 @@ namespace ERPWEB.Models.Approval
         public int?    TimeoutHours     { get; set; }
         public string? OnTimeoutAction  { get; set; }
         public bool    IsActive         { get; set; }
+        public bool    NoSkip           { get; set; }   // a senior approver cannot jump over this level
     }
 
     // ── Transaction / runtime models ─────────────────────────────────────
@@ -184,6 +186,7 @@ namespace ERPWEB.Models.Approval
         public bool     IsActive     { get; set; } = true;
         public int      SortOrder    { get; set; }
         public string   SavedBy      { get; set; } = string.Empty;
+        public string?  JobTypeId    { get; set; }
         public List<SaveLevelRequest> Levels { get; set; } = new();
     }
 
@@ -198,6 +201,7 @@ namespace ERPWEB.Models.Approval
         public bool    AllowSelfApproval{ get; set; }
         public int?    TimeoutHours     { get; set; }
         public string? OnTimeoutAction  { get; set; }
+        public bool    NoSkip           { get; set; }
     }
 
     // ── Delegation models ────────────────────────────────────────────────

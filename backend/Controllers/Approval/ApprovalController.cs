@@ -605,6 +605,7 @@ namespace ERPWEB.Controllers.Approval
                     req.IsActive,
                     req.SortOrder,
                     req.SavedBy,
+                    JobTypeId  = string.IsNullOrWhiteSpace(req.JobTypeId) ? null : req.JobTypeId,
                     LevelsJson = levelsJson,
                 };
 

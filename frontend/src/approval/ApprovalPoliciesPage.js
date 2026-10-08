@@ -15,7 +15,7 @@ const norm = (t) => (t || 'ROLE').toUpperCase();
 
 const BLANK_LEVEL = {
     levelId: 0, levelNo: 1, levelName: '', approverType: 'ROLE', approverId: '',
-    isMandatory: true, allowSelfApproval: false, timeoutHours: '', onTimeoutAction: '',
+    isMandatory: true, allowSelfApproval: false, timeoutHours: '', onTimeoutAction: '', noSkip: false,
 };
 
 const SectionHead = ({ children }) => (
@@ -97,6 +97,12 @@ const LevelRow = ({ level, index, roles, users, onChange, onRemove, onAddParalle
                             onChange={e => set('allowSelfApproval', e.target.checked)} />
                         Self-Approve
                     </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#475569', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                        title="A senior approver (someone who approves at a higher level) can normally approve this level in the same click. Tick to make this level's own approvers mandatory.">
+                        <input type="checkbox" checked={!!level.noSkip}
+                            onChange={e => set('noSkip', e.target.checked)} />
+                        Can't be skipped
+                    </label>
                 </div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 20, flexShrink: 0 }}>
@@ -122,7 +128,7 @@ const PolicyForm = ({ policy, modules, roles, users, onSaved, onClose, currentUs
     const isNew = !policy;
     const [form, setForm] = useState(isNew ? {
         policyId: 0, moduleCode: modules[0]?.moduleCode || '', policyName: '',
-        description: '', amountFrom: '', amountTo: '',
+        description: '', amountFrom: '', amountTo: '', jobTypeId: '',
         isSequential: true, isActive: true, sortOrder: 0,
     } : {
         policyId:    policy.policyId,
@@ -131,6 +137,7 @@ const PolicyForm = ({ policy, modules, roles, users, onSaved, onClose, currentUs
         description: policy.description || '',
         amountFrom:  policy.amountFrom ?? '',
         amountTo:    policy.amountTo   ?? '',
+        jobTypeId:   policy.jobTypeId  ?? '',
         isSequential: policy.isSequential,
         isActive:    policy.isActive,
         sortOrder:   policy.sortOrder,
@@ -141,6 +148,15 @@ const PolicyForm = ({ policy, modules, roles, users, onSaved, onClose, currentUs
     );
     const [saving, setSaving] = useState(false);
     const [error,  setError]  = useState('');
+    const [jobTypes, setJobTypes] = useState([]);
+
+    // Job types for the PO "applies to job type" scope
+    useEffect(() => {
+        fetch(`${variables.API_URL}adminjob/jobtype`, { headers: authHeaders() })
+            .then(r => r.ok ? r.json() : [])
+            .then(d => setJobTypes(Array.isArray(d) ? d.filter(t => t.isActive !== false) : []))
+            .catch(() => setJobTypes([]));
+    }, []);
 
     const setF = (k, v) => setForm(p => ({ ...p, [k]: v }));
     const selectedModule = modules.find(m => m.moduleCode === form.moduleCode);
@@ -197,6 +213,7 @@ const PolicyForm = ({ policy, modules, roles, users, onSaved, onClose, currentUs
                             allowSelfApproval: l.allowSelfApproval,
                             timeoutHours:     l.timeoutHours !== '' ? Number(l.timeoutHours) : null,
                             onTimeoutAction:  l.onTimeoutAction || null,
+                            noSkip:           !!l.noSkip,
                         };
                     }),
                 }),
@@ -249,6 +266,23 @@ const PolicyForm = ({ policy, modules, roles, users, onSaved, onClose, currentUs
                                 value={form.description} onChange={e => setF('description', e.target.value)} />
                         </div>
                     </div>
+                    {form.moduleCode === 'PO' && (
+                        <div className="pf-row">
+                            <div className="pf-field pf-f2">
+                                <label>Applies to Job Type</label>
+                                <select className="pf-input" value={form.jobTypeId}
+                                    onChange={e => setF('jobTypeId', e.target.value)}>
+                                    <option value="">All job types</option>
+                                    {jobTypes.map(t => (
+                                        <option key={t.jobTypeId} value={t.jobTypeId}>{t.jobTypeName || t.jobTypeId}</option>
+                                    ))}
+                                </select>
+                                <div style={{ fontSize: 11, color: '#64748b', marginTop: 3 }}>
+                                    A policy for one job type is used instead of the "All job types" policy for POs on those jobs.
+                                </div>
+                            </div>
+                        </div>
+                    )}
                     {selectedModule?.isAmountBased && (
                         <>
                             <SectionHead>Amount Range</SectionHead>
@@ -683,7 +717,14 @@ const ApprovalPoliciesPage = () => {
                                                     </span>
                                                 </td>
                                                 <td>
-                                                    <div style={{ fontWeight: 600, fontSize: 13 }}>{p.policyName}</div>
+                                                    <div style={{ fontWeight: 600, fontSize: 13 }}>
+                                                        {p.policyName}
+                                                        {p.jobTypeId && (
+                                                            <span style={{ marginLeft: 8, fontSize: 10.5, fontWeight: 700, background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d', borderRadius: 4, padding: '1px 6px' }}>
+                                                                Job type: {p.jobTypeId}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                     {p.description && <div style={{ fontSize: 11, color: '#64748b' }}>{p.description}</div>}
                                                     {lvls.length > 0 && (
                                                         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
