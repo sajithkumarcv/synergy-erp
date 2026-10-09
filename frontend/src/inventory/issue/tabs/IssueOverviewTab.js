@@ -38,15 +38,29 @@ const IssueOverviewTab = ({ issue, onRefresh }) => {
     const canEdit = (getStatusConfig('ISN', issue.status)?.canEdit ?? (issue.status === 'Draft')) && canDo('/inventory-issue', 'EDIT');
     const costingLabel = issue.costingType === 'INC_COSTING' ? 'Including Costing' : 'Excluding Costing';
 
+    // Approved Issue Requests for this note's job, so a draft saved without one can
+    // still be linked. The save sends requestId either way: the proc writes whatever
+    // it receives, so leaving it out would silently unlink a request-backed note.
+    const [requests,   setRequests]   = useState([]);
+    const [reqLoading, setReqLoading] = useState(false);
+
     const startEdit = () => {
         setForm({
             issueDate:   issue.issueDate   ? issue.issueDate.slice(0, 10)   : today(),
             costingType: issue.costingType || 'INC_COSTING',
             issuedTo:    issue.issuedTo    || '',
             notes:       issue.notes       || '',
+            requestId:   issue.requestId   ? String(issue.requestId) : '',
         });
         setEditing(true);
         setError('');
+        setReqLoading(true);
+        fetch(`${variables.API_URL}issuerequest/search?jobId=${encodeURIComponent(issue.jobId)}&status=Approved,PartiallyIssued&pageSize=100&page=1`,
+              { headers: authHeaders() })
+            .then(r => (r.ok ? r.json() : { data: [] }))
+            .then(d => setRequests(d.data || []))
+            .catch(() => setRequests([]))
+            .finally(() => setReqLoading(false));
     };
 
     const handle = e => {
@@ -68,6 +82,7 @@ const IssueOverviewTab = ({ issue, onRefresh }) => {
                 costingType: form.costingType,
                 issuedTo:    form.issuedTo.trim(),
                 notes:       form.notes.trim()    || null,
+                requestId:   form.requestId ? Number(form.requestId) : null,
                 modifiedBy:  currentUser,
             }),
         })
@@ -143,6 +158,33 @@ const IssueOverviewTab = ({ issue, onRefresh }) => {
                     </div>
                 </div>
 
+                {/* Issue Request: link or change while the note is a Draft. Once lines have
+                    been pulled from a request the proc refuses a change and says why. */}
+                <div style={row}>
+                    <div style={{ ...field, flex: 3 }}>
+                        <label style={lbl}>Issue Request</label>
+                        {reqLoading ? (
+                            <div className="pf-input" style={{ background: '#f8fafc', color: '#64748b' }}>⏳ Loading approved requests…</div>
+                        ) : (
+                            <select className="pf-input" name="requestId" value={form.requestId || ''} onChange={handle}>
+                                <option value="">— None (issue without a request) —</option>
+                                {/* keep the linked request visible even if it is no longer in the open list */}
+                                {issue.requestId && !requests.some(r => r.requestId === issue.requestId) && (
+                                    <option value={issue.requestId}>{issue.requestNo}{issue.requestStatus ? ` (${issue.requestStatus})` : ''}</option>
+                                )}
+                                {requests.map(r => (
+                                    <option key={r.requestId} value={r.requestId}>
+                                        {r.requestNo} — {r.requestedBy} ({r.status}, {r.lineCount} line{r.lineCount !== 1 ? 's' : ''})
+                                    </option>
+                                ))}
+                            </select>
+                        )}
+                        {!reqLoading && requests.length === 0 && !issue.requestId && (
+                            <span style={{ fontSize: 11, color: '#64748b', marginTop: 3 }}>No approved Issue Request for this job.</span>
+                        )}
+                    </div>
+                </div>
+
                 {/* Row 3: Notes */}
                 <div style={row}>
                     <div style={{ ...field, flex: 3 }}>
@@ -173,6 +215,7 @@ const IssueOverviewTab = ({ issue, onRefresh }) => {
                 {issue.customerName && <Field label="Customer">{issue.customerName}</Field>}
                 {issue.projectName  && <Field label="Project" >{issue.projectName}</Field>}
                 <Field label="Issue Type"      >{costingLabel}</Field>
+                {issue.requestNo && <Field label="Issue Request" mono>{issue.requestNo}</Field>}
                 {issue.issuedTo     && <Field label="Issued To">{issue.issuedTo}</Field>}
                 <Field label="Status"          >{issue.status}</Field>
                 <div className="prd-ov-card" style={{ borderColor: '#dbeafe', background: '#f0f7ff' }}>

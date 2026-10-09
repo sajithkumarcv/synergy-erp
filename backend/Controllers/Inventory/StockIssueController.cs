@@ -159,7 +159,10 @@ namespace ERPWEB.Controllers.Inventory
                 {
                     var avRows = await _dbcon.QueryAsync<StockAvailability>(
                         "sp_GetStockAvailability",
-                        new { ItemId = model.ItemId, JobId = issue.JobId, CostingType = issue.CostingType });
+                        // RequestId lets the proc count this request's own reservation as
+                        // available to it; without it a request that reserved all the free
+                        // stock could never be issued against.
+                        new { ItemId = model.ItemId, JobId = issue.JobId, CostingType = issue.CostingType, RequestId = issue.RequestId });
                     var av = avRows?.FirstOrDefault();
 
                     if (av != null)
@@ -404,15 +407,19 @@ namespace ERPWEB.Controllers.Inventory
         public async Task<IActionResult> GetStockAvailability(
             int     itemId,
             [FromQuery] string? jobId       = null,
-            [FromQuery] string  costingType = "INC_COSTING")
+            [FromQuery] string  costingType = "INC_COSTING",
+            [FromQuery] int?    requestId   = null)
         {
             try
             {
+                // requestId: a note issuing against an Issue Request may use that
+                // request's own reservation, so the figure shown matches SaveLine's check.
                 var rows = await _dbcon.QueryAsync<StockAvailability>("sp_GetStockAvailability", new
                 {
                     ItemId      = itemId,
                     JobId       = string.IsNullOrWhiteSpace(jobId) ? null : jobId,
-                    CostingType = costingType
+                    CostingType = costingType,
+                    RequestId   = requestId
                 });
                 var result = rows?.FirstOrDefault();
                 return Ok(result ?? new StockAvailability { ItemId = itemId, AvailableQty = 0 });

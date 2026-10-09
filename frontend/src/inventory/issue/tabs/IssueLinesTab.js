@@ -142,7 +142,8 @@ const IssueLinesTab = ({ issue, lines, onRefresh }) => {
             try {
                 const url = `${variables.API_URL}stockissue/stockavail/${form.item.itemId}`
                     + `?jobId=${encodeURIComponent(issue.jobId)}`
-                    + `&costingType=${encodeURIComponent(issue.costingType)}`;
+                    + `&costingType=${encodeURIComponent(issue.costingType)}`
+                    + (issue.requestId ? `&requestId=${issue.requestId}` : '');
                 const r = await fetch(url, { headers: authHeaders() });
                 const d = await r.json();
                 setStockAvail(r.ok ? d : null);
@@ -150,7 +151,7 @@ const IssueLinesTab = ({ issue, lines, onRefresh }) => {
             finally  { setStockLoading(false); }
         }, 300);
         return () => clearTimeout(stockTimer.current);
-    }, [form.item, issue.jobId, issue.costingType]); // eslint-disable-line
+    }, [form.item, issue.jobId, issue.costingType, issue.requestId]); // eslint-disable-line
 
     // Is the requested qty more than what's available?
     const qtyNum      = Number(form.qty) || 0;
@@ -241,6 +242,7 @@ const IssueLinesTab = ({ issue, lines, onRefresh }) => {
     const [pullLoading, setPullLoading] = useState(false);
     const [pullSaving,  setPullSaving]  = useState(false);
     const [pullError,   setPullError]   = useState('');
+    const pullDirty = useRef(false);   // some lines saved while others failed
 
     const openPull = () => {
         setShowPull(true); setPullError(''); setPullSel({}); setPullLoading(true);
@@ -263,6 +265,26 @@ const IssueLinesTab = ({ issue, lines, onRefresh }) => {
     const setPullQty = (p, v) => setPullSel(s =>
         s[p.requestLineId] ? { ...s, [p.requestLineId]: { ...s[p.requestLineId], qty: v } } : s);
 
+    // Same cost the manual Add Line form fills in: FIFO per base UOM (including
+    // costing) or the job item's last cost (excluding), re-expressed in the line's
+    // UOM. Confirm posts the line cost as-is, so a 0 here would charge the job nothing.
+    const costForPulled = async (line) => {
+        let base = 0;
+        if (isJobMode) {
+            const r = await fetch(`${variables.API_URL}stockissue/jobitems/${encodeURIComponent(issue.jobId)}?searchText=${encodeURIComponent(line.itemCode)}&pageSize=20`, { headers: authHeaders() });
+            const rows = r.ok ? await r.json() : [];
+            const hit = (Array.isArray(rows) ? rows : (rows.data || [])).find(x => x.itemId === line.itemId);
+            base = Number(hit?.lastCost ?? 0);
+        } else {
+            const r = await fetch(`${variables.API_URL}stockissue/fifocost/${line.itemId}`, { headers: authHeaders() });
+            const d = r.ok ? await r.json() : {};
+            base = Number(d.fifoCost ?? 0);
+        }
+        const cr = await fetch(`${variables.API_URL}item/${line.itemId}/uom-conversions`, { headers: authHeaders() });
+        const convs = cr.ok ? await cr.json() : [];
+        return base * factorFor(line.uomId, Array.isArray(convs) ? convs : []);
+    };
+
     // One save per selected line: the proc validates each against the request
     // balance, so a bad row reports itself and the others still go in.
     const savePulled = async () => {
@@ -270,10 +292,12 @@ const IssueLinesTab = ({ issue, lines, onRefresh }) => {
         if (picked.length === 0) return;
         setPullSaving(true); setPullError('');
         const failures = [];
+        let savedAny = false;
         for (const { line, qty } of picked) {
             const q = Number(qty);
             if (!q || q <= 0) { failures.push(`${line.itemCode}: enter a quantity`); continue; }
             try {
+                const unitCost = await costForPulled(line);
                 const res = await fetch(`${variables.API_URL}stockissue/line/save`, {
                     method: 'POST', headers: authHeaders(),
                     body: JSON.stringify({
@@ -284,7 +308,7 @@ const IssueLinesTab = ({ issue, lines, onRefresh }) => {
                         itemDesc:      null,
                         qty:           q,
                         uomId:         line.uomId ?? null,
-                        unitCost:      0,
+                        unitCost,
                         notes:         null,
                         requestLineId: line.requestLineId,
                         createdBy:     currentUser,
@@ -293,15 +317,29 @@ const IssueLinesTab = ({ issue, lines, onRefresh }) => {
                 if (!res.ok) {
                     const d = await res.json().catch(() => ({}));
                     failures.push(`${line.itemCode}: ${d?.message || 'failed'}`);
+                } else {
+                    savedAny = true;
                 }
             } catch {
                 failures.push(`${line.itemCode}: network error`);
             }
         }
         setPullSaving(false);
-        if (failures.length) { setPullError(failures.join(' · ')); }
-        else { setShowPull(false); setPullSel({}); }
-        onRefresh();
+        if (failures.length) {
+            // onRefresh swaps the whole page for a loading screen, which unmounts this
+            // tab and throws the message away. Keep the panel and the message on screen;
+            // lines that did save show up when the panel is closed.
+            setPullError(failures.join(' · '));
+            if (savedAny) pullDirty.current = true;
+        } else {
+            setShowPull(false); setPullSel({});
+            onRefresh();
+        }
+    };
+
+    const closePull = () => {
+        setShowPull(false); setPullError('');
+        if (pullDirty.current) { pullDirty.current = false; onRefresh(); }
     };
 
     const lineTotal = () => (Number(form.qty) || 0) * (Number(form.unitCost) || 0);
@@ -461,7 +499,7 @@ const IssueLinesTab = ({ issue, lines, onRefresh }) => {
                             </>
                         )}
                         <div className="prd-lf-actions">
-                            <button className="prd-lf-cancel" onClick={() => { setShowPull(false); setPullError(''); }}>Cancel</button>
+                            <button className="prd-lf-cancel" onClick={closePull}>{pullDirty.current ? 'Close' : 'Cancel'}</button>
                             <button className="prd-lf-save" onClick={savePulled}
                                 disabled={pullSaving || Object.keys(pullSel).length === 0}>
                                 {pullSaving ? 'Adding…' : `Add ${Object.keys(pullSel).length || ''} line${Object.keys(pullSel).length === 1 ? '' : 's'}`}
