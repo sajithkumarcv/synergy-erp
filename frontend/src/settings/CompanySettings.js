@@ -81,8 +81,9 @@ const InfoTab = ({ company, onRefresh }) => {
         if (!form.companyName?.trim()) { setValidErrs(['Company Name is required.']); return; }
         setSaving(true);
         try {
-            const res = await fetch(`${variables.API_URL}company/owner`, {
-                method:'PUT', headers: authHeaders(), body: JSON.stringify(form),
+            // POST, not PUT: some IIS servers block PUT (WebDAV module) and the browser then reports a network error
+            const res = await fetch(`${variables.API_URL}company/owner/save`, {
+                method:'POST', headers: authHeaders(), body: JSON.stringify(form),
             });
             const d = await res.json().catch(() => ({}));
             if (!res.ok) { setValidErrs([d?.message || 'Failed to save.']); return; }

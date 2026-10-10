@@ -43,8 +43,11 @@ namespace ERPWEB.Controllers.General
             }
         }
 
-        // PUT api/company/owner
+        // PUT api/company/owner  (kept for older frontends)
+        // POST api/company/owner/save  (what the app uses now: the IIS WebDAV module blocks PUT on some
+        // servers, which the browser reports as a plain network error; every other save in the app is a POST)
         [HttpPut("owner")]
+        [HttpPost("owner/save")]
         public async Task<IActionResult> UpdateOwner([FromBody] UpdateCompanyRequest req)
         {
             try

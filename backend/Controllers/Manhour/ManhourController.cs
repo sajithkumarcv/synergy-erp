@@ -305,7 +305,10 @@ namespace ERPWEB.Controllers.Manhour
         }
 
         // ── ADMIN: UPDATE LINE ────────────────────────────────────────────
+        // PUT kept for older frontends; the app now POSTs to .../save because the IIS WebDAV module blocks
+        // PUT on some servers (the browser reports that as a plain network error).
         [HttpPut("admin/line/{manhourId:int}")]
+        [HttpPost("admin/line/{manhourId:int}/save")]
         public async Task<IActionResult> AdminUpdateLine(int manhourId, [FromBody] AdminManhourLineUpdate req)
         {
             try

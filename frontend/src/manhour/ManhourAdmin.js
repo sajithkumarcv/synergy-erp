@@ -61,8 +61,9 @@ const EditModal = ({ row, employees, jobs, siteOptions, typeOptions, onSave, onC
 
         setSaving(true);
         try {
-            const res  = await fetch(`${variables.API_URL}manhour/admin/line/${row.manhourId}`, {
-                method:  'PUT',
+            // POST, not PUT: some IIS servers block PUT (WebDAV module) and the browser then reports a network error
+            const res  = await fetch(`${variables.API_URL}manhour/admin/line/${row.manhourId}/save`, {
+                method:  'POST',
                 headers: authHeaders(),
                 body:    JSON.stringify({ ...form, hours: h, overtimeHours: ot, employeeId: Number(form.employeeId) }),
             });
