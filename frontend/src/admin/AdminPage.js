@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { variables, authHeaders } from '../Variable';
-import { useCurrentUser } from '../AuthContext';
+import { useCurrentUser, useAuth } from '../AuthContext';
 import ValidationModal from '../common/ValidationModal';
 import '../settings/Settings.css';
 import '../jobs/JobDetail.css';
@@ -1403,6 +1403,9 @@ const IssueRequestPanel = () => {
 
 // ── Main AdminPage ────────────────────────────────────────────────────────────
 const AdminPage = () => {
+    // The Issue Request settings API is ADMIN-only on the server (one role per login), so only ADMIN sees the section.
+    const auth = useAuth();
+    const isAdminRole = (auth?.role || '').toUpperCase().trim() === 'ADMIN';
     const [activeKey, setActiveKey] = useState(SECTIONS[0].key);
     const activeSection = SECTIONS.find(s => s.key === activeKey) || SECTIONS[0];
 
@@ -1437,12 +1440,14 @@ const AdminPage = () => {
                     >
                         SMTP Settings
                     </button>
-                    <button
-                        className={`adm-nav-item ${activeKey==='issueRequest' ? 'adm-nav-active' : ''}`}
-                        onClick={() => setActiveKey('issueRequest')}
-                    >
-                        Issue Request
-                    </button>
+                    {isAdminRole && (
+                        <button
+                            className={`adm-nav-item ${activeKey==='issueRequest' ? 'adm-nav-active' : ''}`}
+                            onClick={() => setActiveKey('issueRequest')}
+                        >
+                            Issue Request
+                        </button>
+                    )}
                 </div>
             </nav>
 
@@ -1464,7 +1469,7 @@ const AdminPage = () => {
                 </div>
                 {activeKey === 'smtp'
                     ? <SmtpPanel />
-                    : activeKey === 'issueRequest'
+                    : activeKey === 'issueRequest' && isAdminRole
                         ? <IssueRequestPanel />
                         : <SmartLookupTable key={activeKey} section={activeSection} />
                 }
