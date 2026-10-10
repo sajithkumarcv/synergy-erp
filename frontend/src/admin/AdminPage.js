@@ -1309,6 +1309,98 @@ const SmtpPanel = () => {
     );
 };
 
+// ── Issue Request settings panel ──────────────────────────────────────────────
+// Which issue types need an approved Issue Request before an Issue Note can be
+// confirmed, and how long an approved request holds its stock. Stored as the
+// Inventory.IssueRequest.* app settings; the server checks the codes it is sent.
+const IssueRequestPanel = () => {
+    const [types,    setTypes]    = useState([]);
+    const [required, setRequired] = useState([]);
+    const [days,     setDays]     = useState('14');
+    const [loading,  setLoading]  = useState(true);
+    const [saving,   setSaving]   = useState(false);
+    const [msg,      setMsg]      = useState({ type:'', text:'' });
+
+    useEffect(() => {
+        fetch(`${API()}appsettings/issue-request`, { headers: authHeaders() })
+            .then(r => r.ok ? r.json() : Promise.reject())
+            .then(d => {
+                setTypes(d.issueTypes || []);
+                setRequired(d.requiredFor || []);
+                setDays(String(d.reservationDays ?? 14));
+            })
+            .catch(() => setMsg({ type:'err', text:'Could not load the settings (Admin role required).' }))
+            .finally(() => setLoading(false));
+    }, []);
+
+    const toggle = code => setRequired(p => p.includes(code) ? p.filter(c => c !== code) : [...p, code]);
+
+    const save = async e => {
+        e.preventDefault();
+        const n = Number(days);
+        if (!Number.isInteger(n) || n < 0 || n > 365)
+            return setMsg({ type:'err', text:'Reservation days must be a whole number from 0 to 365.' });
+        setSaving(true); setMsg({ type:'', text:'' });
+        try {
+            const r = await fetch(`${API()}appsettings/issue-request`, {
+                method:'POST', headers: authHeaders(),
+                body: JSON.stringify({ requiredFor: required, reservationDays: n }),
+            });
+            const d = await r.json().catch(() => ({}));
+            setMsg({ type: r.ok ? 'ok' : 'err', text: d.message || (r.ok ? 'Saved.' : 'Failed to save.') });
+        } catch { setMsg({ type:'err', text:'Unexpected error.' }); }
+        finally { setSaving(false); }
+    };
+
+    const lStyle = { fontSize:11, fontWeight:600, color:'#64748b', textTransform:'uppercase', letterSpacing:'.04em', display:'block', marginBottom:6 };
+    const hint   = { fontSize:12, color:'#94a3b8', marginTop:4, lineHeight:1.6 };
+
+    if (loading) return <div className="adm-table-section" style={{ padding:24, color:'#94a3b8' }}>Loading…</div>;
+
+    return (
+        <div className="adm-table-section" style={{ padding:24, maxWidth:660 }}>
+            <form onSubmit={save}>
+                {msg.text && (
+                    <div style={{ padding:'10px 14px', borderRadius:7, marginBottom:18, fontSize:13, fontWeight:500,
+                        background: msg.type==='ok' ? '#f0fdf4' : '#fef2f2',
+                        color:      msg.type==='ok' ? '#16a34a' : '#dc2626',
+                        border:     `1px solid ${msg.type==='ok' ? '#bbf7d0' : '#fecaca'}` }}>
+                        {msg.text}
+                    </div>
+                )}
+
+                <label style={lStyle}>Issue types that require an approved Issue Request</label>
+                {types.map(t => (
+                    <label key={t.code} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8, cursor:'pointer' }}>
+                        <input type="checkbox" checked={required.includes(t.code)} onChange={() => toggle(t.code)}
+                               style={{ width:15, height:15 }} />
+                        <span style={{ fontSize:13, color:'#334155', fontWeight:500 }}>{t.name}</span>
+                    </label>
+                ))}
+                <div style={hint}>
+                    A ticked type cannot have an Issue Note created or confirmed without an approved request.
+                    A request only reserves store stock, which Include in Costing issues draw on.
+                </div>
+
+                <div style={{ marginTop:24, maxWidth:200 }}>
+                    <label style={lStyle}>Reservation days</label>
+                    <input type="number" min="0" max="365" value={days} onChange={e => setDays(e.target.value)}
+                           style={{ border:'1px solid #cbd5e1', borderRadius:6, padding:'7px 10px', fontSize:13,
+                                    color:'#0f172a', width:'100%', boxSizing:'border-box' }} />
+                </div>
+                <div style={hint}>
+                    Days an approved request holds its stock before the hold is released. 0 = never expires.
+                    The request itself stays approved.
+                </div>
+
+                <button type="submit" className="adm-add-btn" disabled={saving} style={{ minWidth:180, marginTop:26 }}>
+                    {saving ? 'Saving…' : 'Save Settings'}
+                </button>
+            </form>
+        </div>
+    );
+};
+
 // ── Main AdminPage ────────────────────────────────────────────────────────────
 const AdminPage = () => {
     const [activeKey, setActiveKey] = useState(SECTIONS[0].key);
@@ -1345,6 +1437,12 @@ const AdminPage = () => {
                     >
                         SMTP Settings
                     </button>
+                    <button
+                        className={`adm-nav-item ${activeKey==='issueRequest' ? 'adm-nav-active' : ''}`}
+                        onClick={() => setActiveKey('issueRequest')}
+                    >
+                        Issue Request
+                    </button>
                 </div>
             </nav>
 
@@ -1352,17 +1450,23 @@ const AdminPage = () => {
             <main className="adm-content">
                 <div className="adm-content-header">
                     <div className="adm-content-title">
-                        {activeKey === 'smtp' ? 'SMTP Settings' : activeSection.title}
+                        {activeKey === 'smtp' ? 'SMTP Settings'
+                            : activeKey === 'issueRequest' ? 'Issue Request Settings'
+                            : activeSection.title}
                     </div>
                     <div className="adm-content-sub">
                         {activeKey === 'smtp'
                             ? 'Configuration › SMTP Settings'
-                            : `${activeSection.group} › ${activeSection.title}`}
+                            : activeKey === 'issueRequest'
+                                ? 'Configuration › Issue Request'
+                                : `${activeSection.group} › ${activeSection.title}`}
                     </div>
                 </div>
                 {activeKey === 'smtp'
                     ? <SmtpPanel />
-                    : <SmartLookupTable key={activeKey} section={activeSection} />
+                    : activeKey === 'issueRequest'
+                        ? <IssueRequestPanel />
+                        : <SmartLookupTable key={activeKey} section={activeSection} />
                 }
             </main>
         </div>

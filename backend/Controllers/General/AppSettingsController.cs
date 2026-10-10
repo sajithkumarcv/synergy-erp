@@ -22,6 +22,12 @@ namespace ERPWEB.Controllers.General
         public bool   EnableSsl   { get; set; } = true;
     }
 
+    public class IssueRequestSettingsRequest
+    {
+        public List<string> RequiredFor     { get; set; } = new();
+        public int          ReservationDays { get; set; } = 14;
+    }
+
     [Authorize]
     [Route("api/appsettings")]
     [ApiController]
@@ -183,6 +189,89 @@ namespace ERPWEB.Controllers.General
             {
                 await _db.WriteLog(ex, "AppSettings", "SaveSmtp", HttpContext.Request.Path);
                 return StatusCode(500, new { message = "Error saving SMTP settings." });
+            }
+        }
+
+        // GET api/appsettings/issue-request
+        // Which issue types need an approved Issue Request, and how long a reservation is held.
+        // Admin only: the setting decides whether every Issue Note of a type can be confirmed.
+        [Authorize(Roles = "ADMIN")]
+        [HttpGet("issue-request")]
+        public async Task<IActionResult> GetIssueRequestSettings()
+        {
+            try
+            {
+                var rows = await _db.QueryAsync<AppSettingRow>(
+                    "sp_GetAppSettings", new { Prefix = "Inventory.IssueRequest." });
+                var dict = (rows ?? Enumerable.Empty<AppSettingRow>())
+                    .ToDictionary(r => r.SettingKey, r => r.SettingValue);
+
+                var requiredFor = dict.GetValueOrDefault("Inventory.IssueRequest.RequiredFor", "")
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .ToList();
+                var days = int.TryParse(dict.GetValueOrDefault("Inventory.IssueRequest.ReservationDays", "14"), out var d) ? d : 14;
+
+                var typeRows = await _db.QueryAsync<dynamic>("sp_GetIssueTypes");
+                var types = (typeRows ?? Enumerable.Empty<dynamic>())
+                    .Select(t => new { code = (string)t.IssueTypeCode, name = (string)t.IssueTypeName })
+                    .ToList();
+
+                return Ok(new { requiredFor, reservationDays = days, issueTypes = types });
+            }
+            catch (Exception ex)
+            {
+                await _db.WriteLog(ex, "AppSettings", "GetIssueRequestSettings", HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Error loading Issue Request settings." });
+            }
+        }
+
+        // POST api/appsettings/issue-request
+        // Body: { "requiredFor": ["INC_COSTING"], "reservationDays": 14 }
+        // Codes are checked against the real issue types so a typo cannot silently switch the gate off.
+        [Authorize(Roles = "ADMIN")]
+        [HttpPost("issue-request")]
+        public async Task<IActionResult> SaveIssueRequestSettings([FromBody] IssueRequestSettingsRequest req)
+        {
+            if (req == null) return BadRequest(new { message = "No settings supplied." });
+            if (req.ReservationDays < 0 || req.ReservationDays > 365)
+                return BadRequest(new { message = "Reservation days must be between 0 and 365 (0 = never expires)." });
+
+            try
+            {
+                var typeRows = await _db.QueryAsync<dynamic>("sp_GetIssueTypes");
+                var valid = (typeRows ?? Enumerable.Empty<dynamic>())
+                    .Select(t => (string)t.IssueTypeCode).ToList();
+
+                var chosen = (req.RequiredFor ?? new List<string>())
+                    .Select(c => (c ?? "").Trim().ToUpperInvariant())
+                    .Where(c => c.Length > 0).Distinct().ToList();
+
+                var unknown = chosen.Where(c => !valid.Contains(c)).ToList();
+                if (unknown.Count > 0)
+                    return BadRequest(new { message = $"Unknown issue type: {string.Join(", ", unknown)}." });
+
+                // keep the same order the issue types are listed in, so the stored value is stable
+                var ordered = valid.Where(chosen.Contains);
+
+                await _db.QueryAsync<dynamic>("sp_SetAppSetting", new
+                {
+                    SettingKey   = "Inventory.IssueRequest.RequiredFor",
+                    SettingValue = string.Join(",", ordered),
+                    ModifiedBy   = ActionBy,
+                });
+                await _db.QueryAsync<dynamic>("sp_SetAppSetting", new
+                {
+                    SettingKey   = "Inventory.IssueRequest.ReservationDays",
+                    SettingValue = req.ReservationDays.ToString(),
+                    ModifiedBy   = ActionBy,
+                });
+
+                return Ok(new { message = "Issue Request settings saved." });
+            }
+            catch (Exception ex)
+            {
+                await _db.WriteLog(ex, "AppSettings", "SaveIssueRequestSettings", HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Error saving Issue Request settings." });
             }
         }
     }
