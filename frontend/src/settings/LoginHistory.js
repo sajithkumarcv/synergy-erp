@@ -79,10 +79,13 @@ const LoginHistory = () => {
         setLoading(true); setError('');
         try {
             const res = await fetch(`${variables.API_URL}Auth/login-history?top=${topArg}`, { headers: authHeaders() });
-            const d = await res.json();
-            if (!res.ok) { setError(d?.message || 'Error loading login history.'); setRows([]); return; }
+            // 401/403 come back with an empty body, so say what they mean instead of failing to parse them.
+            if (res.status === 401) { setError('Your session has ended — please sign in again.'); setRows([]); return; }
+            if (res.status === 403) { setError('You do not have permission to view Login History (Admin only).'); setRows([]); return; }
+            const d = await res.json().catch(() => null);
+            if (!res.ok) { setError(d?.message || `Error loading login history (HTTP ${res.status}).`); setRows([]); return; }
             setRows(Array.isArray(d) ? d.map(norm) : []);
-        } catch { setError('Network error.'); setRows([]); }
+        } catch { setError('Cannot reach the server.'); setRows([]); }
         finally { setLoading(false); }
     }, []);
 
