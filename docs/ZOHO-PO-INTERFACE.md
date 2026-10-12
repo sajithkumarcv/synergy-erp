@@ -15,6 +15,15 @@ SQL only - no API, no frontend. Patches (run in order):
   Login `zoho_reader` (role `interface_zoho`) - SELECT on ZohoPO, column-level UPDATE on those columns only.
   Tested 2026-10-12: PO tables denied, `ItemPrice` update denied.
 - Switch: `Interface.Zoho.PoEnabled` (TBL_APP_SETTINGS), 0 = off. New approvals are NOT queued until it is 1.
+  The check is in the hooks themselves (`sp_PostPOApproval`, `sp_AmendPOLine`, `sp_AmendPOLineQty`), so with the
+  switch off an approval/amend touches nothing in the interface schema. Hook errors (and a failure to log them)
+  are swallowed - the approval/amend always goes through.
+
+## Incident 2026-10-12 - approvals failed on prod
+`proj` is owned by user PROJ (the app login), `interface` was created owned by dbo -> broken ownership chain ->
+the app login got "INSERT permission denied on ZohoQueueLog" and the CATCH block itself threw, failing 6 approvals.
+Fix: `ALTER AUTHORIZATION ON SCHEMA::interface TO PROJ` (now in patch 1; run on prod by hand 2026-10-12) plus the
+switch-in-the-hook and nested-CATCH hardening. Lesson: test hooks as the APP user (`EXECUTE AS USER='PROJ'`), not sa.
 
 ## Mandatory (yellow) columns - checked at queue time
 A PO that fails any check is stored as `Status = 'Error'` (all lines, never partial) with a plain `ErrorMessage`;

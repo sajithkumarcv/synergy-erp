@@ -21,36 +21,63 @@ SET QUOTED_IDENTIFIER ON;
 GO
 
 DECLARE @anchor NVARCHAR(100) = N'SELECT @PoLineId AS PoLineId;';
-DECLARE @block  NVARCHAR(MAX) = N'-- Zoho interface: send the amended PO to Zoho again (never blocks the amendment)
-    BEGIN TRY
+DECLARE @mark   NVARCHAR(100) = N'-- Zoho interface: send the amended PO';
+DECLARE @block  NVARCHAR(MAX) = N'-- Zoho interface: send the amended PO to Zoho again (off unless Interface.Zoho.PoEnabled = 1; never blocks the amendment)
+    IF ISNULL(TRY_CAST((SELECT SettingValue FROM proj.TBL_APP_SETTINGS WHERE SettingKey = N''Interface.Zoho.PoEnabled'') AS INT), 0) = 1
+    BEGIN
         DECLARE @ZhPoId INT = (SELECT PoId FROM proj.TBL_PURCHASE_ORDER_LINE WHERE PoLineId = @PoLineId);
-        EXEC [interface].usp_QueueZohoPO @PoId = @ZhPoId, @By = @ModifiedBy, @Reissue = 1;
-    END TRY
-    BEGIN CATCH
-        IF XACT_STATE() <> -1
-            INSERT INTO [interface].ZohoQueueLog (PoId, ErrorMessage) VALUES (@ZhPoId, LEFT(ERROR_MESSAGE(), 2000));
-    END CATCH
+        BEGIN TRY
+            EXEC [interface].usp_QueueZohoPO @PoId = @ZhPoId, @By = @ModifiedBy, @Reissue = 1;
+        END TRY
+        BEGIN CATCH
+            BEGIN TRY
+                IF XACT_STATE() <> -1
+                    INSERT INTO [interface].ZohoQueueLog (PoId, ErrorMessage) VALUES (@ZhPoId, LEFT(ERROR_MESSAGE(), 2000));
+            END TRY
+            BEGIN CATCH
+                SET @ZhPoId = NULL;   -- logging failed too: swallow, the amendment must go through
+            END CATCH
+        END CATCH
+    END
 
     ';
-DECLARE @name SYSNAME, @def NVARCHAR(MAX), @n INT, @sql NVARCHAR(MAX);
+DECLARE @name SYSNAME, @def NVARCHAR(MAX), @n INT, @sql NVARCHAR(MAX), @s INT, @e INT;
 
 DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT N'sp_AmendPOLine' UNION ALL SELECT N'sp_AmendPOLineQty';
 OPEN c; FETCH NEXT FROM c INTO @name;
 WHILE @@FETCH_STATUS = 0
 BEGIN
     SET @def = OBJECT_DEFINITION(OBJECT_ID(N'proj.' + @name));
-    SET @n   = (LEN(@def) - LEN(REPLACE(@def, @anchor, N''))) / LEN(@anchor);
+    SET @s   = CHARINDEX(@mark, @def);
 
-    IF @def LIKE N'%usp_QueueZohoPO%'
-        PRINT @name + N': already patched - skipped';
-    ELSE IF @n <> 1
-        PRINT @name + N': ANCHOR NOT FOUND EXACTLY ONCE (' + CAST(@n AS NVARCHAR(10)) + N') - NOT patched';
+    IF @def LIKE N'%Interface.Zoho.PoEnabled%'
+        PRINT @name + N': already has the current hook - skipped';
+    ELSE IF @s > 0
+    BEGIN
+        -- upgrade: replace the first version of the hook (from its comment to its END CATCH)
+        SET @e = CHARINDEX(N'END CATCH', @def, @s);
+        IF @e = 0
+            PRINT @name + N': OLD HOOK END NOT FOUND - NOT patched';
+        ELSE
+        BEGIN
+            SET @sql = STUFF(@def, @s, @e + LEN(N'END CATCH') - @s, TRIM(CHAR(13) + CHAR(10) + N' ' FROM @block));  -- block without its trailing newlines/indent
+            SET @sql = STUFF(@sql, CHARINDEX(N'CREATE', @sql), LEN(N'CREATE'), N'ALTER');
+            EXEC (@sql);
+            PRINT @name + N': hook upgraded';
+        END
+    END
     ELSE
     BEGIN
-        SET @sql = REPLACE(@def, @anchor, @block + @anchor);
-        SET @sql = STUFF(@sql, CHARINDEX(N'CREATE', @sql), LEN(N'CREATE'), N'ALTER');   -- first CREATE -> ALTER
-        EXEC (@sql);
-        PRINT @name + N': patched';
+        SET @n = (LEN(@def) - LEN(REPLACE(@def, @anchor, N''))) / LEN(@anchor);
+        IF @n <> 1
+            PRINT @name + N': ANCHOR NOT FOUND EXACTLY ONCE (' + CAST(@n AS NVARCHAR(10)) + N') - NOT patched';
+        ELSE
+        BEGIN
+            SET @sql = REPLACE(@def, @anchor, @block + @anchor);
+            SET @sql = STUFF(@sql, CHARINDEX(N'CREATE', @sql), LEN(N'CREATE'), N'ALTER');   -- first CREATE -> ALTER
+            EXEC (@sql);
+            PRINT @name + N': patched';
+        END
     END
     FETCH NEXT FROM c INTO @name;
 END

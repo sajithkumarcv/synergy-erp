@@ -32,6 +32,14 @@ GO
 IF SCHEMA_ID(N'interface') IS NULL EXEC (N'CREATE SCHEMA [interface]');
 GO
 
+-- The app logs in as the owner of schema proj. If [interface] has a different owner (dbo), the ownership
+-- chain breaks and the app login is denied on interface.* when sp_PostPOApproval calls it (2026-10-12 prod
+-- incident: approvals failed with "INSERT permission denied on ZohoQueueLog"). Give it the same owner as proj.
+DECLARE @projOwner SYSNAME = (SELECT USER_NAME(principal_id) FROM sys.schemas WHERE name = N'proj');
+IF @projOwner IS NOT NULL AND ISNULL((SELECT USER_NAME(principal_id) FROM sys.schemas WHERE name = N'interface'), N'') <> @projOwner
+    EXEC (N'ALTER AUTHORIZATION ON SCHEMA::[interface] TO ' + N'[' + @projOwner + N']');
+GO
+
 IF NOT EXISTS (SELECT 1 FROM sys.sequences WHERE name = N'seq_ZohoPushId' AND schema_id = SCHEMA_ID(N'interface'))
     CREATE SEQUENCE [interface].seq_ZohoPushId AS INT START WITH 1 INCREMENT BY 1;
 GO
@@ -354,14 +362,24 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Zoho interface: snapshot the approved PO. Never allowed to block approval.
-    BEGIN TRY
-        EXEC [interface].usp_QueueZohoPO @PoId = @DocId, @By = @By;
-    END TRY
-    BEGIN CATCH
-        IF XACT_STATE() = 1
-            INSERT INTO [interface].ZohoQueueLog (PoId, ErrorMessage) VALUES (@DocId, LEFT(ERROR_MESSAGE(), 2000));
-    END CATCH
+    -- Zoho interface: snapshot the approved PO. Does nothing at all unless Interface.Zoho.PoEnabled = 1,
+    -- and is never allowed to block an approval.
+    IF ISNULL(TRY_CAST((SELECT SettingValue FROM proj.TBL_APP_SETTINGS
+                        WHERE SettingKey = N'Interface.Zoho.PoEnabled') AS INT), 0) = 1
+    BEGIN
+        BEGIN TRY
+            EXEC [interface].usp_QueueZohoPO @PoId = @DocId, @By = @By;
+        END TRY
+        BEGIN CATCH
+            BEGIN TRY
+                IF XACT_STATE() <> -1
+                    INSERT INTO [interface].ZohoQueueLog (PoId, ErrorMessage) VALUES (@DocId, LEFT(ERROR_MESSAGE(), 2000));
+            END TRY
+            BEGIN CATCH
+                SET @By = @By;   -- logging failed too: swallow, approval must go through
+            END CATCH
+        END CATCH
+    END
 
     -- The approval engine has just set the PO to 'Approved'.
     --  * Goods already received (a Revise PO of a received PO): put the header
