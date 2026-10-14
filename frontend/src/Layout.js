@@ -31,6 +31,7 @@ import { Bom } from './bom/Bom';
 import BomDetailPage from './bom/BomDetailPage';
 import { Pr } from './procurement/pr/Pr';
 import PrPendingPo from './procurement/pr/PrPendingPo';
+import PoPendingGrn from './procurement/po/PoPendingGrn';
 import PrDetailPage from './procurement/pr/PrDetailPage';
 import { Po } from './procurement/po/Po';
 import PoDetailPage from './procurement/po/PoDetailPage';
@@ -768,6 +769,7 @@ const Layout = () => {
             <Route path="/procurement-analytics"      element={<ProcurementDashboard />} />
             <Route path="/purchase-requests"          element={<Pr />} />
             <Route path="/pr-pending-po"              element={<PrPendingPo />} />
+            <Route path="/po-pending-grn"             element={<PoPendingGrn />} />
             <Route path="/purchase-requests/:prId"    element={<PrDetailPage />} />
             <Route path="/purchase-orders"            element={<Po />} />
             <Route path="/purchase-orders/:poId"      element={<PoDetailPage />} />

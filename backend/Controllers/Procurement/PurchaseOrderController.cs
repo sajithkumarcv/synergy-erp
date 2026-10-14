@@ -51,6 +51,59 @@ namespace ERPWEB.Controllers.Procurement
             return row;
         }
 
+        // ── POs with lines still waiting to be received (purchaser / store worklist) ─────────────────────
+        [HttpGet("pending-grn")]
+        public async Task<IActionResult> PendingGrn(
+            [FromQuery] string? status     = null,
+            [FromQuery] int?    supplierId = null,
+            [FromQuery] string? jobId      = null)
+        {
+            try
+            {
+                var rows = await _dbcon.QueryAsync<dynamic>("sp_GetPoPendingGrn", new
+                {
+                    Status     = string.IsNullOrWhiteSpace(status) ? "Approved,Sent,Partial" : status.Trim(),
+                    SupplierId = supplierId,
+                    JobId      = string.IsNullOrWhiteSpace(jobId) ? null : jobId.Trim(),
+                });
+                return Ok(rows.Select(r => new
+                {
+                    poId              = (int)r.PoId,
+                    poNumber          = (string)r.PoNumber,
+                    poDate            = (DateTime?)r.PoDate,
+                    deliveryDate      = (DateTime?)r.DeliveryDate,
+                    supplierId        = (int?)r.SupplierId,
+                    supplierName      = (string?)r.SupplierName,
+                    jobId             = (string?)r.JobId,
+                    jobName           = (string?)r.JobName,
+                    poStatus          = (string?)r.PoStatus,
+                    currencyShort     = (string?)r.CurrencyShort,
+                    approvedDate      = (DateTime?)r.ApprovedDate,
+                    daysSinceApproval = (int?)r.DaysSinceApproval ?? 0,
+                    daysOverdue       = (int?)r.DaysOverdue ?? 0,
+                    poLineId          = (int)r.PoLineId,
+                    lineNum           = (int?)r.LineNum ?? 0,
+                    itemCode          = (string?)r.ItemCode,
+                    itemDesc          = (string?)r.ItemDesc,
+                    uomName           = (string?)r.UomName,
+                    orderedQty        = (decimal)r.OrderedQty,
+                    receivedQty       = (decimal)r.ReceivedQty,
+                    openQty           = (decimal)r.OpenQty,
+                    unitPrice         = (decimal?)r.UnitPrice,
+                    openValue         = (decimal?)r.OpenValue ?? 0m,
+                    openValueBase     = (decimal?)r.OpenValueBase ?? 0m,
+                    lineStatus        = (string?)r.LineStatus,
+                    totalLines        = (int)r.TotalLines,
+                    lastGrnDate       = (DateTime?)r.LastGrnDate,
+                }));
+            }
+            catch (Exception ex)
+            {
+                await _dbcon.WriteLog(ex, controller: "PurchaseOrder", action: "PendingGrn", requestPath: HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Error loading POs pending GRN." });
+            }
+        }
+
         // ── SEARCH ───────────────────────────────────────────────────────────
         [HttpGet("search")]
         public async Task<IActionResult> SearchPOs(
