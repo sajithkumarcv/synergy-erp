@@ -125,7 +125,7 @@ const ManhourDetailPage = () => {
     const isNew       = !id || id === 'new';
     const navigate    = useNavigate();
     const currentUser = useCurrentUser();
-    const { getVList } = useLookup();
+    const { getVList, baseCurrencyCode } = useLookup();
     const { isReq } = useFieldConfig('MANHOUR');
 
     // Configurable lookups (admin-managed via VList: Manhour.Site / Manhour.Type)
@@ -159,6 +159,7 @@ const ManhourDetailPage = () => {
     const [previewFilter,  setPreviewFilter] = useState('all'); // 'all'|'valid'|'warning'|'error'
     const [toast,          setToast]         = useState([]);
     const [approvalTx,     setApprovalTx]    = useState(null);
+    const [budgetWarn,     setBudgetWarn]    = useState([]);   // jobs whose approved manhour cost is above the job's total budget
 
     const showToast = (msg, type = 'success') => {
         const id = Date.now();
@@ -183,6 +184,15 @@ const ManhourDetailPage = () => {
             .catch(() => showToast('Failed to load record.', 'error'))
             .finally(() => setLoading(false));
     }, [id, isNew]);
+
+    // ── Budget warning: informational only (approval is not blocked). Re-checked whenever the status changes. ──
+    useEffect(() => {
+        if (isNew || !batch?.batchId) { setBudgetWarn([]); return; }
+        fetch(`${variables.API_URL}manhour/${batch.batchId}/budget-warning`, { headers: authHeaders() })
+            .then(r => r.ok ? r.json() : [])
+            .then(d => setBudgetWarn(Array.isArray(d) ? d : []))
+            .catch(() => setBudgetWarn([]));
+    }, [isNew, batch?.batchId, batch?.status]);
 
     // ── Load employees for validation ─────────────────────────────────────
     useEffect(() => {
@@ -487,7 +497,11 @@ const ManhourDetailPage = () => {
     // ── Render ─────────────────────────────────────────────────────────────
     if (loading) return <div style={{ padding: 32, color: '#64748b' }}>Loading…</div>;
 
-    const canEdit       = isNew || batch?.canEdit;
+    // batch.canEdit comes from the server when the page loads and is not refreshed when the Approval tab changes the
+    // status, so also look at the live status: once approved or waiting for approval the batch is not editable, and
+    // Update / Upload must disappear straight away (re-saving would wipe the stamped rates; the server refuses it too).
+    const liveLocked    = !!batch && (batch.status === 'Approved' || String(batch.status || '').startsWith('Pending'));
+    const canEdit       = isNew || (batch?.canEdit && !liveLocked);
     const canDeleteLine = !isNew && !canEdit && batch && !['Approved', 'Rejected', 'Cancelled'].includes(batch.status);
     const title         = isNew ? 'New Manhour Upload' : batch?.documentNo || 'Manhour Upload';
 
@@ -522,6 +536,21 @@ const ManhourDetailPage = () => {
 
             {/* Approval status banner */}
             {!isNew && <ApprovalStatusBanner transaction={approvalTx} />}
+
+            {/* Budget warning (does not block approval) */}
+            {!isNew && budgetWarn.length > 0 && (
+                <div role="alert" style={{ margin: '0 0 12px', padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a',
+                                           borderLeft: '4px solid #f59e0b', borderRadius: 8, color: '#92400e', fontSize: 13 }}>
+                    <div style={{ fontWeight: 700, marginBottom: 2 }}>⚠ Manhour cost is above the job budget</div>
+                    {budgetWarn.map(w => (
+                        <div key={`${w.jobId}|${w.scope}`}>
+                            Job <strong>{w.jobId}</strong>: approved manhour cost {fmt2(w.manhourCost)} {baseCurrencyCode} is more than
+                            {w.scope === 'Job total' ? " the job's total budget" : ` the ${w.scope} budget`} {fmt2(w.budget)} {baseCurrencyCode}
+                            {' '}(over by {fmt2(w.overBy)}). Approval was not blocked.
+                        </div>
+                    ))}
+                </div>
+            )}
 
             {/* Stats (view mode) */}
             {!isNew && batch && (

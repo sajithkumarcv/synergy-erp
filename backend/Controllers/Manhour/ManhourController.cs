@@ -304,6 +304,22 @@ namespace ERPWEB.Controllers.Manhour
             }
         }
 
+        // ── BUDGET WARNING (informational): jobs in this batch whose approved manhour cost is above the job's total budget ──
+        [HttpGet("{batchId:int}/budget-warning")]
+        public async Task<IActionResult> GetBudgetWarning(int batchId)
+        {
+            try
+            {
+                var rows = await _dbcon.QueryAsync<ManhourBudgetWarning>("sp_GetManhourBudgetWarning", new { BatchId = batchId });
+                return Ok(rows ?? Enumerable.Empty<ManhourBudgetWarning>());
+            }
+            catch (Exception ex)
+            {
+                await _dbcon.WriteLog(ex, controller: "Manhour", action: "GetBudgetWarning", requestPath: HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Error checking the manhour budget." });
+            }
+        }
+
         // ── ADMIN: UPDATE LINE ────────────────────────────────────────────
         // PUT kept for older frontends; the app now POSTs to .../save because the IIS WebDAV module blocks
         // PUT on some servers (the browser reports that as a plain network error).
