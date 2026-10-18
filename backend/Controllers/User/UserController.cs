@@ -248,7 +248,8 @@ namespace ERPWEB.Controllers.User
         {
             try
             {
-                var validThemes = new[] { "ocean-blue", "midnight-dark", "forest-green" };
+                // Must match the THEMES keys in frontend/src/ThemeContext.js.
+                var validThemes = new[] { "ocean-blue", "midnight-dark", "carbon-dark", "forest-green", "apt-teal" };
                 if (!validThemes.Contains(model.Theme))
                     return BadRequest(new { message = "Invalid theme." });
                 await _db.ExecuteScalarAsync("sp_SetUserTheme", new { model.UserId, model.Theme });
