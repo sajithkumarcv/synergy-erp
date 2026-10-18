@@ -129,6 +129,7 @@ import IssueReturnDetailsReport from './reports/IssueReturnDetailsReport';
 import SrvReport            from './reports/SrvReport';
 import BacklogReport        from './reports/BacklogReport';
 import JobItemLedgerReport  from './reports/JobItemLedgerReport';
+import JobProductOverview   from './reports/JobProductOverview';
 import InvoiceReport        from './reports/InvoiceReport';
 import ReceiptVoucherReport from './reports/ReceiptVoucherReport';
 import CreditNoteReport     from './reports/CreditNoteReport';
@@ -858,6 +859,7 @@ const Layout = () => {
             <Route path="/reports/srv"          element={<SrvReport />} />
             <Route path="/reports/backlog"       element={<BacklogReport />} />
             <Route path="/reports/item-ledger"  element={<JobItemLedgerReport />} />
+            <Route path="/reports/job-product-overview" element={<JobProductOverview />} />
             <Route path="/reports/invoice"      element={<InvoiceReport />} />
             <Route path="/reports/receipt"      element={<ReceiptVoucherReport />} />
             <Route path="/reports/credit-note"  element={<CreditNoteReport />} />

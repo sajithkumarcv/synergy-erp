@@ -1413,6 +1413,77 @@ namespace ERPWEB.Controllers.Reports
             }
         }
 
+        // ── JOB - PRODUCT OVERVIEW: products that appear on a job (PO lines / issue lines) ─────────────
+        [HttpGet("job-product-overview/products")]
+        public async Task<IActionResult> JobProductList([FromQuery] string jobId)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(jobId)) return BadRequest(new { message = "Job is required." });
+                var rows = await _dbcon.QueryAsync<dynamic>("sp_GetJobProductList", new { JobId = jobId.Trim() });
+                return Ok(rows.Select(r => new
+                {
+                    itemId     = (int)r.ItemId,
+                    itemCode   = (string?)r.ItemCode,
+                    itemName   = (string?)r.ItemName,
+                    poQty      = (decimal)r.PoQty,
+                    issuedQty  = (decimal)r.IssuedQty,
+                }));
+            }
+            catch (Exception ex)
+            {
+                await _dbcon.WriteLog(ex, controller: "Reports", action: "JobProductList", requestPath: HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Error loading the job's products." });
+            }
+        }
+
+        // ── JOB - PRODUCT OVERVIEW: POs (ordered / received) and issue notes for one product on one job ──
+        [HttpGet("job-product-overview")]
+        public async Task<IActionResult> JobProductOverview([FromQuery] string jobId, [FromQuery] int itemId)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(jobId) || itemId <= 0) return BadRequest(new { message = "Job and product are required." });
+                using var multi = await _dbcon.QueryMultipleAsync("sp_GetJobProductOverview", new { JobId = jobId.Trim(), ItemId = itemId });
+                var pos = (await multi.ReadAsync<dynamic>()).Select(r => new
+                {
+                    poId         = (int)r.PoId,
+                    poNumber     = (string)r.PoNumber,
+                    poDate       = (DateTime?)r.PoDate,
+                    deliveryDate = (DateTime?)r.DeliveryDate,
+                    supplierName = (string?)r.SupplierName,
+                    poStatus     = (string?)r.PoStatus,
+                    lineNum      = (int?)r.LineNum ?? 0,
+                    orderedQty   = (decimal)r.OrderedQty,
+                    receivedQty  = (decimal)r.ReceivedQty,
+                    openQty      = (decimal)r.OpenQty,
+                    uomName      = (string?)r.UomName,
+                    unitPrice    = (decimal?)r.UnitPrice,
+                    lineStatus   = (string?)r.LineStatus,
+                }).ToList();
+                var issues = (await multi.ReadAsync<dynamic>()).Select(r => new
+                {
+                    issueId     = (int)r.IssueId,
+                    issueNo     = (string)r.IssueNo,
+                    issueDate   = (DateTime?)r.IssueDate,
+                    status      = (string?)r.Status,
+                    issuedTo    = (string?)r.IssuedTo,
+                    costingType = (string?)r.CostingType,
+                    lineNum     = (int?)r.LineNum ?? 0,
+                    issueQty    = (decimal)r.IssueQty,
+                    issuedQty   = (decimal)r.IssuedQty,
+                    uomName     = (string?)r.UomName,
+                    unitCost    = (decimal?)r.UnitCost,
+                }).ToList();
+                return Ok(new { pos, issues });
+            }
+            catch (Exception ex)
+            {
+                await _dbcon.WriteLog(ex, controller: "Reports", action: "JobProductOverview", requestPath: HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Error loading the job / product overview." });
+            }
+        }
+
         // ── JOB ITEM LEDGER — LOOKUPS ────────────────────────────────────────
         [HttpGet("job-item-ledger/lookups")]
         public async Task<IActionResult> JobItemLedgerLookups()
