@@ -24,6 +24,7 @@ const PrOverviewTab = ({ pr, onRefresh }) => {
     const [saving,  setSaving]  = useState(false);
     const [error,   setError]   = useState('');
     const [jobs,    setJobs]    = useState([]);
+    const [ihBlocked, setIhBlocked] = useState(false);
 
     const startEdit = () => {
         setForm({
@@ -35,6 +36,8 @@ const PrOverviewTab = ({ pr, onRefresh }) => {
         });
         setEditing(true);
         setError('');
+        fetch(`${variables.API_URL}purchaserequest/inhouse-access`, { headers: authHeaders() })
+            .then(r => r.json()).then(d => setIhBlocked(!!d.restricted && !d.allowed)).catch(() => {});
         // load jobs for dropdown
         fetch(`${variables.API_URL}job/search?pageSize=200&page=1&sortCol=JobNumber&sortDir=DESC`, { headers: authHeaders() })
             .then(r => r.json()).then(d => setJobs(d.data || [])).catch(console.error);
@@ -105,7 +108,7 @@ const PrOverviewTab = ({ pr, onRefresh }) => {
                         <label style={{ fontSize: 10, fontWeight: 600, color: '#3a5070', textTransform: 'uppercase', letterSpacing: '.45px', marginBottom: 4 }}>Linked Job</label>
                         <select className="pf-input" name="jobId" value={form.jobId} onChange={handle}>
                             <option value="">— No Job —</option>
-                            {jobs.map(j => <option key={j.jobId} value={j.jobId}>{j.jobId}{j.projectName ? ` — ${j.projectName}` : ''}</option>)}
+                            {jobs.filter(j => !(ihBlocked && j.jobTypeId === 'IH' && j.jobId !== form.jobId)).map(j => <option key={j.jobId} value={j.jobId}>{j.jobId}{j.projectName ? ` — ${j.projectName}` : ''}</option>)}
                         </select>
                     </div>
                 </div>

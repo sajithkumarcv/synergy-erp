@@ -28,6 +28,11 @@ namespace ERPWEB.Controllers.General
         public int          ReservationDays { get; set; } = 14;
     }
 
+    public class PrInHouseRolesRequest
+    {
+        public List<string> Roles { get; set; } = new();
+    }
+
     [Authorize]
     [Route("api/appsettings")]
     [ApiController]
@@ -189,6 +194,74 @@ namespace ERPWEB.Controllers.General
             {
                 await _db.WriteLog(ex, "AppSettings", "SaveSmtp", HttpContext.Request.Path);
                 return StatusCode(500, new { message = "Error saving SMTP settings." });
+            }
+        }
+
+        // GET api/appsettings/pr-inhouse-roles
+        // Which role codes may create a Purchase Request for an In House job, plus every active role to pick from.
+        [Authorize(Roles = "ADMIN")]
+        [HttpGet("pr-inhouse-roles")]
+        public async Task<IActionResult> GetPrInHouseRoles()
+        {
+            try
+            {
+                var rows = await _db.QueryAsync<AppSettingRow>("sp_GetAppSettings", new { Prefix = "Purchasing.PR." });
+                var value = (rows ?? Enumerable.Empty<AppSettingRow>())
+                    .FirstOrDefault(r => r.SettingKey == "Purchasing.PR.InHouseRoles")?.SettingValue ?? "";
+                var selected = value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Select(c => c.ToUpperInvariant()).ToList();
+
+                var roleRows = await _db.QueryAsync<dynamic>("sp_SearchRoles",
+                    new { IsActive = (bool?)true, PageNumber = 1, PageSize = 500 });
+                var roles = (roleRows ?? Enumerable.Empty<dynamic>())
+                    .Select(r => new { code = (string)r.RoleCode, name = (string)r.RoleName })
+                    .OrderBy(r => r.name).ToList();
+
+                return Ok(new { roles = selected, allRoles = roles });
+            }
+            catch (Exception ex)
+            {
+                await _db.WriteLog(ex, "AppSettings", "GetPrInHouseRoles", HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Error loading the In House PR roles." });
+            }
+        }
+
+        // POST api/appsettings/pr-inhouse-roles
+        // Body: { "roles": ["ADMIN", "IH_PROC_OFF"] }. Codes are checked against the real roles so a typo cannot
+        // silently lock everyone out. An empty list switches the restriction off.
+        [Authorize(Roles = "ADMIN")]
+        [HttpPost("pr-inhouse-roles")]
+        public async Task<IActionResult> SavePrInHouseRoles([FromBody] PrInHouseRolesRequest req)
+        {
+            if (req == null) return BadRequest(new { message = "No settings supplied." });
+            try
+            {
+                var roleRows = await _db.QueryAsync<dynamic>("sp_SearchRoles",
+                    new { IsActive = (bool?)true, PageNumber = 1, PageSize = 500 });
+                var valid = (roleRows ?? Enumerable.Empty<dynamic>()).Select(r => (string)r.RoleCode).ToList();
+
+                var chosen = (req.Roles ?? new List<string>())
+                    .Select(c => (c ?? "").Trim()).Where(c => c.Length > 0).ToList();
+                var unknown = chosen.Where(c => !valid.Any(v => string.Equals(v, c, StringComparison.OrdinalIgnoreCase))).ToList();
+                if (unknown.Count > 0)
+                    return BadRequest(new { message = $"Unknown role: {string.Join(", ", unknown)}." });
+
+                var ordered = valid.Where(v => chosen.Any(c => string.Equals(v, c, StringComparison.OrdinalIgnoreCase)));
+
+                await _db.QueryAsync<dynamic>("sp_SetAppSetting", new
+                {
+                    SettingKey   = "Purchasing.PR.InHouseRoles",
+                    SettingValue = string.Join(",", ordered),
+                    ModifiedBy   = ActionBy,
+                });
+                return Ok(new { message = chosen.Count == 0
+                    ? "Saved. No restriction: any role can create In House PRs."
+                    : "In House PR roles saved." });
+            }
+            catch (Exception ex)
+            {
+                await _db.WriteLog(ex, "AppSettings", "SavePrInHouseRoles", HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Error saving the In House PR roles." });
             }
         }
 

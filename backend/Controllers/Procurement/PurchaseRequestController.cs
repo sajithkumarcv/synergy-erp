@@ -2,6 +2,7 @@ using Dapper;
 using ERPWEB.Dbcontext;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace ERPWEB.Controllers.Procurement
 {
@@ -16,6 +17,30 @@ namespace ERPWEB.Controllers.Procurement
     {
         private readonly DbCon _dbcon;
         public PurchaseRequestController(DbCon dbcon) { _dbcon = dbcon; }
+
+        private int? ActingUserId()
+            => int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : null;
+
+        // Does the signed-in user get In House jobs on the PR screens? (setting Purchasing.PR.InHouseRoles, matched by role code)
+        [HttpGet("inhouse-access")]
+        public async Task<IActionResult> InHouseAccess()
+        {
+            try
+            {
+                var rows = await _dbcon.QueryAsync<dynamic>("sp_GetPrInHouseAccess", new { UserId = ActingUserId() ?? 0 });
+                var r = rows?.FirstOrDefault();
+                if (r == null) return Ok(new { restricted = false, allowed = true });
+                var row = (IDictionary<string, object?>)r;
+                bool restricted = Convert.ToInt32(row["Restricted"]) == 1;
+                bool allowed    = Convert.ToInt32(row["Allowed"]) == 1;
+                return Ok(new { restricted, allowed });
+            }
+            catch (Exception ex)
+            {
+                await _dbcon.WriteLog(ex, controller: "PurchaseRequest", action: "InHouseAccess", requestPath: HttpContext.Request.Path);
+                return Ok(new { restricted = false, allowed = true });   // the save check still enforces it
+            }
+        }
 
         // ── SEARCH ───────────────────────────────────────────────────────────
         [HttpGet("search")]
@@ -104,7 +129,8 @@ namespace ERPWEB.Controllers.Procurement
                     model.Priority,
                     model.Notes,
                     model.CreatedBy,
-                    model.ModifiedBy
+                    model.ModifiedBy,
+                    ActingUserId = ActingUserId()
                 };
 
                 string result = await _dbcon.ExecuteScalarAsync("sp_SetPR", p);

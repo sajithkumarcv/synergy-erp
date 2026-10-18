@@ -66,6 +66,14 @@ const PrForm = ({ onClose, onSaved }) => {
     // Jobs = only those with an Approved BOM
     const [jobs,       setJobs]       = useState([]);
     const [jobsLoading, setJobsLoading] = useState(true);
+    // In House jobs are only offered to users holding an allowed role code (server enforces it too)
+    const [ihBlocked, setIhBlocked] = useState(false);
+    useEffect(() => {
+        fetch(`${variables.API_URL}purchaserequest/inhouse-access`, { headers: authHeaders() })
+            .then(r => r.json())
+            .then(d => setIhBlocked(!!d.restricted && !d.allowed))
+            .catch(() => {});
+    }, []);
     const [saving,     setSaving]     = useState(false);
     const [errors,     setErrors]     = useState({});
     const [error,      setError]      = useState('');
@@ -230,7 +238,7 @@ const PrForm = ({ onClose, onSaved }) => {
                             <label>Job {isReq('jobId') && <span className="req">*</span>}</label>
                             <select className={`pf-input${errors.jobId ? ' pf-input-err' : ''}`} name="jobId" value={form.jobId} onChange={handle} disabled={jobsLoading}>
                                 <option value="">{jobsLoading ? 'Loading jobs…' : '— Select Job —'}</option>
-                                {jobs.map(b => (
+                                {jobs.filter(b => !(ihBlocked && b.jobTypeId === 'IH')).map(b => (
                                     <option key={b.jobId} value={b.jobId}>
                                         {b.jobId}{b.projectName ? ` — ${b.projectName}` : ''}{b.customerName ? ` (${b.customerName})` : ''}
                                     </option>

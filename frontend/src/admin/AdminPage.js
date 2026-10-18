@@ -1401,11 +1401,87 @@ const IssueRequestPanel = () => {
     );
 };
 
+// ── In House PR roles panel ───────────────────────────────────────────────────
+// Which roles may create a Purchase Request for an In House job. Stored as the
+// Purchasing.PR.InHouseRoles app setting (role CODES); the server checks the codes it is sent.
+const PrInHouseRolesPanel = () => {
+    const [allRoles, setAllRoles] = useState([]);
+    const [selected, setSelected] = useState([]);
+    const [loading,  setLoading]  = useState(true);
+    const [saving,   setSaving]   = useState(false);
+    const [msg,      setMsg]      = useState({ type:'', text:'' });
+
+    useEffect(() => {
+        fetch(`${API()}appsettings/pr-inhouse-roles`, { headers: authHeaders() })
+            .then(r => r.ok ? r.json() : Promise.reject())
+            .then(d => { setAllRoles(d.allRoles || []); setSelected(d.roles || []); })
+            .catch(() => setMsg({ type:'err', text:'Could not load the settings (Admin role required).' }))
+            .finally(() => setLoading(false));
+    }, []);
+
+    const has    = code => selected.some(c => c.toUpperCase() === code.toUpperCase());
+    const toggle = code => setSelected(p => has(code) ? p.filter(c => c.toUpperCase() !== code.toUpperCase()) : [...p, code]);
+
+    const save = async e => {
+        e.preventDefault();
+        setSaving(true); setMsg({ type:'', text:'' });
+        try {
+            const r = await fetch(`${API()}appsettings/pr-inhouse-roles`, {
+                method:'POST', headers: authHeaders(),
+                body: JSON.stringify({ roles: selected }),
+            });
+            const d = await r.json().catch(() => ({}));
+            setMsg({ type: r.ok ? 'ok' : 'err', text: d.message || (r.ok ? 'Saved.' : 'Failed to save.') });
+        } catch { setMsg({ type:'err', text:'Unexpected error.' }); }
+        finally { setSaving(false); }
+    };
+
+    const lStyle = { fontSize:11, fontWeight:600, color:'#64748b', textTransform:'uppercase', letterSpacing:'.04em', display:'block', marginBottom:6 };
+    const hint   = { fontSize:12, color:'#94a3b8', marginTop:4, lineHeight:1.6 };
+
+    if (loading) return <div className="adm-table-section" style={{ padding:24, color:'#94a3b8' }}>Loading…</div>;
+
+    return (
+        <div className="adm-table-section" style={{ padding:24, maxWidth:660 }}>
+            <form onSubmit={save}>
+                {msg.text && (
+                    <div style={{ padding:'10px 14px', borderRadius:7, marginBottom:18, fontSize:13, fontWeight:500,
+                        background: msg.type==='ok' ? '#f0fdf4' : '#fef2f2',
+                        color:      msg.type==='ok' ? '#16a34a' : '#dc2626',
+                        border:     `1px solid ${msg.type==='ok' ? '#bbf7d0' : '#fecaca'}` }}>
+                        {msg.text}
+                    </div>
+                )}
+
+                <label style={lStyle}>Roles that can create a Purchase Request for an In House job</label>
+                {allRoles.map(r => (
+                    <label key={r.code} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8, cursor:'pointer' }}>
+                        <input type="checkbox" checked={has(r.code)} onChange={() => toggle(r.code)}
+                               style={{ width:15, height:15 }} />
+                        <span style={{ fontSize:13, color:'#334155', fontWeight:500 }}>{r.name}</span>
+                        <span style={{ fontSize:11, color:'#94a3b8' }}>{r.code}</span>
+                    </label>
+                ))}
+                <div style={hint}>
+                    A user can create the PR if any one of their roles is ticked. Other roles can still view In House PRs.
+                    Tick nothing to remove the restriction, so any role can create them.
+                </div>
+
+                <button type="submit" className="adm-add-btn" disabled={saving} style={{ minWidth:180, marginTop:26 }}>
+                    {saving ? 'Saving…' : 'Save Settings'}
+                </button>
+            </form>
+        </div>
+    );
+};
+
 // ── Main AdminPage ────────────────────────────────────────────────────────────
 const AdminPage = () => {
-    // The Issue Request settings API is ADMIN-only on the server (one role per login), so only ADMIN sees the section.
-    const auth = useAuth();
-    const isAdminRole = (auth?.role || '').toUpperCase().trim() === 'ADMIN';
+    // The Issue Request settings API is ADMIN-only on the server (role CODE ADMIN, any of the user's roles), so only
+    // users holding the ADMIN role code see the section. Role codes, never names: names differ per company.
+    const { auth } = useAuth();
+    const isAdminRole = (Array.isArray(auth?.roles) ? auth.roles : [auth?.role])
+        .some(c => String(c || '').toUpperCase().trim() === 'ADMIN');
     const [activeKey, setActiveKey] = useState(SECTIONS[0].key);
     const activeSection = SECTIONS.find(s => s.key === activeKey) || SECTIONS[0];
 
@@ -1448,6 +1524,14 @@ const AdminPage = () => {
                             Issue Request
                         </button>
                     )}
+                    {isAdminRole && (
+                        <button
+                            className={`adm-nav-item ${activeKey==='prInHouse' ? 'adm-nav-active' : ''}`}
+                            onClick={() => setActiveKey('prInHouse')}
+                        >
+                            In-House PR Roles
+                        </button>
+                    )}
                 </div>
             </nav>
 
@@ -1457,6 +1541,7 @@ const AdminPage = () => {
                     <div className="adm-content-title">
                         {activeKey === 'smtp' ? 'SMTP Settings'
                             : activeKey === 'issueRequest' ? 'Issue Request Settings'
+                            : activeKey === 'prInHouse' ? 'In-House PR Roles'
                             : activeSection.title}
                     </div>
                     <div className="adm-content-sub">
@@ -1464,13 +1549,17 @@ const AdminPage = () => {
                             ? 'Configuration › SMTP Settings'
                             : activeKey === 'issueRequest'
                                 ? 'Configuration › Issue Request'
-                                : `${activeSection.group} › ${activeSection.title}`}
+                                : activeKey === 'prInHouse'
+                                    ? 'Configuration › In-House PR Roles'
+                                    : `${activeSection.group} › ${activeSection.title}`}
                     </div>
                 </div>
                 {activeKey === 'smtp'
                     ? <SmtpPanel />
                     : activeKey === 'issueRequest' && isAdminRole
                         ? <IssueRequestPanel />
+                        : activeKey === 'prInHouse' && isAdminRole
+                            ? <PrInHouseRolesPanel />
                         : <SmartLookupTable key={activeKey} section={activeSection} />
                 }
             </main>
