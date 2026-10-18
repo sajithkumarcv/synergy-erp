@@ -1195,6 +1195,7 @@ namespace ERPWEB.Controllers.Reports
                     priority      = (string?)r.Priority,
                     deliveryDate  = (DateTime?)r.DeliveryDate,
                     currencyShort = (string?)r.CurrencyShort,
+                    exchangeRate  = (decimal?)r.ExchangeRate ?? 1m,
                     poLineId      = (int)r.PoLineId,
                     lineNum       = (int?)r.LineNum,
                     itemCode      = (string?)r.ItemCode,
@@ -1205,6 +1206,8 @@ namespace ERPWEB.Controllers.Reports
                     pendingQty    = (decimal?)r.PendingQty,
                     unitPrice     = (decimal?)r.UnitPrice,
                     pendingValue  = (decimal?)r.PendingValue,
+                    pendingValueBase = (decimal?)r.PendingValueBase ?? 0m,
+                    daysOverdue   = (int?)r.DaysOverdue ?? 0,
                 });
                 return Ok(result);
             }

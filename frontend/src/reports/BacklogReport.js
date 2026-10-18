@@ -2,6 +2,7 @@ import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { variables, authHeaders } from '../Variable';
 import { fmtDate, fmt } from '../procurement/procurementConstants';
+import { useLookup } from '../LookupContext';
 import './Reports.css';
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -460,12 +461,14 @@ const PrToPoTab = ({ jobs }) => {
 // ═══════════════════════════════════════════════════════════════════════════════
 const PoToGrnTab = ({ jobs, suppliers }) => {
     const navigate = useNavigate();
+    const { baseCurrencyCode } = useLookup();
     const [jobId,      setJobId]      = useState('');
     const [supplierId, setSupplierId] = useState('');
     const [rows,       setRows]       = useState(null);
     const [loading,    setLoading]    = useState(false);
     const [error,      setError]      = useState('');
-    const [sortCol,    setSortCol]    = useState('poDate');
+    // Most overdue first: only real POs (Approved / Sent / Partial / Hold) are listed, values are in base currency
+    const [sortCol,    setSortCol]    = useState('daysOverdue');
     const [sortDir,    setSortDir]    = useState('desc');
     const [page,       setPage]       = useState(1);
     const [pageSize,   setPageSize]   = useState(50);
@@ -508,19 +511,20 @@ const PoToGrnTab = ({ jobs, suppliers }) => {
             items:        rows.length,
             pos:          new Set(rows.map(r => r.poId)).size,
             pendingQty:   rows.reduce((s, r) => s + (r.pendingQty   || 0), 0),
-            pendingValue: rows.reduce((s, r) => s + (r.pendingValue || 0), 0),
+            pendingValue: rows.reduce((s, r) => s + (r.pendingValueBase || 0), 0),   // base currency
+            overdue:      rows.filter(r => (r.daysOverdue || 0) > 0).length,
         };
     }, [rows]);
 
     const exportCsv = () => {
-        const hdrs = ['#','PO Number','PO Date','Supplier','Job','Project','Status','Priority','Delivery Date','Currency','Line #','Item Code','Description','UOM','Ordered Qty','Received Qty','Pending Qty','Unit Price','Pending Value'];
+        const hdrs = ['#','PO Number','PO Date','Supplier','Job','Project','Status','Priority','Delivery Date','Days Overdue','Currency','Line #','Item Code','Description','UOM','Ordered Qty','Received Qty','Pending Qty','Unit Price','Pending Value (PO currency)',`Pending Value (${baseCurrencyCode || 'base'})`];
         const lines = [hdrs.join(','), ...sorted.map((r,i) => [
             i+1, r.poNumber, r.poDate ? fmtDate(r.poDate) : '',
             r.supplierName, r.jobId, r.projectName, r.poStatus, r.priority,
-            r.deliveryDate ? fmtDate(r.deliveryDate) : '',
+            r.deliveryDate ? fmtDate(r.deliveryDate) : '', r.daysOverdue || 0,
             r.currencyShort, r.lineNum, r.itemCode, r.itemDesc,
             r.uomName, r.orderedQty, r.receivedQty, r.pendingQty,
-            r.unitPrice, r.pendingValue,
+            r.unitPrice, r.pendingValue, r.pendingValueBase,
         ].map(esc).join(','))];
         const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
         const url  = URL.createObjectURL(blob);
@@ -568,7 +572,8 @@ const PoToGrnTab = ({ jobs, suppliers }) => {
                     <div className="rpt-summary-card"><span className="rpt-sum-label">Pending Lines</span><span className="rpt-sum-val">{totals.items}</span></div>
                     <div className="rpt-summary-card"><span className="rpt-sum-label">POs Affected</span><span className="rpt-sum-val">{totals.pos}</span></div>
                     <div className="rpt-summary-card"><span className="rpt-sum-label">Total Pending Qty</span><span className="rpt-sum-val">{fmt(totals.pendingQty, 2)}</span></div>
-                    <div className="rpt-summary-card"><span className="rpt-sum-label">Pending Value</span><span className="rpt-sum-val">{fmt(totals.pendingValue, 2)}</span></div>
+                    <div className="rpt-summary-card"><span className="rpt-sum-label">Pending Value ({baseCurrencyCode})</span><span className="rpt-sum-val">{fmt(totals.pendingValue, 2)}</span></div>
+                    <div className="rpt-summary-card"><span className="rpt-sum-label">Past Expected Date</span><span className="rpt-sum-val" style={totals.overdue ? { color: '#b91c1c' } : undefined}>{totals.overdue}</span></div>
                 </div>
             )}
 
@@ -597,13 +602,14 @@ const PoToGrnTab = ({ jobs, suppliers }) => {
                                     <Th col="projectName"  label="Project"      />
                                     <Th col="poStatus"     label="Status"       cls="rpt-th-sm" />
                                     <Th col="deliveryDate" label="Delivery"     cls="rpt-th-sm" />
+                                    <Th col="daysOverdue"  label="Overdue"      cls="rpt-th-num" />
                                     <Th col="itemCode"     label="Item Code"    cls="rpt-th-sm" />
                                     <Th col="itemDesc"     label="Description"  cls="rpt-th-lg" />
                                     <Th col="uomName"      label="UOM"          cls="rpt-th-xs" />
                                     <Th col="orderedQty"   label="Ordered"      cls="rpt-th-num" />
                                     <Th col="receivedQty"  label="Received"     cls="rpt-th-num" />
                                     <Th col="pendingQty"   label="Pending Qty"  cls="rpt-th-num" />
-                                    <Th col="pendingValue" label="Pending Val"  cls="rpt-th-num" />
+                                    <Th col="pendingValueBase" label={`Pending Val (${baseCurrencyCode})`} cls="rpt-th-num" />
                                 </tr>
                             </thead>
                             <tbody>
@@ -617,13 +623,14 @@ const PoToGrnTab = ({ jobs, suppliers }) => {
                                         <td>{r.projectName}</td>
                                         <td><StatusBadge status={r.poStatus} /></td>
                                         <td className="rpt-td-center">{r.deliveryDate ? fmtDate(r.deliveryDate) : '—'}</td>
+                                        <td className="rpt-td-num" style={r.daysOverdue > 0 ? { color: r.daysOverdue > 30 ? '#dc2626' : '#b45309', fontWeight: 600 } : undefined}>{r.daysOverdue > 0 ? `${r.daysOverdue} d` : '—'}</td>
                                         <td><span className="rpt-code-chip">{r.itemCode}</span></td>
                                         <td className="rpt-td-desc">{r.itemDesc}</td>
                                         <td className="rpt-td-center rpt-td-muted">{r.uomName}</td>
                                         <td className="rpt-td-num">{fmt(r.orderedQty, 2)}</td>
                                         <td className="rpt-td-num">{fmt(r.receivedQty, 2)}</td>
                                         <td className="rpt-td-num rpt-qty-warn">{fmt(r.pendingQty, 2)}</td>
-                                        <td className="rpt-td-num rpt-amount">{fmt(r.pendingValue, 2)}</td>
+                                        <td className="rpt-td-num rpt-amount" title={`${fmt(r.pendingValue, 2)} ${r.currencyShort || ''} (PO currency)`}>{fmt(r.pendingValueBase, 2)}</td>
                                     </tr>
                                 ))}
                             </tbody>
