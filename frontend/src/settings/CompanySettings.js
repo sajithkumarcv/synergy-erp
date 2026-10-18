@@ -43,7 +43,7 @@ const PrimaryBadge = () => (
 // ════════════════════════════════════════════════════════════════
 //  TAB 1 — COMPANY INFO
 // ════════════════════════════════════════════════════════════════
-const InfoTab = ({ company, onRefresh }) => {
+const InfoTab = ({ company, onRefresh, notify }) => {
     const [editing,   setEditing]   = useState(false);
     const [form,      setForm]      = useState(null);
     const [saving,    setSaving]    = useState(false);
@@ -90,6 +90,7 @@ const InfoTab = ({ company, onRefresh }) => {
             clearOwnerCompanyCache();
             cancelEdit();
             onRefresh();
+            notify('Company details saved.');
         } catch { setValidErrs(['Network error. Please try again.']); }
         finally { setSaving(false); }
     };
@@ -114,6 +115,7 @@ const InfoTab = ({ company, onRefresh }) => {
             const d = await res.json().catch(() => ({}));
             if (!res.ok) { setLogoErr(d?.message || 'Upload failed.'); return; }
             clearOwnerCompanyCache(); onRefresh();
+            notify('Company logo updated.');
         } catch { setLogoErr('Network error. Please try again.'); }
         finally { setUploading(false); }
     };
@@ -278,7 +280,7 @@ const InfoTab = ({ company, onRefresh }) => {
 // ════════════════════════════════════════════════════════════════
 const ADDR_BLANK = { addressId:0, addressLine1:'', addressLine2:'', city:'', state:'', country:'', isPrimary:false, sortOrder:0 };
 
-const AddressesTab = ({ company, onRefresh }) => {
+const AddressesTab = ({ company, onRefresh, notify }) => {
     const currentUser = useCurrentUser();
     const [panel,      setPanel]      = useState(null);
     const [form,       setForm]       = useState({});
@@ -309,6 +311,7 @@ const AddressesTab = ({ company, onRefresh }) => {
             const d = await res.json().catch(() => ({}));
             if (!res.ok) { setErr(d?.message || 'Failed to save address.'); return; }
             clearOwnerCompanyCache(); closePanel(); onRefresh();
+            notify(form.addressId ? 'Address updated.' : 'Address added.');
         } catch { setErr('Network error. Please try again.'); }
         finally { setSaving(false); }
     };
@@ -316,8 +319,9 @@ const AddressesTab = ({ company, onRefresh }) => {
     const del = async (id) => {
         setDeleting(id);
         try {
-            await fetch(`${variables.API_URL}company/address/${id}`, { method:'DELETE', headers: authHeaders() });
+            const res = await fetch(`${variables.API_URL}company/address/${id}`, { method:'DELETE', headers: authHeaders() });
             clearOwnerCompanyCache(); onRefresh();
+            if (res.ok) notify('Address deleted.');   // the delete call never checked the response, so only claim success when it was OK
         } catch { setErr('Network error. Please try again.'); }
         finally { setDeleting(null); setConfirmDel(null); }
     };
@@ -437,7 +441,7 @@ const BANK_BLANK = { bankId:0, bankName:'', beneficiary:'', accountNo:'', iban:'
 
 const ACCOUNT_TYPES = ['Current', 'Savings', 'Cash Credit', 'Overdraft'];
 
-const BanksTab = ({ company, onRefresh }) => {
+const BanksTab = ({ company, onRefresh, notify }) => {
     const currentUser = useCurrentUser();
     const [panel,      setPanel]      = useState(null);
     const [form,       setForm]       = useState({});
@@ -468,6 +472,7 @@ const BanksTab = ({ company, onRefresh }) => {
             const d = await res.json().catch(() => ({}));
             if (!res.ok) { setErr(d?.message || 'Failed to save bank account.'); return; }
             clearOwnerCompanyCache(); closePanel(); onRefresh();
+            notify(form.bankId ? 'Bank account updated.' : 'Bank account added.');
         } catch { setErr('Network error. Please try again.'); }
         finally { setSaving(false); }
     };
@@ -475,8 +480,9 @@ const BanksTab = ({ company, onRefresh }) => {
     const del = async (id) => {
         setDeleting(id);
         try {
-            await fetch(`${variables.API_URL}company/bank/${id}`, { method:'DELETE', headers: authHeaders() });
+            const res = await fetch(`${variables.API_URL}company/bank/${id}`, { method:'DELETE', headers: authHeaders() });
             clearOwnerCompanyCache(); onRefresh();
+            if (res.ok) notify('Bank account deleted.');   // only claim success when the server said OK
         } catch { setErr('Network error. Please try again.'); }
         finally { setDeleting(null); setConfirmDel(null); }
     };
@@ -754,8 +760,27 @@ const CompanySettings = () => {
 
     const refresh = useCallback(() => { refetch(); }, [refetch]);
 
+    // Success message lives HERE, not in the tabs: every save calls refresh(), the screen goes into its
+    // loading state and the tab unmounts, which would wipe a message kept in the tab's own state.
+    const [notice, setNotice] = useState('');
+    const notify = useCallback((msg) => setNotice(msg), []);
+    useEffect(() => {
+        if (!notice) return undefined;
+        const t = setTimeout(() => setNotice(''), 4000);
+        return () => clearTimeout(t);
+    }, [notice]);
+
     return (
         <div className="ds-page">
+            {notice && (
+                <div role="status" onClick={() => setNotice('')}
+                    style={{ position:'fixed', top:70, right:20, zIndex:3000, background:'#f0fdf4', color:'#166534',
+                             border:'1px solid #bbf7d0', borderLeft:'4px solid #16a34a', borderRadius:8,
+                             padding:'10px 16px', fontSize:13, fontWeight:600, boxShadow:'0 4px 14px rgba(0,0,0,.12)',
+                             cursor:'pointer', maxWidth:'90vw' }}>
+                    ✓ {notice}
+                </div>
+            )}
             {/* Page header */}
             <div className="ds-header">
                 <div>
@@ -785,9 +810,9 @@ const CompanySettings = () => {
                     <div className="ds-loading">Loading…</div>
                 ) : (
                     <>
-                        {activeTab === 'info'      && <InfoTab      company={company} onRefresh={refresh} />}
-                        {activeTab === 'addresses' && <AddressesTab company={company} onRefresh={refresh} />}
-                        {activeTab === 'banks'     && <BanksTab     company={company} onRefresh={refresh} />}
+                        {activeTab === 'info'      && <InfoTab      company={company} onRefresh={refresh} notify={notify} />}
+                        {activeTab === 'addresses' && <AddressesTab company={company} onRefresh={refresh} notify={notify} />}
+                        {activeTab === 'banks'     && <BanksTab     company={company} onRefresh={refresh} notify={notify} />}
                         {activeTab === 'print'     && <PrintFormatsTab />}
                     </>
                 )}
