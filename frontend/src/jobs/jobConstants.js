@@ -107,42 +107,21 @@ export const JOB_TABS = [
   },
 ];
 
-// ── Role check helper ─────────────────────────────────────────
-// Role names in DB can be multi-word ("Finance Manager", "Operations Manager").
-// roleMatches() checks whether the user's role CONTAINS any of the allowed keywords.
-// e.g.  "Finance Manager" → contains "FINANCE" → true
-//       "Operations Manager" → contains "MANAGER" → true
-const roleMatches = (userRole, allowed) => {
-  if (!userRole) return false;
-  const up = userRole.toUpperCase();
-  return allowed.some(k => up === k || up.includes(k));
-};
-
 // Tab visibility check.
 //   canDoFn — pass in `canDo` from PermissionContext (e.g. tab => canDo('/jobs', code))
-//   If a tab has no actionCode, it falls back to the legacy roles[] list.
-export const canAccessTab = (tab, userRole, canDoFn) => {
+//   Visibility is decided by the role's permissions (actionCode), never by matching role NAMES: names differ per company.
+//   (The old name-keyword fallback - roleMatches / canApproveExpenses / canEditBudget - was unused and has been removed.)
+export const canAccessTab = (tab, canDoFn) => {
   if (tab.actionCode && typeof canDoFn === 'function') {
     return canDoFn('/jobs', tab.actionCode);
   }
-  if (!tab.roles || tab.roles.includes('*')) return true;
-  return roleMatches(userRole, tab.roles);
+  return true;
 };
 
 // Can user edit a section based on job status?
 // Only IsClosed statuses are locked: Freezed(3), Completed(4), Cancelled(5)
 export const canEdit = (statusId) => {
   return ![3, 4, 5].includes(Number(statusId));
-};
-
-// Can user approve expenses?
-export const canApproveExpenses = (userRole) => {
-  return roleMatches(userRole, ['ADMIN', 'FINANCE', 'MANAGER']);
-};
-
-// Can user set/edit job budgets?
-export const canEditBudget = (userRole) => {
-  return roleMatches(userRole, ['ADMIN', 'FINANCE', 'MANAGER']);
 };
 
 // ── Audit action display config ───────────────────────────────

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { variables, authHeaders } from '../Variable';
-import { useCurrentUser, useAuth } from '../AuthContext';
+import { useCurrentUser } from '../AuthContext';
 import { useLookup } from '../LookupContext';
 import { usePermission } from '../PermissionContext';
 import { STATUS, JOB_TABS, canAccessTab, canEdit, fmt, fmtDate } from './jobConstants';
@@ -30,10 +30,8 @@ const JobDetailPage = () => {
     const { jobId }    = useParams();
     const navigate     = useNavigate();
     const currentUser  = useCurrentUser();
-    const { auth }     = useAuth();
     const { canDo }    = usePermission();
     const { baseCurrencyCode } = useLookup();
-    const userRole     = auth?.role || 'ADMIN';
 
     const [job,          setJob]         = useState(null);
     const [loading,      setLoading]     = useState(true);
@@ -236,7 +234,7 @@ const JobDetailPage = () => {
     const isClosedFinal  = [3, 4, 5].includes(job?.jobStatusId);
     const LOCKED_HIDE_TABS = new Set(['approval', 'budget']);
     const visibleTabs = JOB_TABS.filter(t =>
-        canAccessTab(t, userRole, canDo)
+        canAccessTab(t, canDo)
         && !(t.parentOnly && isAdditionalJob)
         && !(isClosedFinal && LOCKED_HIDE_TABS.has(t.key))
     );
@@ -252,7 +250,7 @@ const JobDetailPage = () => {
     const renderTab = () => {
         if (!job) return null;
         switch (activeTab) {
-            case 'overview':  return <OverviewTab  job={job} onRefresh={loadJob} userRole={userRole} currentUser={currentUser} />;
+            case 'overview':  return <OverviewTab  job={job} onRefresh={loadJob} currentUser={currentUser} />;
             case 'expenses':  return <ExpensesTab  job={job} onRefresh={loadJob} />;
             case 'engineers': return <EngineersTab job={job} onRefresh={loadJob} />;
             case 'terms':     return <TermsTab     job={job} onRefresh={loadJob} />;

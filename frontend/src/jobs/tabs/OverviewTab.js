@@ -25,7 +25,7 @@ const ADJ_STATUS = {
     5: { label: 'Cancelled',   bg: '#fee2e2', color: '#991b1b' },
 };
 
-const OverviewTab = ({ job, onRefresh, userRole, currentUser }) => {
+const OverviewTab = ({ job, onRefresh, currentUser }) => {
     const navigate       = useNavigate();
     const { canDo }      = usePermission();
     const { lookups, baseCurrency, baseCurrencyCode } = useLookup();

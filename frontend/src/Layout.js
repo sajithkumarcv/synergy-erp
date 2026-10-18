@@ -728,7 +728,7 @@ const Layout = () => {
           <div className="erp-header-divider" />
           <div className="erp-user-info">
             <div className="erp-user-name">{auth?.fullName || auth?.username}</div>
-            <div className="erp-user-role">{auth?.role}</div>
+            <div className="erp-user-role">{auth?.roleName || auth?.role}</div>
           </div>
           <div className="erp-avatar">{initials}</div>
           <button className="erp-logout" onClick={handleLogout}>Logout</button>

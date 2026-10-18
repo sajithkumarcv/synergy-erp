@@ -188,7 +188,17 @@ namespace ERPWEB.Controllers.User
                 string username = row["Username"].ToString()!;
                 string fullName = row["FullName"].ToString()!;
                 string email    = row["Email"].ToString()!;
-                string role     = row["RoleName"].ToString()!;
+                // Roles are identified by RoleCode (names differ per company, codes are stable); the name is for display only.
+                // sp_ValidateUser returns one row per role: every code goes into the token, the first row is the primary role
+                // the UI shows. A blank code falls back to the name so nobody is locked out by a data gap.
+                string RoleCodeOf(DataRow r)
+                {
+                    var c = r.Table.Columns.Contains("RoleCode") ? r["RoleCode"]?.ToString()?.Trim() : null;
+                    return string.IsNullOrEmpty(c) ? (r["RoleName"]?.ToString()?.Trim() ?? "") : c;
+                }
+                var roleCodes = ds.Tables[0].Rows.Cast<DataRow>().Select(RoleCodeOf).Where(c => c.Length > 0).Distinct().ToList();
+                string role     = RoleCodeOf(row);                       // primary role CODE
+                string roleName = row["RoleName"]?.ToString() ?? "";     // display only
                 string theme    = row.Table.Columns.Contains("Theme")
                                   ? row["Theme"]?.ToString() ?? "ocean-blue"
                                   : "ocean-blue";
@@ -284,7 +294,7 @@ namespace ERPWEB.Controllers.User
                     });
                 }
 
-                string token = _jwtService.GenerateToken(userId, username, role, sessionId.ToString());
+                string token = _jwtService.GenerateToken(userId, username, roleCodes, sessionId.ToString());
 
                 return Ok(new
                 {
@@ -293,7 +303,9 @@ namespace ERPWEB.Controllers.User
                     username,
                     fullName,
                     email,
-                    role,
+                    role,                // primary role CODE - use this for every role-based decision
+                    roleName,            // primary role NAME - display only, never for logic
+                    roles = roleCodes,   // all role codes of the user
                     theme,
                     expiresIn = expiryMinutes
                 });

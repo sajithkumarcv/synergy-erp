@@ -73,7 +73,9 @@ export const AuthProvider = ({ children }) => {
       username: data.username,
       fullName: data.fullName,
       email:    data.email,
-      role:     data.role,
+      role:     data.role,                                              // primary role CODE - the only value role-based logic may use
+      roleName: data.roleName ?? data.role,                             // primary role NAME - display only
+      roles:    Array.isArray(data.roles) ? data.roles : [data.role],   // every role code of the user
       theme:    data.theme || 'ocean-blue',
     };
     sessionStorage.setItem(TOKEN_KEY, data.token);

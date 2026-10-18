@@ -27,6 +27,7 @@ const OPEN_PR_EXCLUDE = ['Cancelled', 'Rejected', 'Ordered', 'Closed'];
 const OPEN_PO_EXCLUDE = ['Cancelled', 'Received', 'Completed'];
 
 // ── Role-based section config ─────────────────────────────────────────────────
+// Keyed by ROLE CODE (TBL_ROLES.RoleCode), never by role name: names differ per company, codes are stable.
 // kpis: which top KPI cards to show
 // sections: which dashboard panels to render
 const ROLE_CONFIG = {
@@ -34,39 +35,39 @@ const ROLE_CONFIG = {
         kpis:     ['activeJobs','openPRs','openPOs','pendingApprovals','openInvoices'],
         sections: ['todayActivity','myDrafts','approvedPrs','jobSummary','myApprovals','procurement','inventory','financials','jobCosting'],
     },
-    'DEPARTMENT HEAD': {
+    'DEPT_HEAD': {
         kpis:     ['activeJobs','openPRs','openPOs','pendingApprovals','openInvoices'],
         sections: ['myDrafts','approvedPrs','jobSummary','myApprovals','procurement','financials','jobCosting'],
     },
-    'FINANCE MANAGER': {
+    'FIN_MGR': {
         kpis:     ['openInvoices','pendingApprovals'],
         sections: ['myApprovals','financials','jobCosting'],
     },
-    'FINANCE OFFICER': {
+    'FIN_OFFCR': {
         kpis:     ['openInvoices','pendingApprovals'],
         sections: ['myApprovals','financials'],
     },
-    'PROCUREMENT OFFICER': {
+    'PROC_OFF': {
         kpis:     ['openPRs','openPOs','pendingApprovals'],
         sections: ['todayActivity','approvedPrs','myDrafts','myApprovals','procurement','inventory'],
     },
-    'SR.PROJ.MANAGER': {
+    'SR_PROJ_MNGR_L2': {
         kpis:     ['activeJobs','openPRs','openPOs','pendingApprovals','openInvoices'],
         sections: ['myDrafts','jobSummary','myApprovals','procurement','financials','jobCosting'],
     },
-    'PROJ.MANAGER': {
+    'PROJ_MNGR_L1': {
         kpis:     ['activeJobs','openPRs','openPOs','pendingApprovals'],
         sections: ['myDrafts','jobSummary','myApprovals','procurement','jobCosting'],
     },
-    'SR.ENGINEER': {
+    'ENG-L2': {
         kpis:     ['activeJobs','openPRs','pendingApprovals'],
         sections: ['myDrafts','jobSummary','myApprovals','procurement','jobCosting'],
     },
-    'ENGINEER': {
+    'ENG-L1': {
         kpis:     ['activeJobs','pendingApprovals'],
         sections: ['myDrafts','jobSummary','myApprovals','jobCosting'],
     },
-    'ADMIN CORDINATOR': {
+    'ADMIN_CORD': {
         kpis:     ['activeJobs','openPRs','openPOs','pendingApprovals'],
         sections: ['myDrafts','jobSummary','myApprovals','procurement'],
     },
@@ -417,7 +418,7 @@ const Dashboard = () => {
     const cfg = useMemo(() => {
         if (roleConfigData) {
             const roleMatch = (roleConfigData.roles || [])
-                .find(r => (r.roleName || '').toUpperCase().trim() === role);
+                .find(r => (r.roleCode || '').toUpperCase().trim() === role);   // by role CODE, never the name
             if (roleMatch) {
                 const rows = (roleConfigData.config || []).filter(c => c.roleId === roleMatch.roleId);
                 if (rows.length > 0) {
@@ -510,7 +511,7 @@ const Dashboard = () => {
                     <div className="db-hero-date">{todayStr}</div>
                 </div>
                 <div className="db-hero-right">
-                    <span className="db-hero-role">{auth?.role || 'USER'}</span>
+                    <span className="db-hero-role">{auth?.roleName || auth?.role || 'USER'}</span>
                     <span className="db-hero-user">{auth?.fullName || auth?.username}</span>
                 </div>
             </div>
