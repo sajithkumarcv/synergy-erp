@@ -9,7 +9,7 @@ const today       = () => new Date().toISOString().slice(0, 10);
 const firstOfYear = () => `${new Date().getFullYear()}-01-01`;
 const PAGE_SIZES = [50, 100, 200, 500, 1000];
 
-const DEFAULT_FILTERS = { dateFrom: firstOfYear(), dateTo: today(), supplierId: '', jobId: '', overdueOnly: false };
+const DEFAULT_FILTERS = { dateFrom: firstOfYear(), dateTo: today(), supplierId: '', jobId: '', overdueOnly: false, receiptStatus: '' };
 
 const BUCKETS = [
     { key: 'Not Due',     label: 'Not Due',    color: '#166534', bg: '#dcfce7' },
@@ -59,7 +59,7 @@ const OpenPoReport = () => {
     const navigate = useNavigate();
     const { baseCurrencyCode } = useLookup();
     const [filters, setFilters] = useState({ ...DEFAULT_FILTERS });
-    const [rows, setRows]       = useState(null);
+    const [allRows, setRows]    = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError]     = useState('');
     const [sortCol, setSortCol] = useState('daysOverdue');
@@ -68,6 +68,15 @@ const OpenPoReport = () => {
     const [pageSize, setPageSize] = useState(200);
     const [suppliers, setSuppliers] = useState([]);
     const setF = (k,v) => setFilters(f => ({ ...f, [k]: v }));
+
+    // Receipt-status filter works on the rows already loaded (every row here still has a balance):
+    //   'none'    = nothing received yet   |   'partial' = some qty received, balance still open
+    const rows = useMemo(() => {
+        if (!allRows) return allRows;
+        if (filters.receiptStatus === 'none')    return allRows.filter(r => !(r.receivedQty > 0));
+        if (filters.receiptStatus === 'partial') return allRows.filter(r => r.receivedQty > 0);
+        return allRows;
+    }, [allRows, filters.receiptStatus]);
 
     useEffect(() => {
         fetch(`${variables.API_URL}supplier/search?pageSize=500&page=1`, { headers: authHeaders() })
@@ -135,6 +144,13 @@ const OpenPoReport = () => {
                         </select>
                     </div>
                     <div className="rpt-filter-group w160"><span className="rpt-filter-label">Job No</span><input className="rpt-filter-input" type="text" placeholder="Job…" value={filters.jobId} onChange={e=>setF('jobId',e.target.value)} onKeyDown={e=>e.key==='Enter'&&runReport()} /></div>
+                    <div className="rpt-filter-group w200"><span className="rpt-filter-label">Receipt Status</span>
+                        <select className="rpt-filter-select" value={filters.receiptStatus} onChange={e=>{ setF('receiptStatus',e.target.value); setPage(1); }}>
+                            <option value="">All open lines</option>
+                            <option value="none">Not received yet</option>
+                            <option value="partial">Partially received</option>
+                        </select>
+                    </div>
                     <div className="rpt-filter-group w160" style={{ justifyContent:'flex-end' }}><span className="rpt-filter-label">&nbsp;</span>
                         <label style={{ display:'flex', alignItems:'center', gap:6, fontSize:12.5, fontWeight:600, color:'#b45309', cursor:'pointer', height:34 }}>
                             <input type="checkbox" checked={filters.overdueOnly} onChange={e=>setF('overdueOnly',e.target.checked)} /> Overdue only
