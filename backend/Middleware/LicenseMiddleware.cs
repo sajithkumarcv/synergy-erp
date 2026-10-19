@@ -49,8 +49,17 @@ public class LicenseMiddleware(RequestDelegate next)
 
         // Valid but expiring / in grace: let the front end show a banner.
         if (license.DaysRemaining is { } days && days <= LicenseService.WarnDays)
-            context.Response.Headers["X-License-Warning"] = license.StatusMessage;
+            context.Response.Headers["X-License-Warning"] = HeaderSafe(license.StatusMessage);
 
         await next(context);
+    }
+
+    // Kestrel throws on any non-ASCII or control character in a header value, and the status
+    // message contains a long dash and can contain a client name - without this every request
+    // fails with a 500 while the license is inside its warning window or grace period.
+    private static string HeaderSafe(string s)
+    {
+        var chars = (s ?? "").Select(c => c >= 32 && c < 127 ? c : '-').ToArray();
+        return new string(chars);
     }
 }
