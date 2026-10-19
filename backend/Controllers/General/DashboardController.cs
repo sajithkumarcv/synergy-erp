@@ -1,8 +1,10 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ERPWEB.Dbcontext;
 
 namespace ERPWEB.Controllers.General
 {
+    [Authorize]
     [ApiController]
     [Route("api/dashboard")]
     public class DashboardController : ControllerBase
