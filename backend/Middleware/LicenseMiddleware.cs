@@ -47,6 +47,10 @@ public class LicenseMiddleware(RequestDelegate next)
             return;
         }
 
+        // Valid but expiring / in grace: let the front end show a banner.
+        if (license.DaysRemaining is { } days && days <= LicenseService.WarnDays)
+            context.Response.Headers["X-License-Warning"] = license.StatusMessage;
+
         await next(context);
     }
 }
