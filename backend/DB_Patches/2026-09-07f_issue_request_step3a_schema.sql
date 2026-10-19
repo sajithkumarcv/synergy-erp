@@ -90,8 +90,10 @@ BEGIN
 END
 GO
 
-CREATE NONCLUSTERED INDEX IX_STOCK_ISSUE_LINE_REQUESTLINE
-    ON proj.TBL_STOCK_ISSUE_LINE (RequestLineId) WHERE RequestLineId IS NOT NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_STOCK_ISSUE_LINE_REQUESTLINE'
+               AND object_id = OBJECT_ID(N'proj.TBL_STOCK_ISSUE_LINE'))
+    CREATE NONCLUSTERED INDEX IX_STOCK_ISSUE_LINE_REQUESTLINE
+        ON proj.TBL_STOCK_ISSUE_LINE (RequestLineId) WHERE RequestLineId IS NOT NULL;
 GO
 
 /* ─── 4. Does this issue type need a request first? ─────────────────────────
