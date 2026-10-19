@@ -29,10 +29,17 @@ const BudgetOverrideModal = ({ info, busy, onConfirm, onCancel }) => {
             <div style={{ background: '#fff', borderRadius: 10, padding: 28, width: 480, maxWidth: '95vw', boxShadow: '0 8px 32px rgba(0,0,0,.18)', border: '2px solid #fcd34d' }}>
                 <div style={{ fontSize: 15, fontWeight: 700, color: '#92400e', marginBottom: 8 }}>⚠ Budget Exceeded — Authorise Override</div>
                 <div style={{ fontSize: 12, color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 6, padding: '8px 12px', marginBottom: 14, lineHeight: 1.5 }}>
-                    {info.message}
+                    {info.bulk
+                        ? info.bulk.map(b => <div key={b.item.transactionId} style={{ marginBottom: 4 }}>
+                            <b>{b.item.documentNo}</b>{b.over ? ` — over by ${b.over}` : ''}
+                          </div>)
+                        : info.message}
                 </div>
                 <div style={{ fontSize: 12.5, color: '#475569', marginBottom: 14, lineHeight: 1.55 }}>
-                    Approving this will exceed the budget. Confirm below to proceed — your reason is recorded against the approval log.
+                    {info.bulk
+                        ? `Approving these ${info.bulk.length} documents will exceed the budget of their job. `
+                        : 'Approving this will exceed the budget. '}
+                    Confirm below to proceed — your reason is recorded against each approval log.
                 </div>
                 <div style={{ marginBottom: 14 }}>
                     <label style={{ fontSize: 11, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.04em' }}>
@@ -51,7 +58,7 @@ const BudgetOverrideModal = ({ info, busy, onConfirm, onCancel }) => {
                         style={{ padding: '7px 18px', borderRadius: 6, border: '1px solid #cbd5e1', background: '#f8fafc', fontSize: 13, cursor: 'pointer' }}>Cancel</button>
                     <button onClick={submit} disabled={busy}
                         style={{ padding: '7px 18px', borderRadius: 6, border: 'none', background: '#d97706', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: busy ? .7 : 1 }}>
-                        {busy ? 'Authorising…' : '⚠ Authorise & Approve'}
+                        {busy ? 'Authorising…' : (info.bulk ? `⚠ Authorise & Approve ${info.bulk.length}` : '⚠ Authorise & Approve')}
                     </button>
                 </div>
             </div>
@@ -729,7 +736,8 @@ const MyApprovalsPage = () => {
     const [previewItem, setPreviewItem] = useState(null);          // approval item | null
 
     // ── Budget-override modal state ───────────────────────────────
-    const [budgetOverride, setBudgetOverride] = useState(null);    // { item, remarks, message } | null
+    const [budgetOverride, setBudgetOverride] = useState(null);    // { item, remarks, message } | { bulk:[{item,over}], remarks, loginPassword } | null
+    const [bulkOverrideBusy, setBulkOverrideBusy] = useState(false);
 
     const [confirm, setConfirm] = useState(null);
 
@@ -913,6 +921,7 @@ const MyApprovalsPage = () => {
 
         let succeeded = 0;
         const errors  = [];
+        const blocked = [];   // budget blocks - offered an override below
 
         for (const item of toApprove) {
             try {
@@ -930,7 +939,12 @@ const MyApprovalsPage = () => {
                 if (res.ok) { succeeded++; }
                 else {
                     const d = await res.json().catch(() => ({}));
-                    errors.push(`${item.documentNo}: ${d?.message || 'Failed'}`);
+                    if (isBudgetBlock(d?.message)) {
+                        const m = /Over by:\s*([\d,.]+)/i.exec(d.message);
+                        blocked.push({ item, over: m ? m[1] : null });
+                    } else {
+                        errors.push(`${item.documentNo}: ${d?.message || 'Failed'}`);
+                    }
                 }
             } catch {
                 errors.push(`${item.documentNo}: Network error`);
@@ -941,18 +955,53 @@ const MyApprovalsPage = () => {
         setBulkActing(false);
         setBulkProgress(null);
 
-        if (errors.length === 0) {
+        if (errors.length === 0 && blocked.length === 0) {
             showToast(`✓ ${succeeded} item${succeeded !== 1 ? 's' : ''} approved successfully.`);
         } else {
-            // Only reachable with 2+ selected (a single selection is delegated to
-            // doAction above). Approving many at once can't offer a per-document
-            // override prompt, so point at the path that can.
-            const hint = errors.some(e => isBudgetBlock(e))
-                ? '\n\nTo override a budget block, approve that document by itself — either from its Review button, or by selecting only that one document.'
-                : '';
-            showToast(`✓ ${succeeded} approved · ⚠ ${errors.length} failed:\n${errors.join('\n')}${hint}`, true);
+            const parts = [`✓ ${succeeded} approved`];
+            if (blocked.length) parts.push(`⚠ ${blocked.length} blocked by budget`);
+            if (errors.length)  parts.push(`⚠ ${errors.length} failed`);
+            showToast(parts.join(' · ') + (errors.length ? ':\n' + errors.join('\n') : ''), true);
         }
+        // Budget-blocked documents: one dialog to authorise the overrun for all of them with one reason.
+        if (blocked.length) setBudgetOverride({ bulk: blocked, remarks: remarks || '', loginPassword });
         load();  // clears selection via setSelected(new Set())
+    };
+
+    // Approve the budget-blocked documents of a bulk approve, past the budget, with one shared reason.
+    const doBulkOverride = async (info, override) => {
+        setBulkOverrideBusy(true);
+        let ok = 0;
+        const errs = [];
+        for (const { item } of info.bulk) {
+            try {
+                const res = await fetch(`${variables.API_URL}approval/action`, {
+                    method: 'POST', headers: authHeaders(),
+                    body: JSON.stringify({
+                        transactionId:  item.transactionId,
+                        action:         'Approve',
+                        actionBy:       userId,
+                        actionByName:   currentUser,
+                        remarks:        info.remarks?.trim() || null,
+                        loginPassword:  info.loginPassword || null,
+                        overrideReason: override.overrideReason,
+                    }),
+                });
+                if (res.ok) ok++;
+                else {
+                    const d = await res.json().catch(() => ({}));
+                    errs.push(`${item.documentNo}: ${d?.message || 'Failed'}`);
+                }
+            } catch {
+                errs.push(`${item.documentNo}: Network error`);
+            }
+        }
+        setBulkOverrideBusy(false);
+        setBudgetOverride(null);
+        showToast(errs.length
+            ? `✓ ${ok} approved with budget override · ⚠ ${errs.length} failed:\n${errs.join('\n')}`
+            : `✓ ${ok} document${ok !== 1 ? 's' : ''} approved with budget override.`, errs.length > 0);
+        load();
     };
 
     const totalPending    = filtered.length;
@@ -1151,9 +1200,11 @@ const MyApprovalsPage = () => {
             {budgetOverride && (
                 <BudgetOverrideModal
                     info={budgetOverride}
-                    busy={acting === budgetOverride.item.transactionId}
+                    busy={budgetOverride.bulk ? bulkOverrideBusy : acting === budgetOverride.item.transactionId}
                     onCancel={() => setBudgetOverride(null)}
-                    onConfirm={(override) => doAction(budgetOverride.item, 'Approve', budgetOverride.remarks, override, false, budgetOverride.loginPassword)}
+                    onConfirm={(override) => budgetOverride.bulk
+                        ? doBulkOverride(budgetOverride, override)
+                        : doAction(budgetOverride.item, 'Approve', budgetOverride.remarks, override, false, budgetOverride.loginPassword)}
                 />
             )}
         </div>
