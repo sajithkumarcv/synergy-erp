@@ -345,7 +345,7 @@ namespace ERPWEB.Controllers.Procurement
                     model.RoleId,
                     SecretKey       = "INVOICE_REVISE",
                     SecretValueHash = Sha256Hex(model.NewPassword),
-                    model.ChangedBy,
+                    ModifiedBy      = model.ChangedBy,
                 });
                 return Ok(new { message = "Invoice revision password updated for the selected role." });
             }
