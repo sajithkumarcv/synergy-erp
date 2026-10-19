@@ -26,13 +26,20 @@ const EMPTY_FORM = {
     isActive:       true,
 };
 
+// {YYYY} / {YY} inside the prefix is replaced by the current year (and then no separate year is added).
+const prefixWithYear = (prefix) => {
+    const year = String(new Date().getFullYear());
+    return (prefix || '').replace(/\{YYYY\}/g, year).replace(/\{YY\}/g, year.slice(-2));
+};
+const prefixHasYear = (prefix) => /\{YY/.test(prefix || '');
+
 const previewNumber = (f) => {
     const year = String(new Date().getFullYear());
     const yr   = f.yearDigits === 4 ? year : year.slice(-2);
     const num  = String(f.startingSeries).padStart(f.padLength, '0');
     const sep  = f.separator || '-';
-    return (f.prefix || '') +
-           (f.includeYear ? sep + yr : '') +
+    return prefixWithYear(f.prefix) +
+           (f.includeYear && !prefixHasYear(f.prefix) ? sep + yr : '') +
            (f.suffix || '') +
            sep + num;
 };
@@ -148,7 +155,7 @@ const SeriesForm = ({ editing, onClose, onSaved }) => {
                             <label>Prefix <span className="ds-req">*</span></label>
                             <input className={`ds-input${errors.prefix ? ' ds-input-err' : ''}`}
                                 name="prefix" value={form.prefix} onChange={handle}
-                                placeholder="e.g. PO" maxLength={20} />
+                                placeholder="e.g. PO  or  SIPS-UAE/PO/{YYYY}" maxLength={20} />
                             {errors.prefix && <span className="ds-field-err">{errors.prefix}</span>}
                         </div>
                         <div className="ds-field">
@@ -244,8 +251,8 @@ const DocumentSeries = () => {
                         : s.currentSeries + 1;
                     const num  = String(next).padStart(s.padLength, '0');
                     const sep  = s.separator || '-';
-                    p[s.docTypeId] = (s.prefix || '') +
-                                     (s.includeYear ? sep + yr : '') +
+                    p[s.docTypeId] = prefixWithYear(s.prefix) +
+                                     (s.includeYear && !prefixHasYear(s.prefix) ? sep + yr : '') +
                                      (s.suffix || '') +
                                      sep + num;
                 });
