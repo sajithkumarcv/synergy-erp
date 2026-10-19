@@ -17,7 +17,8 @@ SET QUOTED_IDENTIFIER ON;
 GO
 
 UPDATE proj.TBL_ISSUE_TYPE SET RequiresRequest = 0 WHERE RequiresRequest <> 0;
-PRINT CONCAT('Issue types with the request gate OFF: ', (SELECT COUNT(*) FROM proj.TBL_ISSUE_TYPE WHERE RequiresRequest = 0));
+DECLARE @off INT = (SELECT COUNT(*) FROM proj.TBL_ISSUE_TYPE WHERE RequiresRequest = 0);
+PRINT CONCAT('Issue types with the request gate OFF: ', @off);
 GO
 
 SELECT IssueTypeId, IssueTypeCode, RequiresRequest FROM proj.TBL_ISSUE_TYPE ORDER BY IssueTypeId;
