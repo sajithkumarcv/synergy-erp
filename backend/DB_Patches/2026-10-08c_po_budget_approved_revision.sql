@@ -201,19 +201,7 @@ BEGIN
             IF @ClosePrId_I IS NOT NULL
                 EXEC PROJ.sp_CloseProcurementPOTasks @PrId = @ClosePrId_I, @ClosedBy = @CreatedBy;
 
-            IF @BomDetailId_I IS NOT NULL
-                UPDATE PROJ.TBL_BOM_DETAILS
-                SET PoCreatedQty = ISNULL(PoCreatedQty, 0) + @OrderedQty,
-                    BomStatus    = CASE
-                        WHEN BomReceivedQty >= BomRequestedQty                                 THEN 'FullyReceived'
-                        WHEN BomReceivedQty  > 0                                               THEN 'PartialReceived'
-                        WHEN (ISNULL(PoCreatedQty,0) + @OrderedQty) >= BomRequestedQty        THEN 'PORaised'
-                        WHEN (ISNULL(PoCreatedQty,0) + @OrderedQty)  > 0                      THEN 'POPartial'
-                        WHEN PrCreatedQty >= BomRequestedQty                                   THEN 'PRRaised'
-                        WHEN PrCreatedQty  > 0                                                 THEN 'PRPartial'
-                        ELSE 'Pending'
-                    END
-                WHERE BomId = @BomDetailId_I;
+            -- BOM PoCreatedQty / BomStatus are derived by sp_RecalcPrPoCreatedQty above (2026-10-21: delta removed, it double-counted).
         END
 
         SELECT CAST(SCOPE_IDENTITY() AS NVARCHAR(20));
@@ -269,19 +257,7 @@ BEGIN
             IF @ClosePrId_U IS NOT NULL
                 EXEC PROJ.sp_CloseProcurementPOTasks @PrId = @ClosePrId_U, @ClosedBy = @ModifiedBy;
 
-            IF @BomDetailId_U IS NOT NULL
-                UPDATE PROJ.TBL_BOM_DETAILS
-                SET PoCreatedQty = ISNULL(PoCreatedQty, 0) - @OldOrderedQty + @OrderedQty,
-                    BomStatus    = CASE
-                        WHEN BomReceivedQty >= BomRequestedQty                                                   THEN 'FullyReceived'
-                        WHEN BomReceivedQty  > 0                                                                 THEN 'PartialReceived'
-                        WHEN (ISNULL(PoCreatedQty,0) - @OldOrderedQty + @OrderedQty) >= BomRequestedQty         THEN 'PORaised'
-                        WHEN (ISNULL(PoCreatedQty,0) - @OldOrderedQty + @OrderedQty)  > 0                       THEN 'POPartial'
-                        WHEN PrCreatedQty >= BomRequestedQty                                                     THEN 'PRRaised'
-                        WHEN PrCreatedQty  > 0                                                                   THEN 'PRPartial'
-                        ELSE 'Pending'
-                    END
-                WHERE BomId = @BomDetailId_U;
+            -- BOM PoCreatedQty / BomStatus are derived by sp_RecalcPrPoCreatedQty above (2026-10-21: delta removed, it double-counted).
         END
 
         SELECT CAST(@PoLineId AS NVARCHAR(20));
