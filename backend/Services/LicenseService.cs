@@ -62,13 +62,14 @@ public class LicenseService
         var schema = config["DbSchema"];
         _stampTable = string.IsNullOrWhiteSpace(schema) ? "TBL_LICENSE_STAMP" : $"{schema}.TBL_LICENSE_STAMP";
         _requireBinding = config.GetValue<bool>("License:RequireServerBinding");
-        MachineFingerprint = ComputeFingerprint(_connectionString);
+        MachineFingerprint = ComputeFingerprint(_connectionString, env.ContentRootPath);
         Load();
     }
 
     /// <summary>
-    /// This installation's ID (server + database) — give it to the vendor to get a bound (v2) license.
-    /// The database name is included because several companies can share one server and one build.
+    /// This installation's ID (server + app folder + database) — give it to the vendor to get a bound (v2) license.
+    /// The database name and the app folder are included because several companies, or several copies of the
+    /// app, can share one server and one build: a license is good for one folder and one database only.
     /// </summary>
     public string MachineFingerprint { get; }
 
@@ -309,10 +310,20 @@ public class LicenseService
     }
 
     // ── Fingerprint ─────────────────────────────────────────────────────────
-    private static string ComputeFingerprint(string connectionString)
+    private static string ComputeFingerprint(string connectionString, string contentRoot)
     {
         string db = "";
         try { db = new SqlConnectionStringBuilder(connectionString).InitialCatalog; } catch { }
+
+        // The folder the app runs from, normalised so C:\ERP\App, c:\erp\app\ and C:\ERP\.\App give one ID.
+        string folder = "";
+        try
+        {
+            folder = Path.GetFullPath(contentRoot ?? "")
+                         .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                         .Replace('/', '\\').ToLowerInvariant();
+        }
+        catch { folder = (contentRoot ?? "").ToLowerInvariant(); }
 
         string id = Environment.MachineName;
         try
@@ -326,7 +337,7 @@ public class LicenseService
         }
         catch { /* fall back to machine name */ }
 
-        var hash = SHA256.HashData(Encoding.UTF8.GetBytes("ERPWEB|" + id.ToLowerInvariant() + "|" + db.ToLowerInvariant()));
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes("ERPWEB2|" + id.ToLowerInvariant() + "|" + folder + "|" + db.ToLowerInvariant()));
         var hex = Convert.ToHexString(hash)[..16];
         return $"{hex[..4]}-{hex[4..8]}-{hex[8..12]}-{hex[12..16]}";
     }
