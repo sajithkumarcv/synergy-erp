@@ -34,8 +34,10 @@ public class LicenseService
 
     // After expiry the app keeps working for this many days (with a warning) so a late
     // renewal or a mis-copied license file is not an instant outage.
-    public const int GraceDays = 7;
+    // Appsettings "License:GraceDays" overrides it per installation (0 = blocked the day after expiry).
+    public const int DefaultGraceDays = 7;
     public const int WarnDays = 30;
+    private readonly int _graceDays;
 
     // The newest TBL_APP_LOG row is older evidence of "now" than the system clock can be
     // faked back past. LogDate may be local rather than UTC, so allow generous slack.
@@ -62,6 +64,7 @@ public class LicenseService
         var schema = config["DbSchema"];
         _stampTable = string.IsNullOrWhiteSpace(schema) ? "TBL_LICENSE_STAMP" : $"{schema}.TBL_LICENSE_STAMP";
         _requireBinding = config.GetValue<bool>("License:RequireServerBinding");
+        _graceDays = Math.Clamp(config.GetValue<int?>("License:GraceDays") ?? DefaultGraceDays, 0, 30);
         MachineFingerprint = ComputeFingerprint(_connectionString, env.ContentRootPath);
         Load();
     }
@@ -121,10 +124,10 @@ public class LicenseService
             return (false, "License expiry date is invalid.");
 
         var left = expiry.DayNumber - DateOnly.FromDateTime(DateTime.UtcNow).DayNumber;
-        if (left < -GraceDays)
+        if (left < -_graceDays)
             return (false, $"License expired on {_license.ExpiryDate}. Please contact your vendor.");
         if (left < 0)
-            return (true, $"License EXPIRED on {_license.ExpiryDate}. Grace period ends in {GraceDays + left} day(s) — renew now.");
+            return (true, $"License EXPIRED on {_license.ExpiryDate}. Grace period ends in {_graceDays + left} day(s) — renew now.");
         if (left <= WarnDays)
             return (true, $"Licensed to {_license.ClientName}. Expires in {left} day(s) on {_license.ExpiryDate} — please renew.");
         return (true, $"Licensed to {_license.ClientName}, valid until {_license.ExpiryDate}");
