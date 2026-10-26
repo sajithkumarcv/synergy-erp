@@ -175,6 +175,26 @@ var app = builder.Build();
 //}
 
 app.UseCors("AllowReactApp");       // CORS before everything
+
+// Configuration / program files are never served and are never answered with a license or maintenance message:
+// a plain 404 for license.json, appsettings*.json, web.config, dlls, backups, keys. (/swagger is left alone.)
+var configFileExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    { ".json", ".config", ".dll", ".pdb", ".exe", ".xml", ".bak", ".sql", ".pfx", ".pem", ".key", ".ini" };
+app.Use(async (ctx, next) =>
+{
+    var p = ctx.Request.Path.Value ?? "";
+    if (!p.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase))
+    {
+        var ext = Path.GetExtension(p.TrimEnd('/', ' ', '.'));
+        if (ext.Length > 0 && configFileExtensions.Contains(ext))
+        {
+            ctx.Response.StatusCode = StatusCodes.Status404NotFound;
+            return;
+        }
+    }
+    await next();
+});
+
 app.UseMiddleware<MaintenanceMiddleware>();   // "Maintenance:Enabled" in appsettings.json -> 503 + message for every request (after CORS so the browser can read it)
 app.UseRateLimiter();               // before auth: unauthenticated login floods must be capped too
 if (!app.Environment.IsDevelopment())

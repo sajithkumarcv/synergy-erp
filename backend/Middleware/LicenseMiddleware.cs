@@ -15,9 +15,10 @@ public class LicenseMiddleware(RequestDelegate next)
     {
         var path = context.Request.Path.Value ?? "";
 
-        // Allow Swagger UI and the auth endpoint so clients can still log in and see the error
+        // Allow Swagger UI, the license status page and sign-out (a signed-in user must always be able to leave).
+        // Sign-in is NOT exempt: with an invalid license nobody can start a new session.
         if (path.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase) ||
-            path.StartsWith("/api/Auth", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWith("/api/Auth/logout", StringComparison.OrdinalIgnoreCase) ||
             path.StartsWith("/api/License", StringComparison.OrdinalIgnoreCase))
         {
             await next(context);

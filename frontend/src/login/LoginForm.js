@@ -78,6 +78,13 @@ export default function LoginForm() {
         setError(data.message || 'Your account is not permitted to sign in. Please contact your administrator.');
         return;
       }
+      // 402 = the application license has expired / is not valid. Show the license message verbatim.
+      if (res.status === 402) {
+        const data = await res.json().catch(() => ({}));
+        setConflict(null);
+        setError(data.message || 'The application license is not valid. Please contact your vendor.');
+        return;
+      }
       if (!res.ok) { setError('Server error. Please try again.'); return; }
       const data = await res.json();
       setConflict(null);
