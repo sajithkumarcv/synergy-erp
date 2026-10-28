@@ -44,7 +44,9 @@ namespace ERPWEB.Controllers.Supplier
                     PaymentTermsId     = paymentTermsId,
                     IsActive           = isActive,
                     PageNumber         = page < 1 ? 1 : page,
-                    PageSize           = pageSize is < 1 or > 200 ? 20 : pageSize,
+                    // Screens ask for pageSize=500 to load the whole supplier list (Employee import, PO/GRN filters, reports).
+                    // Over the cap used to fall back to 20 rows, silently dropping every supplier after the first 20 by name.
+                    PageSize           = pageSize < 1 ? 20 : Math.Min(pageSize, 1000),
                     SortColumn         = sortCol,
                     SortDirection      = sortDir
                 };
