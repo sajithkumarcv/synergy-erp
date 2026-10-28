@@ -298,7 +298,7 @@ const EmployeeForm = ({ initial, onClose, onSaved }) => {
 };
 
 // ── Excel template download ───────────────────────────────────────────────
-const downloadTemplate = () => {
+const downloadTemplate = (suppliers = []) => {
     const ws = XLSX.utils.aoa_to_sheet([
         ['EMP_CODE', 'EMP_NAME',   'EMP_TYPE',   'SUPPLIER_CODE'],
         ['ESI-999',  'John Doe',   'COMPANY',    ''],
@@ -307,6 +307,15 @@ const downloadTemplate = () => {
     ws['!cols'] = [12, 30, 12, 14].map(w => ({ wch: w }));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Employees');
+
+    // Reference sheet: the supplier codes that can be used in SUPPLIER_CODE (active suppliers only).
+    const active = suppliers.filter(s => s.isActive !== false && s.isActive !== 0);
+    const refWs = XLSX.utils.aoa_to_sheet([
+        ['SUPPLIER_CODE', 'SUPPLIER_NAME'],
+        ...active.map(s => [s.supplierCode, s.supplierName]),
+    ]);
+    refWs['!cols'] = [16, 44].map(w => ({ wch: w }));
+    XLSX.utils.book_append_sheet(wb, refWs, 'Reference');
     XLSX.writeFile(wb, 'Employee_Import_Template.xlsx');
 };
 
@@ -526,7 +535,7 @@ const EmployeeUpload = ({ onClose, onDone }) => {
                             <div style={{ fontSize: 13, fontWeight: 600, color: '#475569' }}>
                                 Step 1 — Download template, fill it in, then upload
                             </div>
-                            <button onClick={downloadTemplate} style={{
+                            <button onClick={() => downloadTemplate(suppliers)} style={{
                                 fontSize: 12, padding: '5px 14px', borderRadius: 6, cursor: 'pointer',
                                 border: '1px solid #cbd5e1', background: '#f8fafc', color: '#1e40af', fontWeight: 600,
                             }}>

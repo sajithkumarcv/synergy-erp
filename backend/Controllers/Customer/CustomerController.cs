@@ -48,7 +48,8 @@ namespace ERPWEB.Controllers.Customer
                     IsActive           = isActive,
                     CreditFlag         = string.IsNullOrWhiteSpace(creditFlag) ? null : creditFlag,
                     PageNumber         = page < 1 ? 1 : page,
-                    PageSize           = pageSize is < 1 or > 200 ? 20 : pageSize,
+                    // Screens ask for 500/1000 to load the whole customer list; over the cap used to fall back to 20 rows.
+                    PageSize           = pageSize < 1 ? 20 : Math.Min(pageSize, 1000),
                     SortColumn         = sortCol,
                     SortDirection      = sortDir
                 };
