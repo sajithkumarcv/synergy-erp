@@ -121,8 +121,8 @@ const LedgerDrawer = ({ item, onClose }) => {
                                             { h: 'Ref No.',     right: false },
                                             { h: 'In',          right: true  },
                                             { h: 'Out',         right: true  },
-                                            { h: 'Cost',        right: true  },
                                             { h: 'Job',         right: false },
+                                            { h: 'Cost',        right: true  },
                                             { h: 'Job Stock',   right: true  },
                                             { h: 'Store Stock', right: true  },
                                             { h: 'Total Stock', right: true  },
@@ -145,8 +145,8 @@ const LedgerDrawer = ({ item, onClose }) => {
                                             <td style={{ padding: '7px 10px', fontFamily: 'monospace', color: '#1e40af', fontWeight: 600 }}>{r.refNo}</td>
                                             <td style={{ padding: '7px 10px', textAlign: 'right', color: '#166534', fontWeight: 600 }}>{r.qtyIn  > 0 ? `+${fmt(r.qtyIn,  4)}` : '—'}</td>
                                             <td style={{ padding: '7px 10px', textAlign: 'right', color: '#dc2626', fontWeight: 600 }}>{r.qtyOut > 0 ? `-${fmt(r.qtyOut, 4)}` : '—'}</td>
-                                            <td style={{ padding: '7px 10px', textAlign: 'right' }}>{fmt(r.unitCost)}</td>
                                             <td style={{ padding: '7px 10px', color: '#64748b', fontSize: 11 }}>{r.jobId || '—'}</td>
+                                            <td style={{ padding: '7px 10px', textAlign: 'right' }}>{fmt(r.unitCost)}</td>
                                             <td style={{ padding: '7px 10px', textAlign: 'right', color: '#1e40af', fontWeight: 600 }}>{fmt(r.jobStock,   4)}</td>
                                             <td style={{ padding: '7px 10px', textAlign: 'right', color: '#0369a1', fontWeight: 600 }}>{fmt(r.storeStock, 4)}</td>
                                             <td style={{ padding: '7px 10px', textAlign: 'right', color: '#1e293b', fontWeight: 700, borderLeft: '2px solid #e2e8f0' }}>{fmt(r.totalStock, 4)}</td>

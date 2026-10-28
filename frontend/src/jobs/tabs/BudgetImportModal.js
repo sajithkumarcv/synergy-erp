@@ -64,9 +64,9 @@ const BudgetImportModal = ({ job, rvNo, onClose, onImported }) => {
         const hdr = ['BudgetHeader', 'UOM', 'Qty', 'UnitPrice'];
         const sampleHeader = job?.budgetCategoryCode || defaultCatName || headers[0]?.code || headers[0]?.name || 'STEEL';
         const sampleUom = uomList[0]?.uomCode || uomList[0]?.uomName || 'NOS';
+        // One sample row only: a header can appear once in the file (a second row would replace the first).
         const samples = [
             [sampleHeader, sampleUom, 5, 3113906],
-            [sampleHeader, sampleUom, 10, 25.5],
         ];
         const ws = XLSX.utils.aoa_to_sheet([hdr, ...samples]);
         ws['!cols'] = [22, 12, 10, 14].map(w => ({ wch: w }));
@@ -96,6 +96,7 @@ const BudgetImportModal = ({ job, rvNo, onClose, onImported }) => {
         if (headerIdx === -1) return { error: 'Could not find a header row with a BudgetHeader or Qty column.' };
         const cols = aoa[headerIdx].map(c => COL_MAP[norm(c)] || null);
         const out = [];
+        const seenCat = {};   // costCategoryId -> first sheet row that used it
         for (let i = headerIdx + 1; i < aoa.length; i++) {
             const raw = aoa[i];
             if (raw.every(c => !String(c ?? '').trim())) continue;
@@ -113,6 +114,13 @@ const BudgetImportModal = ({ job, rvNo, onClose, onImported }) => {
                     norm(h.code) === norm(o.budgetHeader) || norm(h.name) === norm(o.budgetHeader));
                 if (!match) errors.push(`Unknown BudgetHeader "${o.budgetHeader}"`);
                 else o._costCategoryId = match.id;
+            }
+
+            // A job holds ONE budget line per header (the save replaces it), so a second row for the same
+            // header would silently overwrite the first. Reject it and tell the user to combine the rows.
+            if (o._costCategoryId) {
+                if (seenCat[o._costCategoryId]) errors.push(`Duplicate header — row ${seenCat[o._costCategoryId]} already uses it (one line per header; combine the rows)`);
+                else seenCat[o._costCategoryId] = i + 1;
             }
 
             // UOM is optional, but if given it must resolve by either code or name.
@@ -215,6 +223,7 @@ const BudgetImportModal = ({ job, rvNo, onClose, onImported }) => {
                             <div style={{ fontWeight: 600, margin: '8px 0' }}>Select your Excel file</div>
                             <div style={{ fontSize: 12.5, color: '#64748b', marginBottom: 14 }}>
                                 Columns: <strong>BudgetHeader, UOM, Qty, UnitPrice</strong> — one row per cost header, no item breakdown.
+                                <br />Each header appears <strong>once</strong>; an imported row <strong>replaces</strong> that header's existing budget line.
                                 {defaultCatId && <> Rows that leave <strong>BudgetHeader</strong> blank fall back to this job's header ({defaultCatName}).</>}
                             </div>
                             <button onClick={() => fileRef.current?.click()} style={btnPri}>Browse File…</button>

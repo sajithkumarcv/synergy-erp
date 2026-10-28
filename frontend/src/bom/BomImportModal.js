@@ -79,10 +79,17 @@ const BomImportModal = ({ bomHeaderId, sections = [], onClose, onImported }) => 
         setTplLoading(true);
         let items = [];
         try {
-            const res = await fetch(
-                `${variables.API_URL}item/search?isActive=true&pageSize=5000&page=1&sortCol=ItemCode&sortDir=ASC`,
-                { headers: authHeaders() });
-            if (res.ok) { const d = await res.json(); items = d.data || []; }
+            // The item search returns at most 500 rows a page (more falls back to 20), so read every page.
+            for (let page = 1; page <= 40; page++) {
+                const res = await fetch(
+                    `${variables.API_URL}item/search?isActive=true&pageSize=500&page=${page}&sortCol=ItemCode&sortDir=ASC`,
+                    { headers: authHeaders() });
+                if (!res.ok) break;
+                const d = await res.json();
+                const batch = d.data || [];
+                items = items.concat(batch);
+                if (batch.length < 500) break;
+            }
         } catch { /* reference sheet is a convenience — the template is still usable without it */ }
 
         const wb = XLSX.utils.book_new();
@@ -291,6 +298,10 @@ const BomImportModal = ({ bomHeaderId, sections = [], onClose, onImported }) => 
                             <div style={{ marginBottom: 10, fontSize: 13 }}>
                                 📄 {fileName} · <strong>{validRows.length}</strong> valid
                                 {invalidRows.length ? ` · ${invalidRows.length} with errors (skipped)` : ''}
+                            </div>
+                            <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 6, padding: 8, marginBottom: 10, fontSize: 12, color: '#92400e' }}>
+                                ⚠ A row with the same <strong>Section + Item</strong> as a line already on this BOM is <strong>added</strong> to
+                                that line's quantity. Importing the same file twice doubles the quantities.
                             </div>
                             {invalidRows.length > 0 && (
                                 <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: 8, marginBottom: 10, fontSize: 12 }}>
