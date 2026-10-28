@@ -106,10 +106,17 @@ const PrOverviewTab = ({ pr, onRefresh }) => {
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
                     <div style={{ display: 'flex', flexDirection: 'column', flex: 2, minWidth: 200 }}>
                         <label style={{ fontSize: 10, fontWeight: 600, color: '#3a5070', textTransform: 'uppercase', letterSpacing: '.45px', marginBottom: 4 }}>Linked Job</label>
-                        <select className="pf-input" name="jobId" value={form.jobId} onChange={handle}>
+                        <select className="pf-input" name="jobId" value={form.jobId} onChange={handle}
+                                disabled={(pr.lineCount || 0) > 0}
+                                title={(pr.lineCount || 0) > 0 ? 'The job number cannot be changed while the PR has lines.' : undefined}>
                             <option value="">— No Job —</option>
                             {jobs.filter(j => !(ihBlocked && j.jobTypeId === 'IH' && j.jobId !== form.jobId)).map(j => <option key={j.jobId} value={j.jobId}>{j.jobId}{j.projectName ? ` — ${j.projectName}` : ''}</option>)}
                         </select>
+                        {(pr.lineCount || 0) > 0 && (
+                            <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+                                The job number cannot be changed while the PR has lines. Remove all the PR lines first, then change the job number.
+                            </div>
+                        )}
                     </div>
                 </div>
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>

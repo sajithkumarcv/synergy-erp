@@ -158,7 +158,7 @@ const PoOverviewTab = ({ po, onRefresh }) => {
                     </div>
                     <div style={{ ...field, flex: 2, position: 'relative' }}>
                         <label style={lbl}>Job ID {isReq('jobId') && <span className="req">*</span>}</label>
-                        {po.status === 'Draft' ? (
+                        {po.status === 'Draft' && !(po.lineCount > 0) ? (
                             <LookupSelect
                                 value={form.jobId}
                                 label={form.jobLabel}
@@ -179,6 +179,11 @@ const PoOverviewTab = ({ po, onRefresh }) => {
                         ) : (
                             <input className="pf-input" style={{ background: '#f8fafc', color: '#64748b', cursor: 'default' }}
                                 value={po.jobId || '—'} readOnly />
+                        )}
+                        {po.status === 'Draft' && po.lineCount > 0 && (
+                            <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+                                The job number cannot be changed while the PO has lines. Remove all the PO lines first, then change the job number.
+                            </div>
                         )}
                     </div>
                     <div style={{ ...field, flex: '0 0 130px' }}>
