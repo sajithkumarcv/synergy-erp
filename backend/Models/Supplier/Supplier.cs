@@ -44,6 +44,7 @@ namespace ERPWEB.Models.Supplier
         // ── Tax ──────────────────────────────────────────────────
         public string? VatNumber      { get; set; }
         public string? TaxNumber      { get; set; }
+        public string? GstTreatment   { get; set; }
         public string? AccountManager { get; set; }
         public string? Remarks        { get; set; }
 
@@ -65,6 +66,11 @@ namespace ERPWEB.Models.Supplier
         public int?    PaymentTermDays      { get; set; }
         public string? CountryName          { get; set; }
         public string? StatusLabel          { get; set; }
+
+        // ── Approval (set only by sp_ApproveSupplier) ─────────────
+        public string?   ApprovedBy      { get; set; }
+        public DateTime? ApprovedDate    { get; set; }
+        public string?   ApprovalRemarks { get; set; }
 
         // ── Detail counts (from sp_GetSupplier) ───────────────────
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]

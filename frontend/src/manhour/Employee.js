@@ -220,10 +220,12 @@ const EmployeeForm = ({ initial, onClose, onSaved }) => {
                                 const cfg = empTypeCfg(t.value, empTypeOptions);
                                 return (
                                     <button key={t.value} type="button"
+                                        disabled={!isNew}
+                                        title={isNew ? undefined : 'The employee type cannot be changed once the employee is created.'}
                                         onClick={() => setForm(p => ({ ...p, empType: t.value, supplierId: null, supplierName: '', supplierCode: '' }))}
                                         style={{
                                             flex: 1, padding: '7px 0', borderRadius: 7, fontSize: 13,
-                                            fontWeight: 600, cursor: 'pointer', transition: 'all .15s',
+                                            fontWeight: 600, cursor: isNew ? 'pointer' : 'not-allowed', transition: 'all .15s',
                                             border: `2px solid ${form.empType === t.value ? cfg.dot : '#e2e8f0'}`,
                                             background: form.empType === t.value ? cfg.bg : '#f8fafc',
                                             color: form.empType === t.value ? cfg.color : '#94a3b8',
@@ -233,6 +235,11 @@ const EmployeeForm = ({ initial, onClose, onSaved }) => {
                                 );
                             })}
                         </div>
+                        {!isNew && (
+                            <div style={{ fontSize: 12, color: '#64748b', marginTop: 6 }}>
+                                The type, code and supplier cannot be changed once the employee is created. Only the name and Active can be edited.
+                            </div>
+                        )}
                     </div>
 
                     <div className="pf-row">
@@ -241,8 +248,10 @@ const EmployeeForm = ({ initial, onClose, onSaved }) => {
                             <input className={`pf-input${errors.empCode ? ' pf-input-err' : ''}`}
                                 type="text" name="empCode" value={form.empCode}
                                 onChange={handle}
+                                readOnly={!isNew}
+                                title={isNew ? undefined : 'The employee code cannot be changed once the employee is created.'}
                                 placeholder={form.empType === 'COMPANY' ? 'e.g. ESI-004' : 'e.g. SUP-001'}
-                                style={{ textTransform: 'uppercase' }}
+                                style={{ textTransform: 'uppercase', ...(isNew ? {} : { background: '#f1f5f9', cursor: 'not-allowed' }) }}
                                 autoFocus={isNew} />
                             {errors.empCode && <span className="pf-field-err">{errors.empCode}</span>}
                         </div>
@@ -259,15 +268,23 @@ const EmployeeForm = ({ initial, onClose, onSaved }) => {
                     {form.empType === 'OUTSOURCED' && (
                         <div className="pf-field">
                             <label>Subcontractor (Supplier) <span className="req">*</span></label>
-                            <SupplierSelect
-                                value={form.supplierId}
-                                supplierName={form.supplierName}
-                                supplierCode={form.supplierCode}
-                                hasError={!!errors.supplierId}
-                                onChange={({ supplierId, supplierName, supplierCode }) =>
-                                    setForm(p => ({ ...p, supplierId, supplierName, supplierCode }))
-                                }
-                            />
+                            {isNew ? (
+                                <SupplierSelect
+                                    value={form.supplierId}
+                                    supplierName={form.supplierName}
+                                    supplierCode={form.supplierCode}
+                                    hasError={!!errors.supplierId}
+                                    onChange={({ supplierId, supplierName, supplierCode }) =>
+                                        setForm(p => ({ ...p, supplierId, supplierName, supplierCode }))
+                                    }
+                                />
+                            ) : (
+                                <div title="The supplier cannot be changed once the employee is created."
+                                    style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 6, padding: '6px 10px', fontSize: 13, cursor: 'not-allowed' }}>
+                                    <span style={{ fontWeight: 700, fontFamily: 'monospace', marginRight: 6 }}>{form.supplierCode}</span>
+                                    <span>{form.supplierName}</span>
+                                </div>
+                            )}
                             {errors.supplierId && <span className="pf-field-err">{errors.supplierId}</span>}
                         </div>
                     )}

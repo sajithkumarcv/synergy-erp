@@ -36,6 +36,22 @@ const SortIcon = ({ col, sortCol, sortDir }) => {
     return <span className="sort-icon sort-active">{sortDir === 'ASC' ? '↑' : '↓'}</span>;
 };
 
+const csvEsc = v => { if (v == null) return ''; const s = String(v); return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+
+const downloadCustomersCsv = (rows) => {
+    const headers = ['Code', 'Customer Name', 'Type', 'Category', 'Mobile', 'Email', 'Credit Limit', 'Sales Person', 'Status', 'Credit Flag'];
+    const lines = [headers.join(','), ...rows.map(c => [
+        c.customerCode, c.customerName, c.customerType, c.customerCategoryName, c.mobile, c.email,
+        c.creditLimit, c.salesPerson, c.statusLabel || (c.isActive ? 'Active' : 'Inactive'), c.creditFlagLabel || c.creditFlag,
+    ].map(csvEsc).join(','))];
+    const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `Customers_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+};
+
 // ─── Credit Hold Modal ───────────────────────────────────────────
 const CreditHoldModal = ({ customer, onClose, onSaved }) => {
     const currentUser = useCurrentUser();
@@ -305,6 +321,7 @@ const CustomerList = () => {
     const [applied, setApplied]       = useState({ ...DEFAULT_FILTERS });
     const [showCreate, setShowCreate] = useState(false);
     const [holdCust, setHoldCust]     = useState(null);
+    const [exporting, setExporting]   = useState(false);
 
     const gridRef = useRef({ pageSize: 200, sortCol: 'CustomerName', sortDir: 'ASC', applied: DEFAULT_FILTERS });
     useEffect(() => { gridRef.current = { pageSize, sortCol, sortDir, applied }; }, [pageSize, sortCol, sortDir, applied]);
@@ -367,6 +384,32 @@ const CustomerList = () => {
         });
     }, [customerCategories, customerTypes, currencies, paymentTerms]); // eslint-disable-line
 
+    // Exports every record matching the current filters and sort, not only the visible page.
+    const exportAll = async () => {
+        setExporting(true);
+        try {
+            const all = [];
+            let pg = 1, pages = 1;
+            do {
+                const q = new URLSearchParams({ page: pg, pageSize: 1000, sortCol, sortDir });
+                if (applied.searchText)      q.set('searchText',     applied.searchText);
+                if (applied.categoryId)      q.set('categoryId',     applied.categoryId);
+                if (applied.customerType)    q.set('customerType',   applied.customerType);
+                if (applied.currencyId)      q.set('currencyId',     applied.currencyId);
+                if (applied.paymentTermsId)  q.set('paymentTermsId', applied.paymentTermsId);
+                if (applied.isActive   !== '') q.set('isActive',     applied.isActive);
+                if (applied.creditHold !== '') q.set('creditHold',   applied.creditHold);
+                if (applied.creditFlag)      q.set('creditFlag',     applied.creditFlag);
+                const res = await fetch(`${variables.API_URL}customer/search?${q}`, { headers: authHeaders() }).then(r => r.json());
+                all.push(...(res.data || []));
+                pages = res.totalPages || 1;
+                pg++;
+            } while (pg <= pages);
+            downloadCustomersCsv(all);
+        } catch (e) { console.error(e); }
+        finally { setExporting(false); }
+    };
+
     const handleSort = (col) => {
         const dir = sortCol === col && sortDir === 'ASC' ? 'DESC' : 'ASC';
         setSortCol(col); setSortDir(dir); setPage(1);
@@ -425,6 +468,7 @@ const CustomerList = () => {
                             <select className="filter-select" style={{ width: 110 }} value={pageSize} onChange={e => changePageSize(Number(e.target.value))}>
                                 {(window.matchMedia('(max-width:768px)').matches ? [10, 20, 50, 100, 200] : PAGE_SIZES).map(n => <option key={n} value={n}>{n} / page</option>)}
                             </select>
+                            <button className="btn-sec" onClick={exportAll} disabled={exporting || totalRows === 0}>{exporting ? 'Exporting…' : '⬇ Export CSV'}</button>
                             {canAdd && <button className="btn-pri" onClick={() => setShowCreate(true)}>+ Add Customer</button>}
                         </div>
                     </div>

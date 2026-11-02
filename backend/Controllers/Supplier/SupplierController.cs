@@ -11,6 +11,11 @@ namespace ERPWEB.Controllers.Supplier
     using SupplierCategory = ERPWEB.Models.Supplier.SupplierCategory;
     using SupplierBank     = ERPWEB.Models.Supplier.SupplierBank;
 
+    public class SupplierApprovalRequest
+    {
+        public string? Remarks { get; set; }
+    }
+
     [Authorize]
     [Route("api/[controller]")]
     [ApiController]
@@ -28,6 +33,7 @@ namespace ERPWEB.Controllers.Supplier
             [FromQuery] int?    currencyId     = null,
             [FromQuery] int?    paymentTermsId = null,
             [FromQuery] bool?   isActive       = null,
+            [FromQuery] bool?   isApprovedVendor = null,
             [FromQuery] int     page           = 1,
             [FromQuery] int     pageSize       = 20,
             [FromQuery] string  sortCol        = "SupplierName",
@@ -43,6 +49,7 @@ namespace ERPWEB.Controllers.Supplier
                     CurrencyId         = currencyId,
                     PaymentTermsId     = paymentTermsId,
                     IsActive           = isActive,
+                    IsApprovedVendor   = isApprovedVendor,
                     PageNumber         = page < 1 ? 1 : page,
                     // Screens ask for pageSize=500 to load the whole supplier list (Employee import, PO/GRN filters, reports).
                     // Over the cap used to fall back to 20 rows, silently dropping every supplier after the first 20 by name.
@@ -132,6 +139,7 @@ namespace ERPWEB.Controllers.Supplier
                     model.PaymentTermsId,
                     model.VatNumber,
                     model.TaxNumber,
+                    model.GstTreatment,
                     model.AccountManager,
                     model.Remarks,
                     model.IsActive,
@@ -151,10 +159,75 @@ namespace ERPWEB.Controllers.Supplier
                 if (result == "-1") return BadRequest(new { message = "Supplier Code already exists." });
                 return Ok(new { id = result, message = model.SupplierId == 0 ? "Supplier added" : "Supplier updated" });
             }
+            catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+            {
+                // Country / GST rules raised by sp_SetSupplier are user-facing messages.
+                return BadRequest(new { message = sqlEx.Message });
+            }
             catch (Exception ex)
             {
                 await _dbcon.WriteLog(ex, controller: "Supplier", action: "SetSupplier", requestPath: HttpContext.Request.Path);
                 return StatusCode(500, new { message = "Error saving supplier." });
+            }
+        }
+
+        // ── APPROVAL ─────────────────────────────────────────────────────────
+        // Checklist (country, bank, tax, contact, address) with a tick or cross for each item.
+        [HttpGet("{id:int}/approval")]
+        public async Task<IActionResult> GetApproval(int id)
+        {
+            try
+            {
+                var items = await _dbcon.QueryAsync<dynamic>("sp_GetSupplierApproval", new { SupplierId = id });
+                return Ok(items ?? new List<dynamic>());
+            }
+            catch (Exception ex)
+            {
+                await _dbcon.WriteLog(ex, controller: "Supplier", action: "GetApproval", requestPath: HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Error fetching supplier approval." });
+            }
+        }
+
+        // Only the finance roles approve or withdraw (role codes, as in the JWT).
+        [Authorize(Roles = "ADMIN,FIN_MGR,FIN_OFFCR")]
+        [HttpPost("{id:int}/approve")]
+        public async Task<IActionResult> ApproveSupplier(int id, [FromBody] SupplierApprovalRequest? req)
+        {
+            try
+            {
+                string by = User.Identity?.Name ?? "system";
+                await _dbcon.ExecuteScalarAsync("sp_ApproveSupplier", new { SupplierId = id, ApprovedBy = by, Remarks = req?.Remarks });
+                return Ok(new { id, message = "Supplier approved." });
+            }
+            catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+            {
+                return BadRequest(new { message = sqlEx.Message });
+            }
+            catch (Exception ex)
+            {
+                await _dbcon.WriteLog(ex, controller: "Supplier", action: "ApproveSupplier", requestPath: HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Error approving supplier." });
+            }
+        }
+
+        [Authorize(Roles = "ADMIN,FIN_MGR,FIN_OFFCR")]
+        [HttpPost("{id:int}/withdraw-approval")]
+        public async Task<IActionResult> WithdrawApproval(int id, [FromBody] SupplierApprovalRequest? req)
+        {
+            try
+            {
+                string by = User.Identity?.Name ?? "system";
+                await _dbcon.ExecuteScalarAsync("sp_WithdrawSupplierApproval", new { SupplierId = id, ModifiedBy = by, Remarks = req?.Remarks });
+                return Ok(new { id, message = "Supplier approval withdrawn." });
+            }
+            catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+            {
+                return BadRequest(new { message = sqlEx.Message });
+            }
+            catch (Exception ex)
+            {
+                await _dbcon.WriteLog(ex, controller: "Supplier", action: "WithdrawApproval", requestPath: HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Error withdrawing supplier approval." });
             }
         }
 

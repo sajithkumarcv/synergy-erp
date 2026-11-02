@@ -37,6 +37,14 @@ const SupplierDetailPage = () => {
 
     useEffect(() => { loadSupplier(); }, [loadSupplier]);
 
+    // Bank changes withdraw the approval on the server, so re-read the supplier (without the spinner) when returning to Overview.
+    const reloadQuiet = useCallback(() => {
+        fetch(`${variables.API_URL}supplier/${supplierId}`, { headers: authHeaders() })
+            .then(r => (r.ok ? r.json() : null))
+            .then(d => { if (d) setSupplier(d); })
+            .catch(() => {});
+    }, [supplierId]);
+
     const renderTab = () => {
         if (!supplier) return null;
         switch (activeTab) {
@@ -74,6 +82,9 @@ const SupplierDetailPage = () => {
                     </div>
                 </div>
                 <div className="jd-header-right">
+                    <span className={`sd-status-badge ${supplier.isApprovedVendor ? 'sd-status-active' : 'sd-status-inactive'}`} style={{ marginRight: 8 }}>
+                        {supplier.isApprovedVendor ? '✔ Approved' : 'Not approved'}
+                    </span>
                     <span className={`sd-status-badge ${supplier.isActive ? 'sd-status-active' : 'sd-status-inactive'}`}>
                         {supplier.isActive ? 'Active' : 'Inactive'}
                     </span>
@@ -112,7 +123,7 @@ const SupplierDetailPage = () => {
                     <button
                         key={tab.key}
                         className={`jd-tab-btn ${activeTab === tab.key ? 'jd-tab-active' : ''}`}
-                        onClick={() => setActiveTab(tab.key)}
+                        onClick={() => { setActiveTab(tab.key); if (tab.key === 'overview') reloadQuiet(); }}
                     >
                         <span className="jd-tab-icon">{tab.icon}</span>
                         {tab.label}

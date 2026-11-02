@@ -5,7 +5,7 @@ import { useLookup } from '../LookupContext';
 import { useCurrentUser } from '../AuthContext';
 import { useFilters } from '../FilterContext';
 import { usePermission } from '../PermissionContext';
-import { fmt } from './supplierConstants';
+import { fmt, gstErrors, GST_REGISTERED, isIndiaCountry, allowedTreatments, treatmentOptions } from './supplierConstants';
 import { useFieldConfig } from '../FieldConfigContext';
 import '../jobs/JobDetail.css';
 import './Supplier.css';
@@ -27,12 +27,29 @@ const SortIcon = ({ col, sortCol, sortDir }) => {
     return <span className="sort-icon sort-active">{sortDir === 'ASC' ? '↑' : '↓'}</span>;
 };
 
+const csvEsc = v => { if (v == null) return ''; const s = String(v); return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+
+const downloadSuppliersCsv = (rows) => {
+    const headers = ['Code', 'Supplier Name', 'Type', 'Category', 'Mobile', 'Email', 'Credit Limit', 'Account Manager', 'Status'];
+    const lines = [headers.join(','), ...rows.map(s => [
+        s.supplierCode, s.supplierName, s.supplierType, s.supplierCategoryName, s.mobile, s.email,
+        s.creditLimit, s.accountManager, s.statusLabel || (s.isActive ? 'Active' : 'Inactive'),
+    ].map(csvEsc).join(','))];
+    const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `Suppliers_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+};
+
 // ─── Create Supplier slide-over ──────────────────────────────────
 const SupplierCreateForm = ({ onClose, onCreated }) => {
     const currentUser = useCurrentUser();
-    const { lookups } = useLookup();
+    const { lookups, getVList } = useLookup();
     const { isReq } = useFieldConfig('SUPPLIER');
-    const { currencies, paymentTerms } = lookups;
+    const { currencies, paymentTerms, countries } = lookups;
+    const gstOptions = getVList('Supplier', 'GstTreatment');
     const [supplierCategories, setSupplierCategories] = useState([]);
 
     const [form, setForm] = useState({
@@ -43,7 +60,7 @@ const SupplierCreateForm = ({ onClose, onCreated }) => {
         paymentMode: '',
         isApprovedVendor: false, isOnHold: false, leadTimeDays: '',
         tradeLicenseNo: '', tradeLicenseExpiry: '',
-        countryId: '', rating: '',
+        countryId: '', rating: '', gstTreatment: '',
         vatNumber: '', taxNumber: '', remarks: '',
         isActive: true,
     });
@@ -71,7 +88,12 @@ const SupplierCreateForm = ({ onClose, onCreated }) => {
 
     const handle = (e) => {
         const { name, value, type, checked } = e.target;
-        setForm(p => ({ ...p, [name]: type === 'checkbox' ? checked : value }));
+        setForm(p => {
+            const next = { ...p, [name]: type === 'checkbox' ? checked : value };
+            // A different country offers different Tax Treatment items: clear one that no longer fits.
+            if (name === 'countryId' && !allowedTreatments(countries, value).includes(p.gstTreatment)) next.gstTreatment = '';
+            return next;
+        });
     };
 
     const save = () => {
@@ -79,6 +101,7 @@ const SupplierCreateForm = ({ onClose, onCreated }) => {
         if (!form.supplierName.trim()) errs.push('Supplier Name is required.');
         if (!form.currencyId)          errs.push('Currency is required.');
         if (!form.paymentTermsId)      errs.push('Payment Terms are required.');
+        errs.push(...gstErrors(form, countries));
         if (errs.length) { setValidErrors(errs); return; }
         setSaving(true);
         const payload = {
@@ -93,6 +116,7 @@ const SupplierCreateForm = ({ onClose, onCreated }) => {
             rating:             form.rating             ? parseInt(form.rating)              : null,
             leadTimeDays:       form.leadTimeDays       ? parseInt(form.leadTimeDays)        : null,
             tradeLicenseExpiry: form.tradeLicenseExpiry || null,
+            gstTreatment:       form.gstTreatment || null,
             createdBy: currentUser, modifiedBy: null,
         };
         fetch(variables.API_URL + 'supplier/save', { method: 'POST', headers: authHeaders(), body: JSON.stringify(payload) })
@@ -164,16 +188,19 @@ const SupplierCreateForm = ({ onClose, onCreated }) => {
                             <label>Supplier Type</label>
                             <input name="supplierType" className="jf-input" value={form.supplierType} onChange={handle} placeholder="e.g. Manufacturer" />
                         </div>
+                        <div className="jf-field">
+                            <label>Country <span className="req">*</span></label>
+                            <select name="countryId" className="jf-input" value={form.countryId} onChange={handle}>
+                                <option value="">— Select —</option>
+                                {countries.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
+                            </select>
+                        </div>
                         <div className="jf-field" style={{ flex: '0 0 130px' }}>
                             <label>Rating (1–5)</label>
                             <select name="rating" className="jf-input" value={form.rating} onChange={handle}>
                                 <option value="">— None —</option>
                                 {[1,2,3,4,5].map(n => <option key={n} value={n}>{'★'.repeat(n)} ({n})</option>)}
                             </select>
-                        </div>
-                        <div className="jf-field" style={{ flex: '0 0 160px' }}>
-                            <label>&nbsp;</label>
-                            <label className="tab-check"><input type="checkbox" name="isApprovedVendor" checked={!!form.isApprovedVendor} onChange={handle} /><span>AVL Approved</span></label>
                         </div>
                     </div>
 
@@ -241,6 +268,19 @@ const SupplierCreateForm = ({ onClose, onCreated }) => {
                     <Sec label="Compliance" />
                     <div className="jf-row">
                         <div className="jf-field">
+                            <label>Tax Treatment <span className="req">*</span></label>
+                            <select name="gstTreatment" className="jf-input" value={form.gstTreatment} onChange={handle} disabled={!form.countryId}>
+                                <option value="">{form.countryId ? '— Select —' : '— Select country first —'}</option>
+                                {treatmentOptions(gstOptions, countries, form.countryId).map(t => <option key={t.id} value={t.value}>{t.label}</option>)}
+                            </select>
+                        </div>
+                        <div className="jf-field">
+                            <label>{isIndiaCountry(countries, form.countryId) ? 'Tax Number / GSTIN' : 'Tax Number'} {GST_REGISTERED.includes(form.gstTreatment) && isIndiaCountry(countries, form.countryId) && <span className="req">*</span>}</label>
+                            <input name="taxNumber" className="jf-input" value={form.taxNumber} onChange={handle} placeholder="15-character GSTIN" />
+                        </div>
+                    </div>
+                    <div className="jf-row">
+                        <div className="jf-field">
                             <label>Trade License No.</label>
                             <input name="tradeLicenseNo" className="jf-input" value={form.tradeLicenseNo} onChange={handle} />
                         </div>
@@ -249,12 +289,8 @@ const SupplierCreateForm = ({ onClose, onCreated }) => {
                             <input name="tradeLicenseExpiry" type="date" className="jf-input" value={form.tradeLicenseExpiry} onChange={handle} />
                         </div>
                         <div className="jf-field">
-                            <label>VAT Number</label>
+                            <label>VAT Number {form.gstTreatment === 'VAT_REGISTERED' && <span className="req">*</span>}</label>
                             <input name="vatNumber" className="jf-input" value={form.vatNumber} onChange={handle} />
-                        </div>
-                        <div className="jf-field">
-                            <label>Tax Number</label>
-                            <input name="taxNumber" className="jf-input" value={form.taxNumber} onChange={handle} />
                         </div>
                     </div>
                     <div className="jf-row">
@@ -295,6 +331,7 @@ const SupplierList = () => {
     const [loading, setLoading]       = useState(false);
     const [applied, setApplied]       = useState({ ...DEFAULT_FILTERS });
     const [showCreate, setShowCreate] = useState(false);
+    const [exporting, setExporting]   = useState(false);
 
     const gridRef = useRef({ pageSize: 200, sortCol: 'SupplierName', sortDir: 'ASC', applied: DEFAULT_FILTERS });
     useEffect(() => { gridRef.current = { pageSize, sortCol, sortDir, applied }; }, [pageSize, sortCol, sortDir, applied]);
@@ -358,6 +395,30 @@ const SupplierList = () => {
         });
     }, [supplierCategories, currencies, paymentTerms]); // eslint-disable-line
 
+    // Exports every record matching the current filters and sort, not only the visible page.
+    const exportAll = async () => {
+        setExporting(true);
+        try {
+            const all = [];
+            let pg = 1, pages = 1;
+            do {
+                const q = new URLSearchParams({ page: pg, pageSize: 1000, sortCol, sortDir });
+                if (applied.searchText)      q.set('searchText',     applied.searchText);
+                if (applied.categoryId)      q.set('categoryId',     applied.categoryId);
+                if (applied.supplierType)    q.set('supplierType',   applied.supplierType);
+                if (applied.currencyId)      q.set('currencyId',     applied.currencyId);
+                if (applied.paymentTermsId)  q.set('paymentTermsId', applied.paymentTermsId);
+                if (applied.isActive !== '') q.set('isActive',       applied.isActive);
+                const res = await fetch(`${variables.API_URL}supplier/search?${q}`, { headers: authHeaders() }).then(r => r.json());
+                all.push(...(res.data || []));
+                pages = res.totalPages || 1;
+                pg++;
+            } while (pg <= pages);
+            downloadSuppliersCsv(all);
+        } catch (e) { console.error(e); }
+        finally { setExporting(false); }
+    };
+
     const handleSort = (col) => {
         const dir = sortCol === col && sortDir === 'ASC' ? 'DESC' : 'ASC';
         setSortCol(col); setSortDir(dir); setPage(1);
@@ -409,6 +470,7 @@ const SupplierList = () => {
                             <select className="filter-select" style={{ width: 110 }} value={pageSize} onChange={e => changePageSize(Number(e.target.value))}>
                                 {(window.matchMedia('(max-width:768px)').matches ? [10, 20, 50, 100, 200] : PAGE_SIZES).map(n => <option key={n} value={n}>{n} / page</option>)}
                             </select>
+                            <button className="btn-sec" onClick={exportAll} disabled={exporting || totalRows === 0}>{exporting ? 'Exporting…' : '⬇ Export CSV'}</button>
                             {canAdd && <button className="btn-pri" onClick={() => setShowCreate(true)}>+ Add Supplier</button>}
                         </div>
                     </div>

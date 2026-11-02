@@ -13,6 +13,7 @@ import RowLink from '../../common/RowLink';
 import ApprovalHistoryModal from '../../common/ApprovalHistoryModal';
 import { useApprovalLevels, pendingLevelCode } from '../../common/useApprovalLevels';
 import PoInfoModal from './PoInfoModal';
+import SupplierComplianceWarning from './SupplierComplianceWarning';
 import LookupSelect from '../../common/LookupSelect';
 import { ColFilter, applyColFilters, matchNote } from '../../common/GridColumnFilter';
 
@@ -58,7 +59,9 @@ const StatusBadge = ({ status, poId, level }) => {
 // ── New PO Form ───────────────────────────────────────────────────
 const PoForm = ({ onClose, onSaved }) => {
     const currentUser = useCurrentUser();
-    const { lookups } = useLookup();
+    const { lookups, getSetting } = useLookup();
+    // Per-company switch: '1' = only approved suppliers can be picked on a PO.
+    const approvedOnly = getSetting('Biz.Supplier.RequireApprovedForPO', '1') === '1' ? '&isApprovedVendor=true' : '';
     const { isReq }   = useFieldConfig('PO');
     const { currencies, paymentTerms, deliveryTerms } = lookups;
     const [budgetCategories, setBudgetCategories] = useState([]);
@@ -323,6 +326,7 @@ const PoForm = ({ onClose, onSaved }) => {
                     </div>
 
                     <FormSection label="Supplier" />
+                    <SupplierComplianceWarning supplierId={form.supplierId} />
                     <div className="pf-row">
                         {/* ── Supplier lookup ── */}
                         <div className="pf-field pf-f2" style={{ position: 'relative' }}>
@@ -333,7 +337,7 @@ const PoForm = ({ onClose, onSaved }) => {
                                 error={errors.supplierId}
                                 tone="green"
                                 placeholder="Select or type to search supplier…"
-                                buildUrl={t => `${variables.API_URL}supplier/search?searchText=${encodeURIComponent(t)}&pageSize=${LOOKUP_PAGE_SIZE}&page=1`}
+                                buildUrl={t => `${variables.API_URL}supplier/search?searchText=${encodeURIComponent(t)}${approvedOnly}&pageSize=${LOOKUP_PAGE_SIZE}&page=1`}
                                 itemKey={s => s.supplierId}
                                 renderItem={s => (
                                     <>

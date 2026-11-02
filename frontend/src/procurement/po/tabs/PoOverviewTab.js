@@ -7,6 +7,7 @@ import { fmt, fmtDate, today, PRIORITY_CONFIG } from '../../procurementConstants
 import { useFieldConfig } from '../../../FieldConfigContext';
 import AmountInput from '../../../common/AmountInput';
 import LookupSelect from '../../../common/LookupSelect';
+import SupplierComplianceWarning from '../SupplierComplianceWarning';
 
 const LOOKUP_PAGE_SIZE = 25;
 
@@ -19,7 +20,9 @@ const Field = ({ label, children, mono }) => (
 
 const PoOverviewTab = ({ po, onRefresh }) => {
     const currentUser  = useCurrentUser();
-    const { lookups, vlist, getStatusConfig } = useLookup();
+    const { lookups, vlist, getStatusConfig, getSetting } = useLookup();
+    // Per-company switch: '1' = only approved suppliers can be picked on a PO.
+    const approvedOnly = getSetting('Biz.Supplier.RequireApprovedForPO', '1') === '1' ? '&isApprovedVendor=true' : '';
     const { isReq } = useFieldConfig('PO');
     const { currencies, paymentTerms, deliveryTerms, budgetCategories } = lookups;
     const priorities = vlist?.['PR.Priority'] || [];
@@ -212,6 +215,7 @@ const PoOverviewTab = ({ po, onRefresh }) => {
                 </div>
 
                 {/* Row 2: Supplier live-search */}
+                <SupplierComplianceWarning supplierId={form.supplierId} />
                 <div style={row}>
                     <div style={{ ...field, flex: 3, position: 'relative' }}>
                         <label style={lbl}>Supplier {isReq('supplierId') && <span className="req">*</span>}</label>
@@ -220,7 +224,7 @@ const PoOverviewTab = ({ po, onRefresh }) => {
                             label={form.supplierLabel}
                             tone="green"
                             placeholder="Select or type to search supplier…"
-                            buildUrl={t => `${variables.API_URL}supplier/search?searchText=${encodeURIComponent(t)}&pageSize=${LOOKUP_PAGE_SIZE}&page=1`}
+                            buildUrl={t => `${variables.API_URL}supplier/search?searchText=${encodeURIComponent(t)}${approvedOnly}&pageSize=${LOOKUP_PAGE_SIZE}&page=1`}
                             itemKey={s => s.supplierId}
                             renderItem={s => (
                                 <>

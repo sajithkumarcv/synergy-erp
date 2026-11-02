@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { variables, authHeaders } from '../../Variable';
 import { useCurrentUser } from '../../AuthContext';
 import { useLookup } from '../../LookupContext';
-import { fmt } from '../supplierConstants';
+import { fmt, gstErrors, GST_REGISTERED, isIndiaCountry, allowedTreatments, treatmentOptions } from '../supplierConstants';
 import ValidationModal from '../../common/ValidationModal';
 import AmountInput from '../../common/AmountInput';
+import ApprovalCard from './ApprovalCard';
 
 const PAYMENT_MODES = ['Bank Transfer', 'Cheque', 'Cash', 'Letter of Credit (LC)', 'Online Transfer'];
 
@@ -18,6 +19,7 @@ const normalise = (s, currencies, paymentTerms, supplierCategories, countries) =
         paymentTermsId:     s.paymentTermsId     != null ? String(s.paymentTermsId)     : (paymentTerms.length       ? String(paymentTerms[0].id)                            : ''),
         supplierCategoryId: s.supplierCategoryId != null ? String(s.supplierCategoryId) : (supplierCategories.length ? String(supplierCategories[0].supplierCategoryId)       : ''),
         countryId:          s.countryId          != null ? String(s.countryId)          : '',
+        gstTreatment:       s.gstTreatment || '',
         tradeLicenseExpiry: s.tradeLicenseExpiry ? s.tradeLicenseExpiry.slice(0, 10) : '',
         rating:             s.rating != null ? String(s.rating) : '',
         creditLimit:        s.creditLimit ?? 0,
@@ -34,8 +36,9 @@ const Row = ({ label, value, mono }) => (
 
 const OverviewTab = ({ supplier, onRefresh, canEdit = true }) => {
     const currentUser = useCurrentUser();
-    const { lookups, baseCurrencyCode } = useLookup();
+    const { lookups, baseCurrencyCode, getVList } = useLookup();
     const { currencies, paymentTerms } = lookups;
+    const gstOptions = getVList('Supplier', 'GstTreatment');
     const [supplierCategories, setSupplierCategories] = useState([]);
     const { countries } = lookups;
 
@@ -58,13 +61,19 @@ const OverviewTab = ({ supplier, onRefresh, canEdit = true }) => {
     const cancel = () => { setEditing(false); setForm(null); };
     const handle = (e) => {
         const { name, value, type, checked } = e.target;
-        setForm(p => ({ ...p, [name]: type === 'checkbox' ? checked : value }));
+        setForm(p => {
+            const next = { ...p, [name]: type === 'checkbox' ? checked : value };
+            // A different country offers different Tax Treatment items: clear one that no longer fits.
+            if (name === 'countryId' && !allowedTreatments(countries, value).includes(p.gstTreatment)) next.gstTreatment = '';
+            return next;
+        });
     };
     const save = async () => {
         const errs = [];
         if (!form.supplierName?.trim()) errs.push('Supplier Name is required.');
         if (!form.currencyId)           errs.push('Currency is required.');
         if (!form.paymentTermsId)       errs.push('Payment Terms are required.');
+        errs.push(...gstErrors(form, countries));
         if (errs.length) { setValidErrors(errs); return; }
         setSaving(true);
         try {
@@ -81,6 +90,7 @@ const OverviewTab = ({ supplier, onRefresh, canEdit = true }) => {
                     creditDays:         form.creditDays  != null ? parseInt(form.creditDays)        : 0,
                     leadTimeDays:       form.leadTimeDays       ? parseInt(form.leadTimeDays)       : null,
                     tradeLicenseExpiry: form.tradeLicenseExpiry || null,
+                    gstTreatment:       form.gstTreatment || null,
                     modifiedBy:         currentUser,
                 })
             });
@@ -131,7 +141,7 @@ const OverviewTab = ({ supplier, onRefresh, canEdit = true }) => {
                         <div className="jf-field"><label>Supplier Type</label><input name="supplierType" className="jf-input" value={form.supplierType || ''} onChange={handle} placeholder="e.g. Manufacturer" /></div>
                         <div className="jf-field"><label>Account Manager</label><input name="accountManager" className="jf-input" value={form.accountManager || ''} onChange={handle} /></div>
                         <div className="jf-field">
-                            <label>Country</label>
+                            <label>Country <span className="req">*</span></label>
                             <select name="countryId" className="jf-input" value={form.countryId || ''} onChange={handle}>
                                 <option value="">— Select —</option>
                                 {countries.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
@@ -146,10 +156,6 @@ const OverviewTab = ({ supplier, onRefresh, canEdit = true }) => {
                                 {[1,2,3,4,5].map(n => <option key={n} value={n}>{'★'.repeat(n)} ({n})</option>)}
                             </select>
                         </div>
-                        <div className="jf-field" style={{ flex: '0 0 160px' }}>
-                            <label>Approved Vendor</label>
-                            <label className="tab-check"><input type="checkbox" name="isApprovedVendor" checked={!!form.isApprovedVendor} onChange={handle} /><span>AVL Approved</span></label>
-                        </div>
                         <div className="jf-field" style={{ flex: '0 0 130px' }}>
                             <label>On Hold</label>
                             <label className="tab-check"><input type="checkbox" name="isOnHold" checked={!!form.isOnHold} onChange={handle} /><span>On Hold</span></label>
@@ -163,6 +169,19 @@ const OverviewTab = ({ supplier, onRefresh, canEdit = true }) => {
                     <div className="jf-section"><span className="jf-section-label">Compliance</span><div className="jf-section-line" /></div>
                     <div className="jf-row">
                         <div className="jf-field">
+                            <label>Tax Treatment <span className="req">*</span></label>
+                            <select name="gstTreatment" className="jf-input" value={form.gstTreatment || ''} onChange={handle} disabled={!form.countryId}>
+                                <option value="">{form.countryId ? '— Select —' : '— Select country first —'}</option>
+                                {treatmentOptions(gstOptions, countries, form.countryId).map(t => <option key={t.id} value={t.value}>{t.label}</option>)}
+                            </select>
+                        </div>
+                        <div className="jf-field">
+                            <label>{isIndiaCountry(countries, form.countryId) ? 'Tax Number / GSTIN' : 'Tax Number'} {GST_REGISTERED.includes(form.gstTreatment) && isIndiaCountry(countries, form.countryId) && <span className="req">*</span>}</label>
+                            <input name="taxNumber" className="jf-input" value={form.taxNumber || ''} onChange={handle} placeholder="15-character GSTIN" />
+                        </div>
+                    </div>
+                    <div className="jf-row">
+                        <div className="jf-field">
                             <label>Trade License No.</label>
                             <input name="tradeLicenseNo" className="jf-input" value={form.tradeLicenseNo || ''} onChange={handle} />
                         </div>
@@ -171,12 +190,8 @@ const OverviewTab = ({ supplier, onRefresh, canEdit = true }) => {
                             <input name="tradeLicenseExpiry" type="date" className="jf-input" value={form.tradeLicenseExpiry || ''} onChange={handle} />
                         </div>
                         <div className="jf-field">
-                            <label>VAT Number</label>
+                            <label>VAT Number {form.gstTreatment === 'VAT_REGISTERED' && <span className="req">*</span>}</label>
                             <input name="vatNumber" className="jf-input" value={form.vatNumber || ''} onChange={handle} />
-                        </div>
-                        <div className="jf-field">
-                            <label>Tax Number</label>
-                            <input name="taxNumber" className="jf-input" value={form.taxNumber || ''} onChange={handle} />
                         </div>
                     </div>
 
@@ -226,6 +241,7 @@ const OverviewTab = ({ supplier, onRefresh, canEdit = true }) => {
             </div>
 
             <div className="ov-detail-grid">
+                <ApprovalCard supplier={supplier} onRefresh={onRefresh} />
                 <div className="ov-detail-card">
                     <div className="ov-detail-card-title">Identity</div>
                     <div className="ov-detail-rows">
@@ -243,7 +259,6 @@ const OverviewTab = ({ supplier, onRefresh, canEdit = true }) => {
                         <Row label="Type"             value={supplier.supplierType}         />
                         <Row label="Country"          value={supplier.countryName}          />
                         <Row label="Status"           value={supplier.isActive ? 'Active' : 'Inactive'} />
-                        <Row label="Approved Vendor"  value={supplier.isApprovedVendor ? '✔ Yes' : 'No'} />
                         <Row label="On Hold"          value={supplier.isOnHold         ? '⚠ Yes' : 'No'} />
                         <Row label="Lead Time"        value={supplier.leadTimeDays != null ? `${supplier.leadTimeDays} days` : null} />
                         <Row label="Rating"           value={supplier.rating != null ? ('★'.repeat(supplier.rating) + '☆'.repeat(5 - supplier.rating)) : null} />
@@ -272,7 +287,8 @@ const OverviewTab = ({ supplier, onRefresh, canEdit = true }) => {
                     <div className="ov-detail-card-title">Compliance</div>
                     <div className="ov-detail-rows">
                         <Row label="VAT / TRN"          value={supplier.vatNumber}          mono />
-                        <Row label="Tax Number"         value={supplier.taxNumber}          mono />
+                        <Row label="Tax Treatment" value={(gstOptions.find(t => t.value === supplier.gstTreatment) || {}).label || supplier.gstTreatment} />
+                        <Row label="Tax Number / GSTIN" value={supplier.taxNumber}          mono />
                         <Row label="Trade License No."  value={supplier.tradeLicenseNo}     mono />
                         <Row label="License Expiry"     value={supplier.tradeLicenseExpiry ? new Date(supplier.tradeLicenseExpiry).toLocaleDateString() : null} />
                     </div>
