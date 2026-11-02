@@ -177,7 +177,7 @@ const OverviewTab = ({ supplier, onRefresh, canEdit = true }) => {
                         </div>
                         <div className="jf-field">
                             <label>{isIndiaCountry(countries, form.countryId) ? 'Tax Number / GSTIN' : 'Tax Number'} {GST_REGISTERED.includes(form.gstTreatment) && isIndiaCountry(countries, form.countryId) && <span className="req">*</span>}</label>
-                            <input name="taxNumber" className="jf-input" value={form.taxNumber || ''} onChange={handle} placeholder="15-character GSTIN" />
+                            <input name="taxNumber" className="jf-input" value={form.taxNumber || ''} onChange={handle} placeholder={isIndiaCountry(countries, form.countryId) ? '15-character GSTIN' : ''} />
                         </div>
                     </div>
                     <div className="jf-row">
