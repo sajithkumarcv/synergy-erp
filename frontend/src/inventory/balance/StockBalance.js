@@ -177,7 +177,25 @@ const LedgerDrawer = ({ item, onClose }) => {
 const BalanceRow = ({ row, idx }) => {
     const [showJobPop, setShowJobPop] = useState(false);
     const [showLedger, setShowLedger] = useState(false);
+    const [showBatches, setShowBatches] = useState(false);
+    const [batches, setBatches] = useState(null);       // null = not loaded yet
+    const [batchErr, setBatchErr] = useState('');
     const jobStockRef = useRef(null);
+
+    // 2026-11-15d: the stock value is the sum of what is left of each receipt batch at that batch's price.
+    const toggleBatches = () => {
+        const open = !showBatches;
+        setShowBatches(open);
+        if (open && batches === null) {
+            setBatchErr('');
+            fetch(`${variables.API_URL}stockbalance/batches/${row.itemId}`, { headers: authHeaders() })
+                .then(r => (r.ok ? r.json() : Promise.reject()))
+                .then(d => setBatches(Array.isArray(d) ? d : []))
+                .catch(() => { setBatches([]); setBatchErr('Could not load the batches.'); });
+        }
+    };
+    const batchQty   = (batches || []).reduce((s, b) => s + (b.qtyRemaining || 0), 0);
+    const batchValue = (batches || []).reduce((s, b) => s + (b.remainingValue || 0), 0);
 
     return (
         <>
@@ -208,7 +226,10 @@ const BalanceRow = ({ row, idx }) => {
                 <td className="po-num-cell">
                     <span className="bal-qty-store">{fmt(row.qtyStoreStock, 4)}</span>
                 </td>
-                <td className="po-num-cell" style={{ fontWeight: 700, color: '#1e3a5f' }}>{fmt(row.stockValue)}</td>
+                <td className="po-num-cell" onClick={toggleBatches} title="Click to see the batches this value is made of"
+                    style={{ fontWeight: 700, color: '#1e3a5f', cursor: 'pointer' }}>
+                    {fmt(row.stockValue)} <span style={{ color: '#64748b', fontSize: 10 }}>{showBatches ? '▲' : '▼'}</span>
+                </td>
                 <td>{row.categoryName || '—'}</td>
                 <td>{row.itemTypeName || '—'}</td>
                 <td>{row.baseUom || '—'}</td>
@@ -217,6 +238,54 @@ const BalanceRow = ({ row, idx }) => {
                     {row.lastReceiptDate ? fmtDate(row.lastReceiptDate) : '—'}
                 </td>
             </tr>
+            {showBatches && (
+                <tr style={{ background: '#f8fafc' }}>
+                    <td colSpan={10} style={{ padding: '8px 16px 12px 32px' }}>
+                        {batches === null ? (
+                            <span style={{ fontSize: 12, color: '#64748b' }}>Loading batches…</span>
+                        ) : batchErr ? (
+                            <span style={{ fontSize: 12, color: '#dc2626' }}>{batchErr}</span>
+                        ) : batches.length === 0 ? (
+                            <span style={{ fontSize: 12, color: '#64748b' }}>No receipt batches left (the value, if any, comes from the average cost).</span>
+                        ) : (
+                            <table style={{ fontSize: 12, borderCollapse: 'collapse', minWidth: 640 }}>
+                                <thead>
+                                    <tr style={{ color: '#64748b', textAlign: 'left' }}>
+                                        <th style={{ padding: '3px 12px 3px 0' }}>Stock</th>
+                                        <th style={{ padding: '3px 12px' }}>Job</th>
+                                        <th style={{ padding: '3px 12px' }}>Received</th>
+                                        <th style={{ padding: '3px 12px' }}>Ref</th>
+                                        <th style={{ padding: '3px 12px', textAlign: 'right' }}>Qty received</th>
+                                        <th style={{ padding: '3px 12px', textAlign: 'right' }}>Qty left</th>
+                                        <th style={{ padding: '3px 12px', textAlign: 'right' }}>Unit cost</th>
+                                        <th style={{ padding: '3px 0 3px 12px', textAlign: 'right' }}>Value left</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {batches.map(b => (
+                                        <tr key={b.ledgerId} style={{ borderTop: '1px solid #e2e8f0' }}>
+                                            <td style={{ padding: '3px 12px 3px 0' }}>{b.pool}</td>
+                                            <td style={{ padding: '3px 12px' }}>{b.jobId || '—'}</td>
+                                            <td style={{ padding: '3px 12px', whiteSpace: 'nowrap' }}>{b.receiptDate ? fmtDate(b.receiptDate) : '—'}</td>
+                                            <td style={{ padding: '3px 12px' }}>{b.refNo || '—'}</td>
+                                            <td style={{ padding: '3px 12px', textAlign: 'right' }}>{fmt(b.qtyReceived, 4)}</td>
+                                            <td style={{ padding: '3px 12px', textAlign: 'right', fontWeight: 600 }}>{fmt(b.qtyRemaining, 4)}</td>
+                                            <td style={{ padding: '3px 12px', textAlign: 'right' }}>{fmtPrice(b.unitCost)}</td>
+                                            <td style={{ padding: '3px 0 3px 12px', textAlign: 'right', fontWeight: 600 }}>{fmt(b.remainingValue)}</td>
+                                        </tr>
+                                    ))}
+                                    <tr style={{ borderTop: '2px solid #cbd5e1', fontWeight: 700 }}>
+                                        <td colSpan={5} style={{ padding: '4px 12px 0 0' }}>Total in batches</td>
+                                        <td style={{ padding: '4px 12px 0', textAlign: 'right' }}>{fmt(batchQty, 4)}</td>
+                                        <td />
+                                        <td style={{ padding: '4px 0 0 12px', textAlign: 'right' }}>{fmt(batchValue)}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        )}
+                    </td>
+                </tr>
+            )}
             {showLedger && <LedgerDrawer item={row} onClose={() => setShowLedger(false)} />}
         </>
     );
@@ -359,7 +428,7 @@ const StockBalance = () => {
                     <div style={{ display: 'flex', gap: 12, marginTop: 14, flexWrap: 'wrap' }}>
                         {[
                             { label: 'Items Shown',       value: totalRows,          decimals: 0, accent: '#1e293b', bg: '#f1f5f9', border: '#e2e8f0', sub: 'matching filters' },
-                            { label: 'Total Stock Value',  value: totalValue,         decimals: 2, accent: '#166534', bg: '#f0fdf4', border: '#bbf7d0', sub: 'at avg unit cost', prefix: '' },
+                            { label: 'Total Stock Value',  value: totalValue,         decimals: 2, accent: '#166534', bg: '#f0fdf4', border: '#bbf7d0', sub: 'FIFO, by receipt batch', prefix: '' },
                             { label: 'Job Stock',          value: totalJob,           decimals: 4, accent: '#1e40af', bg: '#eff6ff', border: '#bfdbfe', sub: 'reserved for jobs' },
                             { label: 'Store Stock',        value: totalStore,         decimals: 4, accent: '#0369a1', bg: '#f0f9ff', border: '#bae6fd', sub: 'unreserved / general' },
                         ].map(({ label, value, decimals, accent, bg, border, sub, prefix }) => (
@@ -396,7 +465,7 @@ const StockBalance = () => {
                                 <SortTH col="categoryName">Category</SortTH>
                                 <SortTH col="itemTypeName">Type</SortTH>
                                 <SortTH col="baseUom">UOM</SortTH>
-                                <SortTH col="avgUnitCost"  right>Avg Cost</SortTH>
+                                <SortTH col="avgUnitCost"  right>FIFO Cost</SortTH>
                                 <SortTH col="lastReceiptDate">Last Receipt</SortTH>
                             </tr>
                         </thead>

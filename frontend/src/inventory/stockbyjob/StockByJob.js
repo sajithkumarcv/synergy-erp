@@ -30,7 +30,7 @@ const JobItemRows = ({ jobId, colSpan }) => {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                     <thead>
                         <tr style={{ color: '#64748b' }}>
-                            {['Item', 'Category', 'UOM', 'Qty Balance', 'Avg Cost', 'Stock Value', 'Last Movement'].map((h, i) => (
+                            {['Item', 'Category', 'UOM', 'Qty Balance', 'FIFO Cost', 'Stock Value', 'Last Movement'].map((h, i) => (
                                 <th key={h} style={{ padding: '6px 12px', textAlign: i >= 3 && i <= 5 ? 'right' : 'left', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.4px', borderBottom: '1px solid #e2e8f0', paddingLeft: i === 0 ? 28 : 12 }}>{h}</th>
                             ))}
                         </tr>

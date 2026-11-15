@@ -229,10 +229,10 @@ const JobDetailPage = () => {
     // parentOnly tabs only show on main jobs (jobs that are not themselves additional)
     const isAdditionalJob = !!job?.parentJobId;
     // Freezed (3), Completed (4) and Cancelled (5) jobs are read-only — strip
-    // every actionable tab (approval workflow, budget approve/revise). History
-    // and Overview stay visible so users can still inspect what happened.
+    // the approval workflow tab. The Budget tab stays visible (2026-11-15: users must be able to
+    // VIEW a closed job's budget); JobBudgetTab itself hides edit / approve / revise when the job is closed.
     const isClosedFinal  = [3, 4, 5].includes(job?.jobStatusId);
-    const LOCKED_HIDE_TABS = new Set(['approval', 'budget']);
+    const LOCKED_HIDE_TABS = new Set(['approval']);
     const visibleTabs = JOB_TABS.filter(t =>
         canAccessTab(t, canDo)
         && !(t.parentOnly && isAdditionalJob)

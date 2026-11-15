@@ -129,6 +129,26 @@ const IssueLinesTab = ({ issue, lines, onRefresh }) => {
         return c ? (Number(c.conversionFactor) || 1) : 1;
     };
 
+    // ── FIFO split (2026-11-15c) ──────────────────────────────
+    // A line bigger than what is left of the current receipt batch is saved as one line per batch
+    // price (10 x 200 + 5 x 250). Returns null when one price covers the whole quantity.
+    // qty is in the line's UOM; the server walks in BASE units, so convert both ways with the factor.
+    const fifoLayers = async (itemId, qty, uomId, convs) => {
+        const f = factorFor(uomId, convs) || 1;
+        // Including costing: store-stock batches. Excluding costing: the job's own stock batches.
+        const jobPart = isJobMode ? `&jobId=${encodeURIComponent(issue.jobId)}` : '';
+        const r = await fetch(`${variables.API_URL}stockissue/fifolayers/${itemId}?qty=${encodeURIComponent(qty * f)}${jobPart}`, { headers: authHeaders() });
+        if (!r.ok) return null;
+        const rows = await r.json();
+        if (!Array.isArray(rows) || rows.length < 2) return null;
+        const round4 = v => Math.round(v * 10000) / 10000;
+        const parts = rows.map(x => ({ qty: round4(Number(x.qty) / f), unitCost: Number(x.unitCost) * f }));
+        // the last part takes the remainder so rounding never changes the total quantity
+        const others = parts.slice(0, -1).reduce((s, p) => s + p.qty, 0);
+        parts[parts.length - 1].qty = round4(qty - others);
+        return parts.some(p => p.qty <= 0) ? null : parts;
+    };
+
     // ── Stock availability state ──────────────────────────────
     const [stockAvail,   setStockAvail]   = useState(null);   // { availableQty }
     const [stockLoading, setStockLoading] = useState(false);
@@ -158,6 +178,22 @@ const IssueLinesTab = ({ issue, lines, onRefresh }) => {
     const qtyNum      = Number(form.qty) || 0;
     const availQty    = stockAvail?.availableQty ?? null;
     const stockShort  = availQty !== null && qtyNum > 0 && qtyNum > availQty;
+
+    // The price is still the FIFO price the screen filled in (not typed over by the user).
+    const costUntouched = baseCost != null && form.unitCost !== ''
+        && Math.abs(Number(form.unitCost) - baseCost * factorFor(form.uomId)) < 0.00005;
+
+    // Preview of the batches a new "Include in Costing" line will be split into
+    const [layerPreview, setLayerPreview] = useState(null);
+    useEffect(() => {
+        if (editLine || !form.item || !(qtyNum > 0) || !costUntouched) { setLayerPreview(null); return; }
+        let off = false;
+        const t = setTimeout(async () => {
+            try { const p = await fifoLayers(form.item.itemId, qtyNum, form.uomId, conversions); if (!off) setLayerPreview(p); }
+            catch { if (!off) setLayerPreview(null); }
+        }, 400);
+        return () => { off = true; clearTimeout(t); };
+    }, [form.item, form.qty, form.uomId, form.unitCost, conversions, baseCost, editLine, isJobMode]); // eslint-disable-line
 
     // ── Item selected handler ─────────────────────────────────
     const handleItemSelect = async (item) => {
@@ -299,26 +335,35 @@ const IssueLinesTab = ({ issue, lines, onRefresh }) => {
             if (!q || q <= 0) { failures.push(`${line.itemCode}: enter a quantity`); continue; }
             try {
                 const unitCost = await costForPulled(line);
-                const res = await fetch(`${variables.API_URL}stockissue/line/save`, {
-                    method: 'POST', headers: authHeaders(),
-                    body: JSON.stringify({
-                        issueLineId:   0,
-                        issueId:       issue.issueId,
-                        lineNum:       0,
-                        itemId:        line.itemId,
-                        itemDesc:      null,
-                        qty:           q,
-                        uomId:         line.uomId ?? null,
-                        unitCost,
-                        notes:         null,
-                        requestLineId: line.requestLineId,
-                        createdBy:     currentUser,
-                    }),
-                });
-                if (!res.ok) {
-                    const d = await res.json().catch(() => ({}));
-                    failures.push(`${line.itemCode}: ${d?.message || 'failed'}`);
-                } else {
+                // Including costing: one line per receipt batch price (see fifoLayers)
+                let parts = null;
+                {
+                    const cr = await fetch(`${variables.API_URL}item/${line.itemId}/uom-conversions`, { headers: authHeaders() });
+                    const convs = cr.ok ? await cr.json() : [];
+                    parts = await fifoLayers(line.itemId, q, line.uomId, Array.isArray(convs) ? convs : []);
+                }
+                for (const part of (parts || [{ qty: q, unitCost }])) {
+                    const res = await fetch(`${variables.API_URL}stockissue/line/save`, {
+                        method: 'POST', headers: authHeaders(),
+                        body: JSON.stringify({
+                            issueLineId:   0,
+                            issueId:       issue.issueId,
+                            lineNum:       0,
+                            itemId:        line.itemId,
+                            itemDesc:      null,
+                            qty:           part.qty,
+                            uomId:         line.uomId ?? null,
+                            unitCost:      part.unitCost,
+                            notes:         null,
+                            requestLineId: line.requestLineId,
+                            createdBy:     currentUser,
+                        }),
+                    });
+                    if (!res.ok) {
+                        const d = await res.json().catch(() => ({}));
+                        failures.push(`${line.itemCode}: ${d?.message || 'failed'}`);
+                        break;
+                    }
                     savedAny = true;
                 }
             } catch {
@@ -343,9 +388,11 @@ const IssueLinesTab = ({ issue, lines, onRefresh }) => {
         if (pullDirty.current) { pullDirty.current = false; onRefresh(); }
     };
 
-    const lineTotal = () => (Number(form.qty) || 0) * (Number(form.unitCost) || 0);
+    const lineTotal = () => (layerPreview && costUntouched)
+        ? layerPreview.reduce((s, p) => s + p.qty * p.unitCost, 0)      // split across batches: add each batch up
+        : (Number(form.qty) || 0) * (Number(form.unitCost) || 0);
 
-    const save = () => {
+    const save = async () => {
         if (!form.item)                                                                         { setError('Select an item.'); return; }
         if (!form.qty || isNaN(Number(form.qty)) || Number(form.qty) <= 0)                     { setError('Valid quantity required.'); return; }
         if (form.unitCost === '' || isNaN(Number(form.unitCost)) || Number(form.unitCost) < 0)  { setError('Valid unit cost required.'); return; }
@@ -354,34 +401,51 @@ const IssueLinesTab = ({ issue, lines, onRefresh }) => {
             return;
         }
         setError(''); setSaving(true);
-        fetch(`${variables.API_URL}stockissue/line/save`, {
-            method: 'POST', headers: authHeaders(),
-            body: JSON.stringify({
-                issueLineId: editLine?.issueLineId || 0,
-                issueId:     issue.issueId,
-                lineNum:     editLine?.lineNum || 0,
-                itemId:      form.item.itemId,
-                itemDesc:    form.itemDesc.trim() || null,
-                qty:         Number(form.qty),
-                uomId:       form.uomId ? Number(form.uomId) : null,
-                unitCost:    Number(form.unitCost),
-                notes:       form.notes.trim() || null,
-                // Preserve the link when editing a line that was pulled from the
-                // request — omitting it would silently unlink the line and the
-                // request would never be credited on confirm.
-                requestLineId: editLine?.requestLineId ?? null,
-                createdBy:   currentUser,
-                modifiedBy:  editLine ? currentUser : null,
-            }),
-        })
-            .then(r => r.json().then(d => ({ ok: r.ok, d })))
-            .then(({ ok, d }) => {
-                if (!ok) { setError(d.message || 'Error.'); return; }
-                setShowForm(false);
-                onRefresh();
-            })
-            .catch(() => setError('Network error.'))
-            .finally(() => setSaving(false));
+        let savedAny = false;
+        try {
+            // New "Include in Costing" line at the FIFO price the screen filled in: one line per
+            // receipt batch price. A price typed over by the user, or an edit, is saved as one line.
+            let parts = null;
+            if (!editLine && costUntouched) {
+                try { parts = await fifoLayers(form.item.itemId, Number(form.qty), form.uomId, conversions); } catch { parts = null; }
+            }
+            for (const part of (parts || [{ qty: Number(form.qty), unitCost: Number(form.unitCost) }])) {
+                const r = await fetch(`${variables.API_URL}stockissue/line/save`, {
+                    method: 'POST', headers: authHeaders(),
+                    body: JSON.stringify({
+                        issueLineId: editLine?.issueLineId || 0,
+                        issueId:     issue.issueId,
+                        lineNum:     editLine?.lineNum || 0,
+                        itemId:      form.item.itemId,
+                        itemDesc:    form.itemDesc.trim() || null,
+                        qty:         part.qty,
+                        uomId:       form.uomId ? Number(form.uomId) : null,
+                        unitCost:    part.unitCost,
+                        notes:       form.notes.trim() || null,
+                        // Preserve the link when editing a line that was pulled from the
+                        // request — omitting it would silently unlink the line and the
+                        // request would never be credited on confirm.
+                        requestLineId: editLine?.requestLineId ?? null,
+                        createdBy:   currentUser,
+                        modifiedBy:  editLine ? currentUser : null,
+                    }),
+                });
+                const d = await r.json().catch(() => ({}));
+                if (!r.ok) {
+                    setError((d.message || 'Error.') + (savedAny ? ' (an earlier batch line was already saved - check the lines.)' : ''));
+                    if (savedAny) onRefresh();
+                    return;
+                }
+                savedAny = true;
+            }
+            setShowForm(false);
+            onRefresh();
+        } catch {
+            setError('Network error.');
+            if (savedAny) onRefresh();
+        } finally {
+            setSaving(false);
+        }
     };
 
     const deleteLine = (lineId) => {
@@ -630,6 +694,13 @@ const IssueLinesTab = ({ issue, lines, onRefresh }) => {
                                         ) : null}
                                     </div>
                                 )}
+                                {/* FIFO split preview (2026-11-15c) */}
+                                {layerPreview && costUntouched && (
+                                    <div style={{ fontSize: 10.5, marginTop: 3, color: '#92400e', fontWeight: 500 }}>
+                                        ⚑ Spans {layerPreview.length} receipt batches - will be saved as {layerPreview.length} lines:{' '}
+                                        {layerPreview.map(p => `${fmt(p.qty, 4)} × ${fmtPrice(p.unitCost)}`).join(' + ')}
+                                    </div>
+                                )}
                             </div>
                             <div className="prd-lf-field">
                                 <label>UOM</label>
@@ -646,7 +717,7 @@ const IssueLinesTab = ({ issue, lines, onRefresh }) => {
                                     )}
                                     {!costLoading && form.item && form.unitCost !== '' && (
                                         <span style={{ marginLeft: 6, color: '#16a34a', fontSize: 10, fontWeight: 400 }}>
-                                            {isJobMode ? '↑ job cost' : '↑ FIFO price'}
+                                            {isJobMode ? '↑ FIFO price (job batches)' : '↑ FIFO price'}
                                         </span>
                                     )}
                                 </label>

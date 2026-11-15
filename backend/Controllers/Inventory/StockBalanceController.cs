@@ -185,6 +185,25 @@ namespace ERPWEB.Controllers.Inventory
         }
 
         // ═══════════════════════════════════════════════════════
+        // STOCK BATCHES (what is left of each receipt batch, at that batch's price) - 2026-11-15d
+        // GET: api/stockbalance/batches/{itemId}
+        // ═══════════════════════════════════════════════════════
+        [HttpGet("batches/{itemId:int}")]
+        public async Task<IActionResult> GetStockBatches(int itemId)
+        {
+            try
+            {
+                var rows = await _dbcon.QueryAsync<dynamic>("sp_GetStockBatches", new { ItemId = itemId });
+                return Ok(DynamicRowJson.ToCamelRows(rows));   // screen reads camelCase
+            }
+            catch (Exception ex)
+            {
+                await _dbcon.WriteLog(ex, controller: "StockBalance", action: "GetStockBatches", requestPath: HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Error retrieving stock batches." });
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════
         // STOCK REVALUATIONS (PO price changed after receipt) - 2026-11-14h
         // GET: api/stockbalance/revaluations
         // GET: api/stockbalance/revaluations/{revalId}

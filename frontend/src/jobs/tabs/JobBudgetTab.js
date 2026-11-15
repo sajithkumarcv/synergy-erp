@@ -780,7 +780,7 @@ const JobBudgetEditor = ({ job }) => {
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
                     {/* Approve — when budget work has begun (items or amounts), not yet approved */}
-                    {!header.isApproved && hasAnyBudget && canApprove && (
+                    {jobOpen && !header.isApproved && hasAnyBudget && canApprove && (
                         <button
                             onClick={() => setPwdAction('approve')}
                             style={{
@@ -792,7 +792,7 @@ const JobBudgetEditor = ({ job }) => {
                         </button>
                     )}
                     {/* Revise — only when approved (and viewing the current revision) */}
-                    {header.isApproved && canRevise && !header.isHistorical && (
+                    {jobOpen && header.isApproved && canRevise && !header.isHistorical && (
                         <button
                             onClick={() => setPwdAction('revise')}
                             style={{
@@ -839,13 +839,18 @@ const JobBudgetEditor = ({ job }) => {
             </div>
 
             {/* ── Hints ── */}
+            {!jobOpen && (
+                <div style={{ marginBottom: 16, padding: '10px 14px', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 7, fontSize: 12.5, color: '#334155' }}>
+                    🔒 This job is {job.jobStatusName || 'closed'} - the budget is shown read-only. No changes, approval or revision.
+                </div>
+            )}
             {canEdit && !hasAnyBudget && (
                 <div style={{ marginBottom: 16, padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 7, fontSize: 12.5, color: '#92400e', display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ fontSize: 16 }}>💡</span>
                     No budget set yet. Expand a cost header below to add items, or click <strong>＋ Set budget</strong> on a row to enter a lump-sum amount.
                 </div>
             )}
-            {header.isApproved && !canRevise && (
+            {jobOpen && header.isApproved && !canRevise && (
                 <div style={{ marginBottom: 16, padding: '10px 14px', background: '#f0f9ff', border: '1px solid #bfdbfe', borderRadius: 7, fontSize: 12.5, color: '#1e40af' }}>
                     🔒 Budget is approved and locked. Only users with <strong>Revise</strong> permission on Jobs can create a new revision.
                 </div>

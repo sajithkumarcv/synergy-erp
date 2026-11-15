@@ -335,7 +335,7 @@ const StockBalanceReport = () => {
                                         <Th col="qtyOnHand"       label="On Hand"      cls="r" />
                                         <Th col="qtyJobStock"     label="Job Stock"    cls="r" />
                                         <Th col="qtyStoreStock"   label="Store Stock"  cls="r" />
-                                        <Th col="avgUnitCost"     label="Avg Cost"     cls="r" />
+                                        <Th col="avgUnitCost"     label="FIFO Cost"    cls="r" />
                                         <Th col="stockValue"      label="Stock Value"  cls="r" />
                                         <Th col="lastReceiptDate" label="Last Receipt"          />
                                     </tr>

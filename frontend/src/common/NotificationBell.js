@@ -15,6 +15,7 @@ const MODULE_META = {
     STR:  { icon: '🔄', bg: '#ecfdf5', color: '#047857' },
     MOM:  { icon: '📌', bg: '#fce7f3', color: '#9d174d' },
     BOM:  { icon: '📐', bg: '#e0f2fe', color: '#0369a1' },
+    SUP:  { icon: '🏢', bg: '#fef3c7', color: '#b45309' },
 };
 
 const relTime = (d) => {
@@ -185,6 +186,7 @@ const NotificationBell = ({ userId, userName }) => {
     const goTask = (t) => {
         setOpen(false);
         if (t?.refModuleCode === 'PR' && t.refDocumentId) navigate(`/purchase-requests/${t.refDocumentId}`);
+        else if (t?.refModuleCode === 'SUP' && t.refDocumentId) navigate(`/suppliers/${t.refDocumentId}`);
         else navigate('/job-mom');
     };
     const goApproval = () => { setOpen(false); navigate('/my-approvals'); };

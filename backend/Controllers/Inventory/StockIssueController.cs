@@ -373,6 +373,30 @@ namespace ERPWEB.Controllers.Inventory
         }
 
         // ═══════════════════════════════════════════════════════
+        // FIFO LAYERS (2026-11-15c) - the FIFO walk for a quantity, one row per receipt batch price.
+        // GET: api/stockissue/fifolayers/{itemId}?qty=   (qty in the item's BASE unit)
+        // ═══════════════════════════════════════════════════════
+        [HttpGet("fifolayers/{itemId:int}")]
+        public async Task<IActionResult> GetFifoLayers(int itemId, [FromQuery] decimal qty, [FromQuery] string? jobId = null)
+        {
+            try
+            {
+                // jobId (2026-11-15e): "Not Include in Costing" = that job's own stock batches; none = store stock
+                var rows = await _dbcon.QueryAsync<dynamic>("sp_GetFifoLayers", new
+                {
+                    ItemId = itemId, QtyBase = qty,
+                    JobId = string.IsNullOrWhiteSpace(jobId) ? null : jobId.Trim()
+                });
+                return Ok(DynamicRowJson.ToCamelRows(rows));   // screen reads qty / unitCost
+            }
+            catch (Exception ex)
+            {
+                await _dbcon.WriteLog(ex, controller: "StockIssue", action: "GetFifoLayers", requestPath: HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Error retrieving FIFO layers." });
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════
         // JOB STOCK ITEMS  (EXC_COSTING item picker)
         // GET: api/stockissue/jobitems/{jobId}
         // ═══════════════════════════════════════════════════════
