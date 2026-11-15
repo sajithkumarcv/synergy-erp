@@ -29,13 +29,20 @@ const SortIcon = ({ col, sortCol, sortDir }) => {
 
 const csvEsc = v => { if (v == null) return ''; const s = String(v); return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
 
+// Long digit strings (phone, account, IBAN, tax no.) are written as ="..." so Excel keeps every digit as text.
+const TEXT_COL = /phone|mobile|account number|iban|swift|postal|tax number|vat number|license no|supplier code|supplier ref/i;
+const csvCell = (header, v) => {
+    if (v == null) return '';
+    const s = String(v);
+    if (TEXT_COL.test(header) && /^[\d+\-\s]{6,}$/.test(s)) return `="${s}"`;
+    return csvEsc(s);
+};
+
 const downloadSuppliersCsv = (rows) => {
-    const headers = ['Code', 'Supplier Name', 'Type', 'Category', 'Mobile', 'Email', 'Credit Limit', 'Account Manager', 'Status'];
-    const lines = [headers.join(','), ...rows.map(s => [
-        s.supplierCode, s.supplierName, s.supplierType, s.supplierCategoryName, s.mobile, s.email,
-        s.creditLimit, s.accountManager, s.statusLabel || (s.isActive ? 'Active' : 'Inactive'),
-    ].map(csvEsc).join(','))];
-    const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+    if (!rows.length) return;
+    const headers = Object.keys(rows[0]);
+    const lines = [headers.map(csvEsc).join(','), ...rows.map(r => headers.map(h => csvCell(h, r[h])).join(','))];
+    const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `Suppliers_${new Date().toISOString().slice(0, 10)}.csv`;
@@ -414,7 +421,18 @@ const SupplierList = () => {
                 pages = res.totalPages || 1;
                 pg++;
             } while (pg <= pages);
-            downloadSuppliersCsv(all);
+            // full information (names instead of ids) for exactly the suppliers on the current filter
+            const ids = all.map(x => x.supplierId).filter(Boolean);
+            const full = [];
+            for (let i = 0; i < ids.length; i += 500) {
+                const r = await fetch(`${variables.API_URL}supplier/export`, {
+                    method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ supplierIds: ids.slice(i, i + 500) }),
+                });
+                if (!r.ok) throw new Error('export failed');
+                full.push(...(await r.json()));
+            }
+            downloadSuppliersCsv(full);
         } catch (e) { console.error(e); }
         finally { setExporting(false); }
     };

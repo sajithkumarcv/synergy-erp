@@ -4,11 +4,12 @@ import { useCurrentUser } from '../../AuthContext';
 import { useLookup } from '../../LookupContext';
 import AlertModal from '../../common/AlertModal';
 
-const makeEmpty = (customerId, addressTypes, countries) => ({
+const makeEmpty = (customerId, addressTypes, countries, customerCountryId) => ({
     customerAddressId: 0, customerId,
     addressType:  addressTypes.length ? addressTypes[0].value : '',
     addressLine1: '', addressLine2: '', city: '', state: '',
-    countryId:    countries.length ? String(countries[0].id) : '',
+    // a new address starts in the customer's own country; the first country in the list only when the customer has none
+    countryId:    customerCountryId ? String(customerCountryId) : (countries.length ? String(countries[0].id) : ''),
     postalCode: '', pOBox: '', isDefault: false, isActive: true,
 });
 
@@ -144,7 +145,7 @@ const AddressesTab = ({ customer, onRefresh, canEdit = true }) => {
                     />
                 </div>
                 {!formRecord && canEdit && (
-                    <button className="tab-btn-pri" style={{ background: '#0f766e' }} onClick={() => setForm(makeEmpty(customer.customerId, addressTypes, countries))}>
+                    <button className="tab-btn-pri" style={{ background: '#0f766e' }} onClick={() => setForm(makeEmpty(customer.customerId, addressTypes, countries, customer.countryId))}>
                         + Add Address
                     </button>
                 )}

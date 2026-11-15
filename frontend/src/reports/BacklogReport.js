@@ -4,6 +4,7 @@ import { variables, authHeaders } from '../Variable';
 import { fmtDate, fmt } from '../procurement/procurementConstants';
 import { useLookup } from '../LookupContext';
 import './Reports.css';
+import { fmtPrice } from '../common/fmtPrice';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -807,7 +808,7 @@ const IssueItemsTab = ({ jobs }) => {
                                         <td className="rpt-td-desc">{r.itemDesc}</td>
                                         <td className="rpt-td-num">{fmt(r.qty, 2)}</td>
                                         <td className="rpt-td-center rpt-td-muted">{r.uomName}</td>
-                                        <td className="rpt-td-num">{fmt(r.unitCost, 2)}</td>
+                                        <td className="rpt-td-num">{fmtPrice(r.unitCost)}</td>
                                         <td className="rpt-td-num rpt-amount">{fmt(r.lineTotal, 2)}</td>
                                     </tr>
                                 ))}

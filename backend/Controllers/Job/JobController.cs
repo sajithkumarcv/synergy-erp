@@ -1,5 +1,6 @@
 using ERPWEB.Dbcontext;
 using ERPWEB.Models.Job;
+using ERPWEB.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Cryptography;
@@ -21,6 +22,16 @@ namespace ERPWEB.Controllers.Job
         {
             using var sha = SHA256.Create();
             return Convert.ToHexString(sha.ComputeHash(Encoding.UTF8.GetBytes(s ?? "")));
+        }
+
+        // Money figures of a job are shown only to roles with the "View Financials" action on Jobs
+        // (VIEW_FINANCIALS). Without it the API withholds them, not just the screen.
+        private Task<bool> CanViewFinancials() => PermissionCheck.CanDoAsync(_dbcon, User, "/jobs", "VIEW_FINANCIALS");
+
+        private static void MaskFinancials(ERPWEB.Models.Job.Job j)
+        {
+            j.OrderValue = 0; j.TotalActual = 0; j.TotalExpenses = 0; j.TotalInvoicing = 0;
+            j.TotalPayments = 0; j.TotalCredit = 0; j.BalanceAmount = 0; j.JobAdvanceAmount = 0;
         }
 
         // ═══════════════════════════════════════════════════════
@@ -67,6 +78,7 @@ namespace ERPWEB.Controllers.Job
                 var rows = await _dbcon.QueryAsync<ERPWEB.Models.Job.Job>("sp_SearchJobs", p);
                 var list = rows?.ToList() ?? new List<ERPWEB.Models.Job.Job>();
                 int total = list.Count > 0 ? list[0].TotalRows : 0;
+                if (!await CanViewFinancials()) list.ForEach(MaskFinancials);
                 return Ok(new { totalRows = total, page, pageSize, totalPages = (int)Math.Ceiling((double)total / pageSize), data = list });
             }
             catch (Exception ex)
@@ -94,6 +106,7 @@ namespace ERPWEB.Controllers.Job
                 });
                 var job = rows?.FirstOrDefault(j => j.JobId == jobId);
                 if (job == null) return NotFound(new { message = "Job not found." });
+                if (!await CanViewFinancials()) MaskFinancials(job);
                 return Ok(job);
             }
             catch (Exception ex)
@@ -124,6 +137,7 @@ namespace ERPWEB.Controllers.Job
                 });
                 var job = rows?.FirstOrDefault();
                 if (job == null) return NotFound(new { message = "Job not found." });
+                if (!await CanViewFinancials()) MaskFinancials(job);
                 return Ok(job);
             }
             catch (Exception ex)
@@ -165,6 +179,18 @@ namespace ERPWEB.Controllers.Job
         {
             try
             {
+                // A role without View Financials never sees the money figures, so the form posts them as 0.
+                // Keep the stored values when such a user edits a job, instead of writing the 0 back.
+                decimal orderValue = model.OrderValue, advanceAmount = model.JobAdvanceAmount;
+                if (!string.IsNullOrWhiteSpace(model.JobId) && !await CanViewFinancials())
+                {
+                    var cur = (await _dbcon.QueryAsync<ERPWEB.Models.Job.Job>("sp_SearchJobs", new
+                    {
+                        SearchText = model.JobId, PageNumber = 1, PageSize = 1, SortColumn = "JobId", SortDirection = "ASC"
+                    }))?.FirstOrDefault(j => j.JobId == model.JobId);
+                    if (cur != null) { orderValue = cur.OrderValue; advanceAmount = cur.JobAdvanceAmount; }
+                }
+
                 var p = new
                 {
                     JobId = string.IsNullOrWhiteSpace(model.JobId) ? null : model.JobId,
@@ -184,8 +210,8 @@ namespace ERPWEB.Controllers.Job
                     model.ExternalRef,
                     CreatedBy = model.JobCreatedBy,
                     ModifiedBy = model.JobLastModifiedBy,
-                    model.OrderValue,
-                    model.JobAdvanceAmount,
+                    OrderValue = orderValue,
+                    JobAdvanceAmount = advanceAmount,
                     model.JobExpectedCompleteDate,
                     model.JobExpectedDeliveryDate,
                     model.JobPlannedStartDate,
@@ -314,13 +340,15 @@ namespace ERPWEB.Controllers.Job
                 if (row == null)
                     return NotFound(new { message = $"Job {jobId} not found." });
 
+                // The yes/no checks and percentages stay (they drive the screen); the amounts are withheld.
+                bool showFin = await CanViewFinancials();
                 return Ok(new
                 {
                     jobId            = (string)row.JobId,
-                    orderValue       = (decimal)row.OrderValue,
-                    orderValueBase   = (decimal)row.OrderValueBase,
-                    totalInvoiced    = (decimal)row.TotalInvoiced,
-                    totalPaid        = (decimal)row.TotalPaid,
+                    orderValue       = showFin ? (decimal)row.OrderValue     : 0m,
+                    orderValueBase   = showFin ? (decimal)row.OrderValueBase : 0m,
+                    totalInvoiced    = showFin ? (decimal)row.TotalInvoiced  : 0m,
+                    totalPaid        = showFin ? (decimal)row.TotalPaid      : 0m,
                     invoicedPct      = (decimal)row.InvoicedPct,
                     paidPct          = (decimal)row.PaidPct,
                     invoiceOk        = (bool)row.InvoiceOk,
@@ -508,6 +536,8 @@ namespace ERPWEB.Controllers.Job
         [HttpPatch("{jobId}/finance")]
         public async Task<IActionResult> UpdateFinance(string jobId, [FromBody] UpdateFinanceRequest model)
         {
+            if (!await CanViewFinancials())
+                return StatusCode(403, new { message = "You do not have permission to view or change job financials." });
             try
             {
                 await _dbcon.ExecuteScalarAsync("sp_UpdateJobFinance", new
@@ -951,6 +981,13 @@ namespace ERPWEB.Controllers.Job
             try
             {
                 var rows = await _dbcon.QueryAsync<dynamic>("sp_GetAdditionalJobs", new { ParentJobId = jobId });
+                if (rows != null && !await CanViewFinancials())
+                {
+                    // Keep the job list, drop the money column.
+                    foreach (IDictionary<string, object> r in rows)
+                        foreach (var k in r.Keys.Where(k => k.Equals("OrderValue", StringComparison.OrdinalIgnoreCase)).ToList())
+                            r[k] = 0m;
+                }
                 return Ok(rows ?? Enumerable.Empty<dynamic>());
             }
             catch (Exception ex)
@@ -1073,6 +1110,7 @@ namespace ERPWEB.Controllers.Job
                 });
                 var job = jobRows?.FirstOrDefault(j => j.JobId == jobId);
                 if (job == null) return NotFound(new { message = "Job not found." });
+                if (!await CanViewFinancials()) MaskFinancials(job);
 
                 // ── Budget (reuse existing SP) ───────────────────────────
                 var (budgetHeaders, budgetLines) = await _dbcon.QueryMultipleAsync<

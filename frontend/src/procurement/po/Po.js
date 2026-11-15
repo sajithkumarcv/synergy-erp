@@ -76,6 +76,7 @@ const PoForm = ({ onClose, onSaved }) => {
         jobId:               '',
         jobLabel:            '',
         vendorRef:           '',
+        vendorQuoteDate:     '',
         currencyId:          '',
         exchangeRate:        '1',
         paymentTermsId:      '',
@@ -173,6 +174,7 @@ const PoForm = ({ onClose, onSaved }) => {
                 vendorName:        form.vendorName        || null,
                 jobId:             form.jobId             || null,
                 vendorRef:         form.vendorRef.trim()  || null,
+                vendorQuoteDate:   form.vendorQuoteDate   || null,
                 currencyId:        form.currencyId        ? Number(form.currencyId)        : null,
                 exchangeRate:      form.exchangeRate      ? Number(form.exchangeRate)       : 1,
                 paymentTermsId:    form.paymentTermsId    ? Number(form.paymentTermsId)    : null,
@@ -394,6 +396,10 @@ const PoForm = ({ onClose, onSaved }) => {
                         <div className="pf-field">
                             <label>Vendor / Quote Ref</label>
                             <input className="pf-input" type="text" name="vendorRef" value={form.vendorRef} onChange={handle} placeholder="Quotation or ref #" />
+                        </div>
+                        <div className="pf-field">
+                            <label>Quote Date</label>
+                            <input className="pf-input" type="date" name="vendorQuoteDate" value={form.vendorQuoteDate} onChange={handle} />
                         </div>
                     </div>
 

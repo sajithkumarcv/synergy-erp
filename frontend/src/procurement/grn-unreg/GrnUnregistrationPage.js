@@ -5,6 +5,7 @@ import ConfirmModal from '../../common/ConfirmModal';
 import { useCanDo } from '../../PermissionContext';
 import { fmtDate, fmt } from '../procurementConstants';
 import '../Procurement.css';
+import { fmtPrice } from '../../common/fmtPrice';
 
 const PAGE_URL = '/grn-unregistration';
 
@@ -280,7 +281,7 @@ const GrnUnregistrationPage = () => {
                                                 <td style={tdRight}>{l.rejectedQty > 0 ? fmt(l.rejectedQty) : '—'}</td>
                                                 <td style={tdRight}>{fmt(l.acceptedQty)}</td>
                                                 <td style={td}>{l.uomName || '—'}</td>
-                                                <td style={tdRight}>{fmt(l.unitPrice)}</td>
+                                                <td style={tdRight}>{fmtPrice(l.unitPrice)}</td>
                                                 <td style={tdRight}>{fmt(l.lineTotal)}</td>
                                             </tr>
                                         ))}

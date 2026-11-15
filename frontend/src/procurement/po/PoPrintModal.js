@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { variables, authHeaders } from '../../Variable';
-import { fmt, fmtDate } from '../procurementConstants';
+import { fmt, fmtPrice, fmtDate } from '../procurementConstants';
 import useOwnerCompany from '../../hooks/useOwnerCompany';
 import { CompanyHeaderBand, DraftWatermark, PreviewBanner } from '../../components/print/PrintCompanyHeader';
 import consolidatePoLinesForPrint from './consolidatePoLinesForPrint';
@@ -249,7 +249,7 @@ const PoPrintModal = ({ po, onClose, preview, overBudget }) => {
                                         </td>
                                         <td className="num">{l.orderedQty}</td>
                                         <td style={{ color: '#475569' }}>{l.uomName || '—'}</td>
-                                        <td className="num">{n(l.unitPrice)}</td>
+                                        <td className="num">{fmtPrice(l.unitPrice ?? 0)}</td>
                                         <td className="num" style={{ color: '#64748b' }}>{l.taxPct ?? 0}%</td>
                                         <td className="num" style={{ fontWeight: 600 }}>{n(lineTotal)}</td>
                                         <td className="num" style={{ fontWeight: 600, color: '#1e40af' }}>{n(lineTotalTax)}</td>

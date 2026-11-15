@@ -1,5 +1,6 @@
 using Dapper;
 using ERPWEB.Dbcontext;
+using ERPWEB.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Text.Json;
@@ -90,6 +91,19 @@ namespace ERPWEB.Controllers.Job
                 var deliveryNotes   = (await grid.ReadAsync<dynamic>()).Select(ToCamel).ToList();
                 var expenses        = (await grid.ReadAsync<dynamic>()).Select(ToCamel).ToList();
                 var audit           = (await grid.ReadAsync<dynamic>()).Select(ToCamel).ToList();
+
+                // The screen hides a section the role has not been given; the API withholds its figures too,
+                // so they cannot be read from the network response.
+                async Task<bool> Sec(string code) => await PermissionCheck.CanDoAsync(_dbcon, User, "/job-overview", code);
+                bool secFinance = await Sec("SECTION_FINANCE");
+                if (!secFinance)  finance = null;
+                if (!await Sec("SECTION_BUDGET"))   budget = new List<object?>();
+                if (!await Sec("SECTION_MANHOUR"))  { manhourSummary = null; manhours = new List<object?>(); }
+                if (!await Sec("SECTION_PO"))       pos = new List<object?>();
+                if (!await Sec("SECTION_ISSUES"))   { issues = new List<object?>(); issueReturns = new List<object?>(); }
+                // The Financial Summary section also totals the invoices, so they stay while that section is shown.
+                if (!secFinance && !await Sec("SECTION_INVOICES")) { invoices = new List<object?>(); childInvoices = new List<object?>(); deliveryNotes = new List<object?>(); }
+                if (!await Sec("SECTION_EXPENSES")) expenses = new List<object?>();
 
                 return Ok(new
                 {

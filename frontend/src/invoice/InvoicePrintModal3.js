@@ -5,6 +5,7 @@ import { useLookup } from '../LookupContext';
 import { getFileUrl } from '../Variable';
 import { BankDetailsBlock, DraftWatermark, PreviewBanner } from '../components/print/PrintCompanyHeader';
 import { openPrintWindow } from '../utils/printWindow';
+import { fmtPrice } from '../common/fmtPrice';
 import '../procurement/po/PoPrint.css';   // overlay + toolbar styles
 import './InvoicePrint3.css';             // ip3-* document styles
 
@@ -212,7 +213,7 @@ const InvoicePrintModal3 = ({ invoice, lines = [], onClose, preview }) => {
                                         <td className="r">
                                             {Number(l.qty).toLocaleString(undefined, { maximumFractionDigits: 4 })}
                                         </td>
-                                        <td className="r">{fmt(l.unitPrice)}</td>
+                                        <td className="r">{fmtPrice(l.unitPrice)}</td>
                                         <td className="r">{fmt(l.amount)}</td>
                                         <td className="r muted">{l.vatPercent}%</td>
                                         <td className="r muted">{fmt(l.taxAmount)}</td>

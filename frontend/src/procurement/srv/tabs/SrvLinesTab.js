@@ -6,6 +6,7 @@ import { useLookup } from '../../../LookupContext';
 import { fmt } from '../../procurementConstants';
 import { useFieldConfig } from '../../../FieldConfigContext';
 import AmountInput from '../../../common/AmountInput';
+import { fmtPrice } from '../../../common/fmtPrice';
 
 const TYPE_COLORS = {
     SUBCON: { bg: '#f3e8ff', color: '#7e22ce' },
@@ -201,7 +202,7 @@ const PoImportModal = ({ srv, onClose, onImported }) => {
                                                 )}
                                             </td>
                                             <td style={{ padding: '8px 10px', borderBottom: '1px solid #f0f4f8', color: '#475569' }}>{l.uomName || '—'}</td>
-                                            <td style={{ padding: '8px 10px', textAlign: 'right', borderBottom: '1px solid #f0f4f8', fontVariantNumeric: 'tabular-nums', color: '#64748b' }}>{l.unitPrice ? fmt(l.unitPrice) : '—'}</td>
+                                            <td style={{ padding: '8px 10px', textAlign: 'right', borderBottom: '1px solid #f0f4f8', fontVariantNumeric: 'tabular-nums', color: '#64748b' }}>{l.unitPrice ? fmtPrice(l.unitPrice) : '—'}</td>
                                             <td style={{ padding: '8px 10px', borderBottom: '1px solid #f0f4f8' }}>
                                                 {done
                                                     ? <span style={{ background: '#dcfce7', color: '#166534', padding: '2px 8px', borderRadius: 8, fontSize: 10, fontWeight: 600 }}>Received</span>
@@ -385,7 +386,7 @@ const SrvLinesTab = ({ srv, onRefresh }) => {
                                         </td>
                                         <td className="prd-num-cell">{fmt(l.completedQty)}</td>
                                         <td>{l.uomName || '—'}</td>
-                                        <td className="prd-num-cell">{fmt(l.unitCost)}</td>
+                                        <td className="prd-num-cell">{fmtPrice(l.unitCost)}</td>
                                         <td className="prd-num-cell" style={{ fontWeight: 600, color: '#1e40af' }}>{fmt(l.totalCost)}</td>
                                         <td style={{ color: '#64748b', fontSize: 11 }}>{l.notes || '—'}</td>
                                         {canEdit && (
@@ -438,7 +439,7 @@ const SrvLinesTab = ({ srv, onRefresh }) => {
                                     </div>
                                     <div className="prd-lf-field">
                                         <label>Unit Cost</label>
-                                        <AmountInput className="prd-lf-input" value={form.unitCost}
+                                        <AmountInput decimals={4} minDecimals={2} className="prd-lf-input" value={form.unitCost}
                                             onChange={v => setForm(f => ({ ...f, unitCost: v }))} />
                                     </div>
                                 </div>

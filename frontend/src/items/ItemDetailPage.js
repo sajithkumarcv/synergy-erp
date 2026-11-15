@@ -165,8 +165,8 @@ const VariantsTab = ({ itemId }) => {
             </div>
           </div>
           <div className="tab-form-row">
-            <div className="tab-form-field tab-f-sm"><label>Std Cost (base)</label><AmountInput name="standardCost" className="tab-input" value={form.standardCost} onChange={v => handle({ target: { name: 'standardCost', value: v } })} placeholder="0.00" /></div>
-            <div className="tab-form-field tab-f-sm"><label>List Price (base)</label><AmountInput name="listPrice" className="tab-input" value={form.listPrice} onChange={v => handle({ target: { name: 'listPrice', value: v } })} placeholder="0.00" /></div>
+            <div className="tab-form-field tab-f-sm"><label>Std Cost (base)</label><AmountInput decimals={4} minDecimals={2} name="standardCost" className="tab-input" value={form.standardCost} onChange={v => handle({ target: { name: 'standardCost', value: v } })} placeholder="0.00" /></div>
+            <div className="tab-form-field tab-f-sm"><label>List Price (base)</label><AmountInput decimals={4} minDecimals={2} name="listPrice" className="tab-input" value={form.listPrice} onChange={v => handle({ target: { name: 'listPrice', value: v } })} placeholder="0.00" /></div>
             <div className="tab-form-field tab-f-sm"><label>Weight</label><input type="number" name="weight" className="tab-input" value={form.weight} onChange={handle} placeholder="0.00" /></div>
             <div className="tab-form-field" style={{ flex: '0 0 80px' }}><label>Wt UOM</label><input name="weightUom" className="tab-input" value={form.weightUom} onChange={handle} placeholder="kg" /></div>
             <div className="tab-form-field tab-f-sm"><label>Lead Time (days)</label><input type="number" name="leadTimeDays" className="tab-input" value={form.leadTimeDays} onChange={handle} /></div>
@@ -462,7 +462,6 @@ const ItemEditSlideOver = ({ item, categories, itemTypes, uoms, budgetCategories
   };
 
   const save = async () => {
-    if (!(form.itemCode || '').trim()) { setAlertMsg('Item Code is required.'); return; }
     if (!form.itemName.trim()) { setAlertMsg('Item Name is required.'); return; }
     if (!form.itemTypeId)      { setAlertMsg('Item Type is required.'); return; }
     setSaving(true);
@@ -491,7 +490,7 @@ const ItemEditSlideOver = ({ item, categories, itemTypes, uoms, budgetCategories
         <div className="jf-body">
           <Sec label="Identity" />
           <div className="jf-row">
-            <div className="jf-field" style={{ flex:'0 0 150px' }}><label>Item Code <span className="req">*</span></label><input name="itemCode" className="jf-input" value={form.itemCode || ''} onChange={handle} placeholder="Required" /></div>
+            <div className="jf-field" style={{ flex:'0 0 150px' }}><label>Item Code</label><input name="itemCode" className="jf-input" value={form.itemCode || ''} onChange={handle} placeholder="Blank = keep" title="Leave blank to keep the current code. A code already used by another item is refused." /></div>
             <div className="jf-field jf-f2"><label>Item Name {isReqItem('itemName') && <span className="req">*</span>}</label><input name="itemName" className="jf-input" value={form.itemName} onChange={handle} /></div>
             <div className="jf-field jf-f2"><label>Arabic Name</label><input name="itemNameAr" className="jf-input" value={form.itemNameAr || ''} onChange={handle} dir="rtl" /></div>
           </div>

@@ -5,6 +5,7 @@ import ConfirmModal from '../../../common/ConfirmModal';
 import { fmt, fmtDate } from '../../procurementConstants';
 import AlertModal from '../../../common/AlertModal';
 import AmountInput from '../../../common/AmountInput';
+import { fmtPrice } from '../../../common/fmtPrice';
 
 // ── SRV Lines Import Modal — parallel to GrnImportModal ──────────────
 const SrvImportModal = ({ invoice, onClose, onImported }) => {
@@ -582,7 +583,7 @@ const InvoiceLinesTab = ({ invoice, lines, onRefresh }) => {
                                     </td>
                                     <td style={{ padding: '9px 10px', color: '#64748b' }}>{l.uomName || '—'}</td>
                                     <td style={{ padding: '9px 10px', textAlign: 'right', fontFamily: 'Courier New' }}>{fmt(l.qty)}</td>
-                                    <td style={{ padding: '9px 10px', textAlign: 'right', fontFamily: 'Courier New' }}>{fmt(l.unitPrice)}</td>
+                                    <td style={{ padding: '9px 10px', textAlign: 'right', fontFamily: 'Courier New' }}>{fmtPrice(l.unitPrice)}</td>
                                     <td style={{ padding: '9px 10px', textAlign: 'right', fontFamily: 'Courier New' }}>{fmt(l.lineTotal)}</td>
                                     <td style={{ padding: '9px 10px', textAlign: 'right', color: '#64748b' }}>{l.taxPct}%</td>
                                     <td style={{ padding: '9px 10px', textAlign: 'right', fontFamily: 'Courier New' }}>{fmt(l.taxAmount)}</td>

@@ -33,7 +33,7 @@ const OverviewTab = ({ customer, onRefresh, canEdit = true }) => {
     const currentUser = useCurrentUser();
     const { lookups, getVList, baseCurrencyCode } = useLookup();
     const { isReq } = useFieldConfig('CUSTOMER');
-    const { currencies, paymentTerms, customerCategories } = lookups;
+    const { currencies, paymentTerms, customerCategories, countries } = lookups;
     const customerTypes = getVList('Customer', 'CustomerType');
 
     const [editing, setEditing]         = useState(false);
@@ -60,7 +60,7 @@ const OverviewTab = ({ customer, onRefresh, canEdit = true }) => {
         try {
             const res = await fetch(variables.API_URL + 'customer/save', {
                 method: 'POST', headers: authHeaders(),
-                body: JSON.stringify({ ...form, modifiedBy: currentUser })
+                body: JSON.stringify({ ...form, countryId: form.countryId ? parseInt(form.countryId) : null, modifiedBy: currentUser })
             });
             const d = await res.json();
             if (!res.ok) { setValidErrors([d?.message || 'Failed to save customer.']); return; }
@@ -102,6 +102,7 @@ const OverviewTab = ({ customer, onRefresh, canEdit = true }) => {
                         <div className="jf-field"><label>Category</label><select name="customerCategoryId" className="jf-input" value={form.customerCategoryId} onChange={handle}>{customerCategories.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}</select></div>
                         <div className="jf-field"><label>Type {isReq('customerType') && <span className="req">*</span>}</label><select name="customerType" className="jf-input" value={form.customerType} onChange={handle}>{customerTypes.map(t => <option key={t.id} value={t.value}>{t.label}</option>)}</select></div>
                         <div className="jf-field"><label>Sales Person</label><input name="salesPerson" className="jf-input" value={form.salesPerson || ''} onChange={handle} /></div>
+                        <div className="jf-field"><label>Country</label><select name="countryId" className="jf-input" value={form.countryId != null ? String(form.countryId) : ''} onChange={handle}><option value="">— Select —</option>{(countries || []).map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}</select></div>
                     </div>
 
                     <div className="jf-section"><span className="jf-section-label">Contact</span><div className="jf-section-line" /></div>
@@ -162,6 +163,7 @@ const OverviewTab = ({ customer, onRefresh, canEdit = true }) => {
                     <div className="ov-detail-rows">
                         <Row label="Category"     value={customer.customerCategoryName} />
                         <Row label="Type"         value={customer.customerType}         />
+                        <Row label="Country"      value={customer.countryName}          />
                         <Row label="Status"       value={customer.isActive ? 'Active' : 'Inactive'} />
                     </div>
                 </div>

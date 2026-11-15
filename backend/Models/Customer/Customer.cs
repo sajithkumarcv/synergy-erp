@@ -20,6 +20,8 @@ namespace ERPWEB.Models.Customer
         public string? CustomerShortName  { get; set; }
         public string? CustomerType       { get; set; }
         public int?    CustomerCategoryId { get; set; }
+        public int?    CountryId          { get; set; }
+        public string? CountryName        { get; set; }
 
         // ── Contact ──────────────────────────────────────────────
         public string? Phone  { get; set; }

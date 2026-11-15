@@ -11,6 +11,11 @@ namespace ERPWEB.Controllers.Customer
     using CustomerCategory  = ERPWEB.Models.Customer.CustomerCategory;
     using CreditHoldRequest = ERPWEB.Models.Customer.CreditHoldRequest;
 
+    public class CustomerExportRequest
+    {
+        public List<int>? CustomerIds { get; set; }
+    }
+
     [Authorize]
     [Route("api/[controller]")]
     [ApiController]
@@ -74,6 +79,25 @@ namespace ERPWEB.Controllers.Customer
             }
         }
 
+        // ── EXPORT (full information, names instead of ids) ─────────────────
+        [HttpPost("export")]
+        public async Task<IActionResult> ExportCustomers([FromBody] CustomerExportRequest? req)
+        {
+            try
+            {
+                var ids = (req?.CustomerIds ?? new List<int>()).Distinct().Take(2000).ToList();
+                if (ids.Count == 0) return Ok(new List<object>());
+                var rows = await _dbcon.QueryAsync<dynamic>("proj.sp_ExportCustomers",
+                    new { CustomerIds = string.Join(",", ids) });
+                return Ok(rows ?? new List<dynamic>());
+            }
+            catch (Exception ex)
+            {
+                await _dbcon.WriteLog(ex, controller: "Customer", action: "ExportCustomers", requestPath: HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Error exporting customers." });
+            }
+        }
+
         // ── GET BY ID ────────────────────────────────────────────────────────
         [HttpGet("{id:int}")]
         public async Task<IActionResult> GetCustomer(int id)
@@ -114,11 +138,14 @@ namespace ERPWEB.Controllers.Customer
         {
             if (string.IsNullOrEmpty(model.CustomerName))
                 return BadRequest(new { message = "Customer Name is required." });
+            if (model.CustomerId == 0 && (model.CountryId == null || model.CountryId <= 0))
+                return BadRequest(new { message = "Country is required." });
             try
             {
                 var p = new
                 {
                     model.CustomerId,
+                    CountryId = model.CountryId > 0 ? model.CountryId : null,
                     model.CustomerCode,
                     model.CustomerName,
                     model.CustomerRef,

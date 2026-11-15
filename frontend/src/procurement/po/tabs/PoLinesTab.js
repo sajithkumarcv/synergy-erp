@@ -4,7 +4,7 @@ import { variables, authHeaders } from '../../../Variable';
 import { useCurrentUser } from '../../../AuthContext';
 import { useLookup } from '../../../LookupContext';
 import { usePermission } from '../../../PermissionContext';
-import { fmt, fmtDate } from '../../procurementConstants';
+import { fmt, fmtPrice, fmtDate } from '../../procurementConstants';
 import { useFieldConfig } from '../../../FieldConfigContext';
 import AmountInput from '../../../common/AmountInput';
 import LastPurchaseModal from '../../../common/LastPurchaseModal';
@@ -127,7 +127,7 @@ const AmendLineModal = ({ line, onClose, onSaved }) => {
                         </tr>
                         <tr>
                             <td style={{ padding: '7px 10px', border: '1px solid #e2e8f0', color: '#374151' }}>Unit Price</td>
-                            <td style={{ padding: '7px 10px', border: '1px solid #e2e8f0', textAlign: 'right', color: '#374151' }}>{fmt(line.unitPrice)}</td>
+                            <td style={{ padding: '7px 10px', border: '1px solid #e2e8f0', textAlign: 'right', color: '#374151' }}>{fmtPrice(line.unitPrice)}</td>
                             <td style={{ padding: '4px 6px', border: '1px solid #e2e8f0' }}>
                                 <input
                                     type="number" min="0" step="any"
@@ -1363,7 +1363,7 @@ const PoLinesTab = ({ po, onRefresh, initialPrId }) => {
                                                 )}
                                             </td>
                                             <td>{g.uomName || '—'}</td>
-                                            <td className="prd-num-cell">{g.isMerged ? <span style={{ color: '#94a3b8', fontSize: 11 }}>—</span> : fmt(g.unitPrice)}</td>
+                                            <td className="prd-num-cell">{g.isMerged ? <span style={{ color: '#94a3b8', fontSize: 11 }}>—</span> : fmtPrice(g.unitPrice)}</td>
                                             <td className="prd-num-cell">{(!g.isMerged && g.taxPct) ? `${g.taxPct}%` : '—'}</td>
                                             <td className="prd-num-cell" style={{ fontWeight: 500 }}>{fmt(g.lineTotal)}</td>
                                             <td className="prd-num-cell" style={{ fontWeight: 500, color: '#1e40af' }}>{fmt(g.lineTotalWithTax)}</td>
@@ -1438,7 +1438,7 @@ const PoLinesTab = ({ po, onRefresh, initialPrId }) => {
                                                     <td className="prd-num-cell">{fmt(l.orderedQty)}</td>
                                                     <td className="prd-num-cell" style={{ color: lColor, fontWeight: 600 }}>{fmt(l.receivedQty)}</td>
                                                     <td>{l.uomName || '—'}</td>
-                                                    <td className="prd-num-cell">{fmt(l.unitPrice)}</td>
+                                                    <td className="prd-num-cell">{fmtPrice(l.unitPrice)}</td>
                                                     <td className="prd-num-cell">{l.taxPct ? `${l.taxPct}%` : '—'}</td>
                                                     <td className="prd-num-cell" style={{ fontWeight: 500 }}>{fmt(l.lineTotal)}</td>
                                                     <td className="prd-num-cell" style={{ fontWeight: 500, color: '#1e40af' }}>{fmt(l.lineTotalWithTax)}</td>
@@ -1615,7 +1615,7 @@ const PoLinesTab = ({ po, onRefresh, initialPrId }) => {
                                     </div>
                                     <div className="prd-lf-field">
                                         <label>Unit Price</label>
-                                        <AmountInput className="prd-lf-input" value={form.unitPrice}
+                                        <AmountInput className="prd-lf-input" value={form.unitPrice} decimals={4} minDecimals={2}
                                             title={varianceTooltip(formVariance, poCcy) || undefined}
                                             onChange={v => handle({ target: { name: 'unitPrice', value: v } })} />
                                         {/* Warn, never block - the save is unaffected. */}

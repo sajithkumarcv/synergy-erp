@@ -183,5 +183,50 @@ namespace ERPWEB.Controllers.Inventory
                 return StatusCode(500, new { message = "Error retrieving stock ledger." });
             }
         }
+
+        // ═══════════════════════════════════════════════════════
+        // STOCK REVALUATIONS (PO price changed after receipt) - 2026-11-14h
+        // GET: api/stockbalance/revaluations
+        // GET: api/stockbalance/revaluations/{revalId}
+        // ═══════════════════════════════════════════════════════
+        [HttpGet("revaluations")]
+        public async Task<IActionResult> GetRevaluations(
+            [FromQuery] string? dateFrom   = null,
+            [FromQuery] string? dateTo     = null,
+            [FromQuery] string? searchText = null)
+        {
+            try
+            {
+                var rows = await _dbcon.QueryAsync<dynamic>("sp_GetStockRevaluations", new
+                {
+                    DateFrom   = string.IsNullOrWhiteSpace(dateFrom) ? (DateTime?)null : DateTime.Parse(dateFrom),
+                    DateTo     = string.IsNullOrWhiteSpace(dateTo)   ? (DateTime?)null : DateTime.Parse(dateTo),
+                    SearchText = string.IsNullOrWhiteSpace(searchText) ? null : searchText.Trim()
+                });
+                return Ok(DynamicRowJson.ToCamelRows(rows));   // screen reads camelCase
+            }
+            catch (Exception ex)
+            {
+                await _dbcon.WriteLog(ex, controller: "StockBalance", action: "GetRevaluations", requestPath: HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Error retrieving stock revaluations." });
+            }
+        }
+
+        [HttpGet("revaluations/{revalId:int}")]
+        public async Task<IActionResult> GetRevaluationDetail(int revalId)
+        {
+            try
+            {
+                // two plain calls on purpose - no QueryMultiple (connection-leak trap)
+                var grnLines = await _dbcon.QueryAsync<dynamic>("sp_GetStockRevaluationDetail", new { RevalId = revalId, Part = "GRN" });
+                var jobLines = await _dbcon.QueryAsync<dynamic>("sp_GetStockRevaluationDetail", new { RevalId = revalId, Part = "JOB" });
+                return Ok(new { grnLines = DynamicRowJson.ToCamelRows(grnLines), jobLines = DynamicRowJson.ToCamelRows(jobLines) });
+            }
+            catch (Exception ex)
+            {
+                await _dbcon.WriteLog(ex, controller: "StockBalance", action: "GetRevaluationDetail", requestPath: HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Error retrieving the revaluation." });
+            }
+        }
     }
 }

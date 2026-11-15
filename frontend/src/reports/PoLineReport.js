@@ -6,6 +6,7 @@ import { useInitialFilters } from '../utils/useInitialFilters';
 import { fmt, fmtDate, today, statusBadgeCfg } from '../procurement/procurementConstants';
 import RowLink from '../common/RowLink';
 import '../procurement/Procurement.css';
+import { fmtPrice } from '../common/fmtPrice';
 
 // PO report, item-line wise: one row per purchase order line (GET reports/po-lines -> sp_ReportPoLines).
 // Filters are the same set, with the same panel, as the Purchase Orders grid. Paging and sorting are done here
@@ -239,7 +240,7 @@ const PoLineReport = () => {
                                         <td data-label="Balance" className="po-num-cell"
                                             style={r.balanceQty > 0 ? { color: '#b45309', fontWeight: 600 } : undefined}>{num(r.balanceQty, 4)}</td>
                                         <td data-label="Curr" style={diffCcy(r) ? { color: '#7c3aed', fontWeight: 700 } : undefined}>{r.currencyShort || '—'}</td>
-                                        <td data-label="Unit Price" className="po-num-cell">{fmt(r.unitPrice)}</td>
+                                        <td data-label="Unit Price" className="po-num-cell">{fmtPrice(r.unitPrice)}</td>
                                         <td data-label="Tax %" className="po-num-cell">{num(r.taxPct)}</td>
                                         <td data-label="Line Amount" className="po-num-cell">{fmt(r.lineAmount)}</td>
                                         <td data-label={`Amount (${baseCurrencyCode})`} className="po-num-cell" style={{ fontWeight: 600 }}>{fmt(r.lineAmountBase)}</td>

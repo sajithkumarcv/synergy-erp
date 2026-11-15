@@ -1,5 +1,6 @@
 // ── Shared helpers ────────────────────────────────────────────────
 export const fmt     = (n) => n != null ? Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
+export { fmtPrice } from '../common/fmtPrice';
 export const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 export const today   = () => new Date().toISOString().slice(0, 10);
 

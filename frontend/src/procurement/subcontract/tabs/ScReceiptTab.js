@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { variables, authHeaders } from '../../../Variable';
 import { useCurrentUser } from '../../../AuthContext';
 import { useLookup } from '../../../LookupContext';
-import { fmtDate, fmt, today } from '../../procurementConstants';
+import { fmtDate, today } from '../../procurementConstants';
+import { fmtPrice } from '../../../common/fmtPrice';
 
 // ── Confirm Modal ─────────────────────────────────────────────────────────────
 const ConfirmModal = ({ title, message, confirmLabel, confirmStyle, onConfirm, onClose, busy, error }) => (
@@ -71,7 +72,7 @@ const printReceipt = (receipt, sc) => {
       <td>${sc.outputItemName || ''}</td>
       <td class="right" style="font-weight:700">${Number(receipt.receivedQty).toLocaleString()}</td>
       <td class="right">${sc.outputUomName || ''}</td>
-      <td class="right">${Number(receipt.unitCost || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+      <td class="right">${Number(receipt.unitCost || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</td>
       <td class="right">${total}</td>
     </tr>
   </tbody>
@@ -222,7 +223,7 @@ const ScReceiptTab = ({ sc, onRefresh }) => {
                                 <td>{fmtDate(r.receiptDate)}</td>
                                 <td style={{ fontSize: 12, color: '#64748b' }}>{r.vendorRef || '—'}</td>
                                 <td style={{ textAlign: 'right', fontWeight: 600 }}>{Number(r.receivedQty).toLocaleString()}</td>
-                                <td style={{ textAlign: 'right', color: '#64748b', fontSize: 12 }}>{fmt(r.unitCost)}</td>
+                                <td style={{ textAlign: 'right', color: '#64748b', fontSize: 12 }}>{fmtPrice(r.unitCost)}</td>
                                 <td>
                                     {(() => {
                                         const cfg = getStatusConfig('SCR', r.status) || { badgeBg: '#f1f5f9', badgeColor: '#475569', badgeDot: '#94a3b8' };

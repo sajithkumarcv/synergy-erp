@@ -10,6 +10,7 @@ import AmountInput from '../../common/AmountInput';
 import AlertModal from '../../common/AlertModal';
 import ConfirmModal from '../../common/ConfirmModal';
 import BudgetImportModal from './BudgetImportModal';
+import { fmtPrice } from '../../common/fmtPrice';
 
 // ── Variance colour ───────────────────────────────────────────
 const varianceStyle = (v, budgeted) => {
@@ -1004,7 +1005,7 @@ const JobBudgetEditor = ({ job }) => {
                                                 <td style={{ padding: '4px 6px', textAlign: 'right' }}
                                                     title={it.lastPurchasePrice ? `Last purchase: ${fmt(it.lastPurchasePrice)} ${it.lastPurchaseCurrencyShort || ''}` : 'No purchase history'}>
                                                     {it.unitPrice > 0
-                                                        ? <span style={{ color: '#1e293b' }}>{fmt(it.unitPrice)}</span>
+                                                        ? <span style={{ color: '#1e293b' }}>{fmtPrice(it.unitPrice)}</span>
                                                         : it.lastPurchasePrice
                                                             ? <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>— (last: {fmt(it.lastPurchasePrice)} {it.lastPurchaseCurrencyShort || ''})</span>
                                                             : <span style={{ color: '#cbd5e1' }}>—</span>}

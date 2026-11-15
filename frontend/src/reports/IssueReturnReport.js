@@ -4,6 +4,7 @@ import { variables, authHeaders } from '../Variable';
 import { useLookup } from '../LookupContext';
 import { fmtDate, fmt, statusBadgeCfg } from '../procurement/procurementConstants';
 import './Reports.css';
+import { fmtPrice } from '../common/fmtPrice';
 
 const today        = () => new Date().toISOString().slice(0, 10);
 const firstOfMonth = () => { const d = new Date(); d.setDate(1); return d.toISOString().slice(0, 10); };
@@ -227,7 +228,7 @@ const ReturnQuickView = ({ returnId, onClose }) => {
                                             <td style={{ padding: '7px 12px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>
                                                 {Number(l.returnQty).toLocaleString(undefined, { maximumFractionDigits: 4 })}
                                             </td>
-                                            <td style={{ padding: '7px 12px', textAlign: 'right', fontFamily: 'monospace', color: '#475569' }}>{fmt(l.unitCost)}</td>
+                                            <td style={{ padding: '7px 12px', textAlign: 'right', fontFamily: 'monospace', color: '#475569' }}>{fmtPrice(l.unitCost)}</td>
                                             <td style={{ padding: '7px 12px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: '#9d174d' }}>{fmt(l.totalCost)}</td>
                                         </tr>
                                     ))}

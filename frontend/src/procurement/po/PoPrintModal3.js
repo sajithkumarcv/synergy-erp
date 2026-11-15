@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { variables, authHeaders, getFileUrl } from '../../Variable';
-import { fmt, fmtDate } from '../procurementConstants';
+import { fmt, fmtPrice, fmtDate } from '../procurementConstants';
 import useOwnerCompany from '../../hooks/useOwnerCompany';
 import { useLookup } from '../../LookupContext';
 import consolidatePoLinesForPrint from './consolidatePoLinesForPrint';
@@ -61,7 +61,7 @@ const PoLineCards = ({ lines }) => (
                         {cell('Ordered', `${l.orderedQty} ${l.uomName || ''}`.trim())}
                         {cell('Received', recv, { color: recv > 0 ? '#16a34a' : '#94a3b8' })}
                         {cell('Tax', l.taxPct > 0 ? `${l.taxPct}%` : '—', { color: '#64748b' })}
-                        {cell('Unit price', n(l.unitPrice), { fontFamily: 'Courier New' })}
+                        {cell('Unit price', fmtPrice(l.unitPrice ?? 0), { fontFamily: 'Courier New' })}
                         {cell('Total', n(l.lineTotal ?? (l.orderedQty * l.unitPrice)), { fontFamily: 'Courier New' })}
                     </div>
                 </div>
@@ -367,7 +367,7 @@ const PoPrintModal3 = ({ po, onClose, preview, overBudget, infoOnly = false, sta
                                         <td style={{ padding: '7px 6px', textAlign: 'right' }}>{l.orderedQty}</td>
                                         <td style={{ padding: '7px 6px', textAlign: 'right', fontWeight: 600, color: recv > 0 ? '#16a34a' : '#94a3b8' }}>{recv}</td>
                                         <td style={{ padding: '7px 6px', textAlign: 'center', color: '#475569' }}>{l.uomName || '—'}</td>
-                                        <td style={{ padding: '7px 6px', textAlign: 'right', fontFamily: 'Courier New', fontSize: 10.5 }}>{n(l.unitPrice)}</td>
+                                        <td style={{ padding: '7px 6px', textAlign: 'right', fontFamily: 'Courier New', fontSize: 10.5 }}>{fmtPrice(l.unitPrice ?? 0)}</td>
                                         <td style={{ padding: '7px 6px', textAlign: 'right', fontFamily: 'Courier New', fontSize: 10.5, color: '#64748b' }}>{l.taxPct > 0 ? `${l.taxPct}%` : '—'}</td>
                                         <td style={{ padding: '7px 6px', textAlign: 'right', fontFamily: 'Courier New', fontSize: 10.5, fontWeight: 600 }}>{n(l.lineTotal ?? (l.orderedQty * l.unitPrice))}</td>
                                         <td style={{ padding: '7px 6px', textAlign: 'center' }}>
@@ -445,7 +445,7 @@ const PoPrintModal3 = ({ po, onClose, preview, overBudget, infoOnly = false, sta
                                         </td>
                                         <td style={{ padding: '7px 8px', textAlign: 'right',
                                                      fontFamily: 'Courier New', fontSize: 11 }}>
-                                            {n(l.unitPrice)}
+                                            {fmtPrice(l.unitPrice ?? 0)}
                                         </td>
                                         <td style={{ padding: '7px 8px', textAlign: 'right',
                                                      fontFamily: 'Courier New', fontSize: 11, color: '#64748b' }}>

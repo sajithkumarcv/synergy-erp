@@ -6,6 +6,7 @@ import { useLookup } from '../../../LookupContext';
 import { fmt } from '../../procurementConstants';
 import { useFieldConfig } from '../../../FieldConfigContext';
 import AmountInput from '../../../common/AmountInput';
+import { fmtPrice } from '../../../common/fmtPrice';
 
 // ── GRN Import Modal ──────────────────────────────────────────────────────────
 const GrnImportModal = ({ rtv, onClose, onImported }) => {
@@ -153,7 +154,7 @@ const GrnImportModal = ({ rtv, onClose, onImported }) => {
                                             <td style={{ padding: '8px 10px', textAlign: 'right', borderBottom: '1px solid #f0f4f8', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fmt(l.acceptedQty)}</td>
                                             <td style={{ padding: '8px 10px', textAlign: 'right', borderBottom: '1px solid #f0f4f8', color: l.currentStock < l.acceptedQty ? '#dc2626' : '#16a34a', fontWeight: 500 }}>{fmt(l.currentStock)}</td>
                                             <td style={{ padding: '8px 10px', borderBottom: '1px solid #f0f4f8', color: '#475569' }}>{l.uomName || '—'}</td>
-                                            <td style={{ padding: '8px 10px', textAlign: 'right', borderBottom: '1px solid #f0f4f8', color: '#64748b' }}>{fmt(l.unitCost)}</td>
+                                            <td style={{ padding: '8px 10px', textAlign: 'right', borderBottom: '1px solid #f0f4f8', color: '#64748b' }}>{fmtPrice(l.unitCost)}</td>
                                             <td style={{ padding: '8px 10px', borderBottom: '1px solid #f0f4f8' }} onClick={e => e.stopPropagation()}>
                                                 <input type="number" value={qtyMap[l.grnDetailId] || ''}
                                                     onChange={e => setQtyMap(p => ({ ...p, [l.grnDetailId]: e.target.value }))}
@@ -390,7 +391,7 @@ const RtvLinesTab = ({ rtv, onRefresh }) => {
                                             <td>{l.itemDesc}</td>
                                             <td className="prd-num-cell" style={{ color: '#dc2626', fontWeight: 600 }}>-{fmt(l.returnQty)}</td>
                                             <td>{l.uomName || '—'}</td>
-                                            <td className="prd-num-cell">{fmt(l.unitCost)}</td>
+                                            <td className="prd-num-cell">{fmtPrice(l.unitCost)}</td>
                                             <td className="prd-num-cell" style={{ fontWeight: 600 }}>{fmt(l.lineTotal)}</td>
                                             <td style={{ fontSize: 11, color: '#64748b' }}>{l.returnReason || '—'}</td>
                                             {isDraft && (
@@ -503,7 +504,7 @@ const RtvLinesTab = ({ rtv, onRefresh }) => {
                                     </div>
                                     <div className="prd-lf-field">
                                         <label>Unit Cost {isReq('unitCost') && <span className="req">*</span>}</label>
-                                        <AmountInput className="prd-lf-input" value={form.unitCost} onChange={v => handle({ target: { name: 'unitCost', value: v } })} />
+                                        <AmountInput decimals={4} minDecimals={2} className="prd-lf-input" value={form.unitCost} onChange={v => handle({ target: { name: 'unitCost', value: v } })} />
                                     </div>
                                     <div className="prd-lf-field prd-lf-f2">
                                         <label>Return Reason</label>

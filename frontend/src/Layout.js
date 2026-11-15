@@ -32,6 +32,7 @@ import BomDetailPage from './bom/BomDetailPage';
 import { Pr } from './procurement/pr/Pr';
 import PrPendingPo from './procurement/pr/PrPendingPo';
 import PoPendingGrn from './procurement/po/PoPendingGrn';
+import StockRevaluations from './inventory/revaluation/StockRevaluations';
 import PrDetailPage from './procurement/pr/PrDetailPage';
 import { Po } from './procurement/po/Po';
 import PoDetailPage from './procurement/po/PoDetailPage';
@@ -809,6 +810,7 @@ const Layout = () => {
             <Route path="/inventory-adjustment/:id"         element={<AdjustmentDetailPage />} />
             <Route path="/inventory-balance"                element={<StockBalance />} />
             <Route path="/inventory-stock-by-job"           element={<StockByJob />} />
+            <Route path="/inventory-revaluations"           element={<StockRevaluations />} />
             <Route path="/inventory-transfer"               element={<StockTransfer />} />
             <Route path="/inventory-transfer/:id"           element={<StockTransferDetailPage />} />
             <Route path="/item-price-analysis"              element={<ItemPriceAnalysis />} />

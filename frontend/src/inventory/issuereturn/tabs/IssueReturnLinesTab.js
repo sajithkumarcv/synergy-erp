@@ -7,6 +7,7 @@ import { usePermission } from '../../../PermissionContext';
 import { fmt } from '../../inventoryConstants';
 import { useFieldConfig } from '../../../FieldConfigContext';
 import AmountInput from '../../../common/AmountInput';
+import { fmtPrice } from '../../../common/fmtPrice';
 
 // ── Issue line picker ─────────────────────────────────────────
 // Fetches returnable lines from the source issue and lets the user pick one
@@ -248,7 +249,7 @@ const IssueReturnLinesTab = ({ issueReturn, lines, onRefresh }) => {
                                     <td style={{ color: '#1e293b' }}>{l.itemDesc || l.itemName || '—'}</td>
                                     <td className="prd-num-cell" style={{ color: '#7c3aed', fontWeight: 500 }}>{fmt(l.returnQty, 4)}</td>
                                     <td style={{ color: '#475569' }}>{l.uomName || '—'}</td>
-                                    <td className="prd-num-cell">{fmt(l.unitCost)}</td>
+                                    <td className="prd-num-cell">{fmtPrice(l.unitCost)}</td>
                                     <td className="prd-num-cell" style={{ fontWeight: 600 }}>{fmt((l.returnQty || 0) * (l.unitCost || 0))}</td>
                                     <td style={{ fontSize: 11, color: '#64748b' }}>{l.notes || '—'}</td>
                                     {canEdit && (
@@ -332,7 +333,7 @@ const IssueReturnLinesTab = ({ issueReturn, lines, onRefresh }) => {
                             </div>
                             <div className="prd-lf-field">
                                 <label>Unit Cost {isReq('unitCost') && <span className="req">*</span>}</label>
-                                <AmountInput className="prd-lf-input"
+                                <AmountInput decimals={4} minDecimals={2} className="prd-lf-input"
                                     value={form.unitCost} onChange={v => handle({ target: { name: 'unitCost', value: v } })} />
                             </div>
                             <div className="prd-lf-field">

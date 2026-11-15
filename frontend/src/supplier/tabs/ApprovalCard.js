@@ -5,6 +5,15 @@ import ValidationModal from '../../common/ValidationModal';
 
 // Supplier approval: checklist (country, bank, tax, contact, address) + Approve / Withdraw.
 // Only suppliers that are approved can be picked on a purchase order.
+
+// Short names for the checklist (the full sentence from sp_GetSupplierApproval shows on hover).
+const CHECK_LABEL = {
+    COUNTRY: 'Country',
+    BANK:    'Active bank account',
+    TAX:     'Tax treatment (GST / VAT no. if registered)',
+    CONTACT: 'Contact person',
+    ADDRESS: 'Address',
+};
 const ApprovalCard = ({ supplier, onRefresh }) => {
     const { canDo } = usePermission();
     const canApprove = canDo('/suppliers', 'APPROVE');
@@ -64,10 +73,18 @@ const ApprovalCard = ({ supplier, onRefresh }) => {
                         <span className="ov-row-value">{supplier.approvalRemarks}</span>
                     </div>
                 )}
+            </div>
+            {/* checklist: own layout so a long label wraps and the tick/cross always stays visible on the right */}
+            <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {items.map(i => (
-                    <div className="ov-row" key={i.itemKey}>
-                        <span className="ov-row-label">{i.itemLabel}</span>
-                        <span className="ov-row-value" style={{ color: i.isOk ? '#047857' : '#b91c1c', fontWeight: 600 }}>{i.isOk ? '✔' : '✖ Missing'}</span>
+                    <div key={i.itemKey} title={i.itemLabel}
+                        style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, fontSize: 12 }}>
+                        <span style={{ color: '#475569', flex: 1, minWidth: 0, whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: 1.35 }}>
+                            {CHECK_LABEL[i.itemKey] || i.itemLabel}
+                        </span>
+                        <span style={{ color: i.isOk ? '#047857' : '#b91c1c', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                            {i.isOk ? '✔' : '✖ Missing'}
+                        </span>
                     </div>
                 ))}
             </div>
@@ -76,7 +93,8 @@ const ApprovalCard = ({ supplier, onRefresh }) => {
                 <div style={{ marginTop: 10, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                     <input className="jf-input" style={{ flex: 1, minWidth: 160 }} placeholder="Remarks (optional)" value={remarks} onChange={e => setRemarks(e.target.value)} />
                     {!approved && (
-                        <button className="jd-edit-btn" disabled={busy || !allOk} title={allOk ? '' : 'Complete the checklist first'} onClick={() => act('approve')}>
+                        <button className="jd-edit-btn" disabled={busy || !allOk} title={allOk ? '' : 'Complete the checklist first'} onClick={() => act('approve')}
+                            style={busy || !allOk ? { opacity: 0.45, cursor: 'not-allowed' } : undefined}>
                             {busy ? 'Saving…' : '✔ Approve Supplier'}
                         </button>
                     )}

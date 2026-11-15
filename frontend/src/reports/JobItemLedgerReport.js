@@ -4,6 +4,7 @@ import { variables, authHeaders } from '../Variable';
 import { fmtDate, fmt } from '../procurement/procurementConstants';
 import './Reports.css';
 import './JobItemLedger.css';
+import { fmtPrice } from '../common/fmtPrice';
 
 const today       = () => new Date().toISOString().slice(0, 10);
 const firstOfYear = () => `${new Date().getFullYear()}-01-01`;
@@ -216,7 +217,7 @@ const DetailPanel = ({ selectedRow, dateFrom, dateTo, onClose }) => {
                                                     <td className="jil-td-wrap">{r.supplierName}</td>
                                                     <td>{r.poNumber ? <span className="rpt-code-chip">{r.poNumber}</span> : '—'}</td>
                                                     <td className="jil-td-qty jil-in-qty">{fmt(r.receivedQty, 2)}</td>
-                                                    <td className="jil-td-amt">{fmt(r.unitPrice, 2)}</td>
+                                                    <td className="jil-td-amt">{fmtPrice(r.unitPrice)}</td>
                                                     <td className="jil-td-amt jil-in-val">{fmt(r.lineTotal, 2)}</td>
                                                     <td className="jil-td-muted">{r.invoiceNo || '—'}</td>
                                                 </tr>
@@ -274,7 +275,7 @@ const DetailPanel = ({ selectedRow, dateFrom, dateTo, onClose }) => {
                                                     <td className="jil-td-date">{r.issueDate ? fmtDate(r.issueDate) : '—'}</td>
                                                     <td className="jil-td-wrap">{r.issuedTo}</td>
                                                     <td className="jil-td-qty jil-out-qty">{fmt(r.qty, 2)}</td>
-                                                    <td className="jil-td-amt">{fmt(r.unitCost, 2)}</td>
+                                                    <td className="jil-td-amt">{fmtPrice(r.unitCost)}</td>
                                                     <td className="jil-td-amt jil-out-val">{fmt(r.lineTotal, 2)}</td>
                                                     <td><StatusBadge status={r.status} /></td>
                                                 </tr>

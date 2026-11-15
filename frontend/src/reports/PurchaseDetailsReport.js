@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { variables, authHeaders } from '../Variable';
 import { fmtDate, fmt } from '../procurement/procurementConstants';
 import './Reports.css';
+import { fmtPrice } from '../common/fmtPrice';
 
 const today        = () => new Date().toISOString().slice(0, 10);
 const firstOfMonth = () => { const d = new Date(); d.setDate(1); return d.toISOString().slice(0, 10); };
@@ -350,7 +351,7 @@ const PurchaseDetailsReport = () => {
                                             <td style={{ maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#1e293b' }}>{r.itemDesc}</td>
                                             <td className="r" style={{ fontFamily: 'monospace', fontWeight: 700, color: '#1e293b' }}>{fmt(r.qty, 4)}</td>
                                             <td style={{ fontSize: 12, color: '#64748b' }}>{r.uomName || <span className="muted">—</span>}</td>
-                                            <td className="r" style={{ fontFamily: 'monospace', color: '#475569' }}>{fmt(r.unitCost)}</td>
+                                            <td className="r" style={{ fontFamily: 'monospace', color: '#475569' }}>{fmtPrice(r.unitCost)}</td>
                                             <td className="r" style={{ fontFamily: 'monospace', fontWeight: 700, color: '#166534' }}>{fmt(r.lineTotal)}</td>
                                         </tr>
                                     ))}

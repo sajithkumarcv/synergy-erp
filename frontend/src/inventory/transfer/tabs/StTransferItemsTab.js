@@ -5,6 +5,7 @@ import { useCurrentUser } from '../../../AuthContext';
 import { fmt } from '../../inventoryConstants';
 import AlertModal from '../../../common/AlertModal';
 import ConfirmModal from '../../../common/ConfirmModal';
+import { fmtPrice } from '../../../common/fmtPrice';
 
 // ── Job Stock Picker Modal ────────────────────────────────────
 const StockPickerModal = ({ fromJobId, existingItemIds, onAdd, onClose }) => {
@@ -357,7 +358,7 @@ const StTransferItemsTab = ({ transfer, lines: initialLines, onRefresh }) => {
                                         )}
                                     </td>
                                     <td style={{ ...td, textAlign:'right', color:'#64748b', fontFamily:'tabular-nums' }}>
-                                        {fmt(l.unitCost)}
+                                        {fmtPrice(l.unitCost)}
                                     </td>
                                     <td style={{ ...td, textAlign:'right', fontFamily:'tabular-nums', fontWeight:500 }}>
                                         {fmt(l.lineValue)}

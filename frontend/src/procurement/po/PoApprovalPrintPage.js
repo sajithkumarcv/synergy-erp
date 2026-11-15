@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { variables, authHeaders } from '../../Variable';
-import { fmt, fmtDate, statusBadgeCfg } from '../procurementConstants';
+import { fmt, fmtPrice, fmtDate, statusBadgeCfg } from '../procurementConstants';
 import useOwnerCompany from '../../hooks/useOwnerCompany';
 import { useLookup } from '../../LookupContext';
 import consolidatePoLinesForPrint from './consolidatePoLinesForPrint';
@@ -306,7 +306,7 @@ const PoApprovalPrintPage = () => {
                                         <td style={{ padding: '7px 8px', textAlign: 'right' }}>{l.orderedQty}</td>
                                         <td style={{ padding: '7px 8px', textAlign: 'center', color: '#475569' }}>{l.uomName || '—'}</td>
                                         <td style={{ padding: '7px 8px', textAlign: 'right', fontFamily: 'Courier New', fontSize: 11 }}>
-                                            {n(l.unitPrice)}
+                                            {fmtPrice(l.unitPrice ?? 0)}
                                         </td>
                                         <td style={{ padding: '7px 8px', textAlign: 'right', fontFamily: 'Courier New', fontSize: 11, color: '#64748b' }}>
                                             {l.taxPct > 0 ? `${l.taxPct}%` : '—'}

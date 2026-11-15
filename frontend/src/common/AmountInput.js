@@ -25,6 +25,7 @@ const AmountInput = ({
     max,
     placeholder = '0.00',
     decimals = 2,
+    minDecimals,          // fewest decimals shown when blurred (defaults to `decimals`); use with decimals > 2 so 5,450.50 is not padded to 5,450.5000
     disabled = false,
     style,
     className,
@@ -39,7 +40,7 @@ const AmountInput = ({
         : (value === '' || value == null || isNaN(Number(value))
             ? ''
             : Number(value).toLocaleString('en-US', {
-                minimumFractionDigits: decimals,
+                minimumFractionDigits: minDecimals ?? decimals,
                 maximumFractionDigits: decimals,
             }));
 

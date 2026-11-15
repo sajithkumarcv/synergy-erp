@@ -9,6 +9,7 @@ import '../../procurement/Procurement.css';
 import { useFieldConfig } from '../../FieldConfigContext';
 import { InlineError } from '../../common/InlineError';
 import InvoiceImportModal from '../InvoiceImportModal';
+import { fmtPrice } from '../../common/fmtPrice';
 
 // ── Line Edit Slide-over ─────────────────────────────────────────────
 const BLANK_LINE = {
@@ -189,12 +190,12 @@ const LineModal = ({ invoiceId, line, onSaved, onClose, currentUser, ccy }) => {
                                     style={ccy ? { borderRadius: '0 6px 6px 0', borderLeft: 'none', textAlign: 'right' } : { textAlign: 'right' }}
                                     value={priceFocused
                                         ? form.unitPrice
-                                        : (form.unitPrice !== '' ? fmt(unitPrice) : '')}
+                                        : (form.unitPrice !== '' ? fmtPrice(unitPrice) : '')}
                                     onChange={e => set('unitPrice', e.target.value.replace(/[^0-9.]/g, ''))}
                                     onBlur={e => {
                                         setPriceFocused(false);
                                         const n = parseFloat(e.target.value.replace(/,/g, ''));
-                                        if (!isNaN(n)) set('unitPrice', n.toFixed(2));
+                                        if (!isNaN(n)) set('unitPrice', n.toFixed(4));
                                     }}
                                     onFocus={() => {
                                         setPriceFocused(true);
@@ -369,7 +370,7 @@ const InvoiceLinesTab = ({ invoice, lines = [], onRefresh }) => {
                                                 {l.uomName || '—'}
                                             </td>
                                             <td style={TD_NUM}>{fmt(l.qty, 4).replace(/\.?0+$/, '')}</td>
-                                            <td style={TD_NUM}>{ccy && <span style={{ color: '#94a3b8', fontSize: 11, marginRight: 3 }}>{ccy}</span>}{fmt(l.unitPrice)}</td>
+                                            <td style={TD_NUM}>{ccy && <span style={{ color: '#94a3b8', fontSize: 11, marginRight: 3 }}>{ccy}</span>}{fmtPrice(l.unitPrice)}</td>
                                             <td style={TD_NUM}>{ccy && <span style={{ color: '#94a3b8', fontSize: 11, marginRight: 3 }}>{ccy}</span>}{fmt(l.amount)}</td>
                                             <td style={{ ...TD_NUM, color: '#64748b' }}>{l.vatPercent}%</td>
                                             <td style={{ ...TD_NUM, color: '#64748b' }}>{ccy && <span style={{ fontSize: 11, marginRight: 3 }}>{ccy}</span>}{fmt(l.taxAmount)}</td>

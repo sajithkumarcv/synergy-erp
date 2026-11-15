@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 import { variables, authHeaders } from '../Variable';
 import { useLookup } from '../LookupContext';
 import { fmt, fmtDate } from '../procurement/procurementConstants';
+import { fmtPrice } from './fmtPrice';
 
 // ── Tiny price-trend sparkline ────────────────────────────────────
 // Inline SVG rather than a chart library: this sits inside a modal, needs no
@@ -187,7 +188,7 @@ const LastPurchaseModal = ({ itemId, itemLabel, onClose }) => {
                                 <div>
                                     <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Unit price</div>
                                     <div style={{ fontSize: 17, fontWeight: 700, color: '#1e3a5f', fontVariantNumeric: 'tabular-nums' }}>
-                                        {latest.currencyShort ? `${latest.currencyShort} ` : ''}{fmt(latest.unitPrice)}
+                                        {latest.currencyShort ? `${latest.currencyShort} ` : ''}{fmtPrice(latest.unitPrice)}
                                     </div>
                                 </div>
                                 <div>
@@ -229,7 +230,7 @@ const LastPurchaseModal = ({ itemId, itemLabel, onClose }) => {
                                                         <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
                                                             {fmt(d.orderedQty)}{d.uomName ? ` ${d.uomName}` : ''}
                                                         </td>
-                                                        <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{fmt(d.unitPrice)}</td>
+                                                        <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{fmtPrice(d.unitPrice)}</td>
                                                         <td style={td}>{d.currencyShort || '—'}</td>
                                                         <td style={td}><StatusPill status={d.status} /></td>
                                                     </tr>

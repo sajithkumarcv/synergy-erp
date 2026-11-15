@@ -15,6 +15,7 @@ import DeliveryPrintModal      from '../delivery/DeliveryPrintModal';
 import { openPrintWindow }     from '../utils/printWindow';
 import JobTypeMultiSelect      from './JobTypeMultiSelect';
 import '../procurement/Procurement.css';
+import { fmtPrice } from '../common/fmtPrice';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 const fmt = (n, dec = 2) =>
@@ -1821,7 +1822,7 @@ const JobOverview = () => {
                                                                                 <td style={{ padding: '4px 8px', color: '#64748b' }}>{i.uomCode || '—'}</td>
                                                                                 <td style={{ padding: '4px 8px', color: '#64748b' }}>{i.notes || '—'}</td>
                                                                                 <td style={{ padding: '4px 8px', textAlign: 'right' }}>{fmt(i.qty, 2)}</td>
-                                                                                <td style={{ padding: '4px 8px', textAlign: 'right' }}>{fmt(i.unitPrice)}</td>
+                                                                                <td style={{ padding: '4px 8px', textAlign: 'right' }}>{fmtPrice(i.unitPrice)}</td>
                                                                                 <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 600 }}>{fmt(i.lineTotal)}</td>
                                                                             </tr>
                                                                         ))}

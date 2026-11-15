@@ -447,11 +447,13 @@ const JobDetailPage = () => {
             <div className="jd-kpi-strip">
                 {[
                     { label: 'Job Date',          val: fmtDate(job.jobDate),              cls: '' },
+                    ...(canDo('/jobs', 'VIEW_FINANCIALS') ? [
                     { label: `Order Value${jobCcy ? ` (${jobCcy})` : ''}`, val: fmt(job.orderValue), cls: 'jd-kpi-blue', sub: baseSub(job.orderValue) },
                     { label: 'Total Expenses',     val: fmt(job.totalInvoicing),           cls: 'jd-kpi-amber', sub: baseSub(job.totalInvoicing) },
                     { label: 'Balance',            val: fmt(Number(job.orderValue||0) - Number(job.totalInvoicing||0)),
                                                                                             cls: Number(job.orderValue||0) - Number(job.totalInvoicing||0) < 0 ? 'jd-kpi-red' : 'jd-kpi-green',
                                                    sub: baseSub(Number(job.orderValue||0) - Number(job.totalInvoicing||0)) },
+                    ] : []),
                     { label: 'Exp. Complete',      val: fmtDate(job.jobExpectedCompleteDate), cls: '' },
                     ...(job.finishedItemCode ? [{ label: 'Item',    val: job.finishedItemCode,  cls: 'jd-kpi-mono' }] : []),
                     ...(job.bomCount > 0     ? [{ label: 'BOMs',    val: job.bomCount,           cls: 'jd-kpi-blue' }] : []),
@@ -752,6 +754,7 @@ const JobDetailPage = () => {
 
 // ── Edit slide-over ────────────────────────────────────────────
 const JobEditSlideOver = ({ job, jobTypes, jobStages, onClose, onSaved }) => {
+    const { canDo } = usePermission();
     const currentUser = useCurrentUser();
     const { lookups } = useLookup();
     const { currencies, jobStatuses } = lookups;
@@ -989,8 +992,8 @@ const JobEditSlideOver = ({ job, jobTypes, jobStages, onClose, onSaved }) => {
                         <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
                             <FinDisplay label="Currency"      value={job.currencyName ? `${job.currencyName} (${job.currencySymbol || ''})` : '—'} />
                             <FinDisplay label="Exc. Rate"     value={job.jobExcRate   ?? '—'} />
-                            <FinDisplay label="Order Value"   value={job.orderValue   != null ? Number(job.orderValue).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '—'} />
-                            <FinDisplay label="Advance"       value={job.jobAdvanceAmount != null ? Number(job.jobAdvanceAmount).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '—'} />
+                            {canDo('/jobs', 'VIEW_FINANCIALS') && <FinDisplay label="Order Value"   value={job.orderValue   != null ? Number(job.orderValue).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '—'} />}
+                            {canDo('/jobs', 'VIEW_FINANCIALS') && <FinDisplay label="Advance"       value={job.jobAdvanceAmount != null ? Number(job.jobAdvanceAmount).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '—'} />}
                         </div>
                     </div>
                     <Sec label="Timeline" />

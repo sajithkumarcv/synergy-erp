@@ -16,6 +16,11 @@ namespace ERPWEB.Controllers.Supplier
         public string? Remarks { get; set; }
     }
 
+    public class SupplierExportRequest
+    {
+        public List<int>? SupplierIds { get; set; }
+    }
+
     [Authorize]
     [Route("api/[controller]")]
     [ApiController]
@@ -93,6 +98,25 @@ namespace ERPWEB.Controllers.Supplier
             {
                 await _dbcon.WriteLog(ex, controller: "Supplier", action: "GetSupplier", requestPath: HttpContext.Request.Path);
                 return StatusCode(500, new { message = "Error fetching supplier." });
+            }
+        }
+
+        // ── EXPORT (full information, names instead of ids) ─────────────────
+        [HttpPost("export")]
+        public async Task<IActionResult> ExportSuppliers([FromBody] SupplierExportRequest? req)
+        {
+            try
+            {
+                var ids = (req?.SupplierIds ?? new List<int>()).Distinct().Take(2000).ToList();
+                if (ids.Count == 0) return Ok(new List<object>());
+                var rows = await _dbcon.QueryAsync<dynamic>("proj.sp_ExportSuppliers",
+                    new { SupplierIds = string.Join(",", ids) });
+                return Ok(rows ?? new List<dynamic>());
+            }
+            catch (Exception ex)
+            {
+                await _dbcon.WriteLog(ex, controller: "Supplier", action: "ExportSuppliers", requestPath: HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Error exporting suppliers." });
             }
         }
 
@@ -179,7 +203,7 @@ namespace ERPWEB.Controllers.Supplier
             try
             {
                 var items = await _dbcon.QueryAsync<dynamic>("sp_GetSupplierApproval", new { SupplierId = id });
-                return Ok(items ?? new List<dynamic>());
+                return Ok(DynamicRowJson.ToCamelRows(items));   // 2026-11-15: screen reads itemLabel / isOk
             }
             catch (Exception ex)
             {

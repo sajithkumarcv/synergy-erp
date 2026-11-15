@@ -8,6 +8,7 @@ import { fmt } from '../../inventoryConstants';
 import { useFieldConfig } from '../../../FieldConfigContext';
 import AmountInput from '../../../common/AmountInput';
 import AdjustmentImportModal from '../AdjustmentImportModal';
+import { fmtPrice } from '../../../common/fmtPrice';
 
 const LBL = { fontSize: 10, fontWeight: 600, color: '#64748b', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '.04em' };
 
@@ -166,7 +167,7 @@ const LineEditor = ({ uoms, reasons, onSave, onCancel, initial }) => {
                     </div>
                     <div style={{ flex: '0 0 100px' }}>
                         <div style={LBL}>Unit Cost</div>
-                        <AmountInput className="pf-input" value={unitCost} onChange={v => setUnitCost(v)} />
+                        <AmountInput decimals={4} minDecimals={2} className="pf-input" value={unitCost} onChange={v => setUnitCost(v)} />
                     </div>
                     <div style={{ flex: '0 0 160px' }}>
                         <div style={LBL}>Reason {isReq('reason') && <span className="req">*</span>}</div>
@@ -303,7 +304,7 @@ const AdjustmentLinesTab = ({ header, lines, editable, adjustmentId, autoImport,
                                     <td style={{ textAlign: 'right', fontFamily: 'monospace' }}>
                                         {fmt(Math.abs(l.adjustQty))} {l.uomName || ''}
                                     </td>
-                                    <td style={{ textAlign: 'right', fontFamily: 'monospace' }}>{fmt(l.unitCost)}</td>
+                                    <td style={{ textAlign: 'right', fontFamily: 'monospace' }}>{fmtPrice(l.unitCost)}</td>
                                     <td style={{ textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>{fmt(l.lineValue)}</td>
                                     <td style={{ fontSize: 12 }}>
                                         {l.reasonLabel || l.reason || <span style={{ color: '#94a3b8' }}>—</span>}

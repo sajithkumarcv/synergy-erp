@@ -2,6 +2,7 @@ import React from 'react';
 import { variables, authHeaders } from '../Variable';
 import { useLookup } from '../LookupContext';
 import { fmt, fmtDate } from '../procurement/procurementConstants';
+import { fmtPrice } from './fmtPrice';
 
 // ─────────────────────────────────────────────────────────────────────
 // Purchase price-variance warning.
@@ -150,7 +151,7 @@ export function varianceTooltip(v, currencyCode = '') {
     if (v.state === 'uom')        return 'Previously purchased in a different unit - prices are not comparable.';
     if (!v.last)                  return '';
     const cur   = currencyCode ? `${currencyCode} ` : '';
-    const lines = [`Last paid ${cur}${fmt(v.last.unitPriceBase)} on ${fmtDate(v.last.poDate)} — ${v.last.supplierName || 'unknown supplier'}`];
+    const lines = [`Last paid ${cur}${fmtPrice(v.last.unitPriceBase)} on ${fmtDate(v.last.poDate)} — ${v.last.supplierName || 'unknown supplier'}`];
     if (v.count > 1) lines.push(`Average of ${v.count} purchases: ${cur}${fmt(v.baseline)}`);
     if (v.state === 'warn') lines.push(`This price is ${v.pct.toFixed(0)}% above that average.`);
     return lines.join('\n');
@@ -211,7 +212,7 @@ const PriceVarianceWarning = ({ variance, currencyCode = '' }) => {
                 {variance.pct.toFixed(0)}% above the usual price
             </div>
             <div>
-                Last paid {currencyCode ? `${currencyCode} ` : ''}{fmt(variance.last?.unitPriceBase)} on{' '}
+                Last paid {currencyCode ? `${currencyCode} ` : ''}{fmtPrice(variance.last?.unitPriceBase)} on{' '}
                 {fmtDate(variance.last?.poDate)} — {variance.last?.supplierName || 'unknown supplier'}
                 {variance.count > 1 && <> · average of {variance.count} purchases {fmt(variance.baseline)}</>}
             </div>

@@ -7,6 +7,7 @@ import { usePermission } from '../../../PermissionContext';
 import { fmt, fmtDate } from '../../procurementConstants';
 import { useFieldConfig } from '../../../FieldConfigContext';
 import AmountInput from '../../../common/AmountInput';
+import { fmtPrice } from '../../../common/fmtPrice';
 
 const QC_STATUSES = ['Pending', 'Passed', 'Failed', 'Partial'];
 
@@ -218,7 +219,7 @@ const PoImportModal = ({ grn, onClose, onImported }) => {
                     {remaining <= 0 ? <span title="Fully received">✓ Done</span> : fmt(remaining)}
                 </td>
                 <td style={{ ...TD, color: '#475569' }}>{l.uomName || '—'}</td>
-                <td style={{ ...TD, textAlign: 'right', color: '#64748b', fontVariantNumeric: 'tabular-nums' }}>{l.unitPrice != null ? fmt(l.unitPrice) : '—'}</td>
+                <td style={{ ...TD, textAlign: 'right', color: '#64748b', fontVariantNumeric: 'tabular-nums' }}>{l.unitPrice != null ? fmtPrice(l.unitPrice) : '—'}</td>
                 <td style={TD} onClick={e => e.stopPropagation()}>
                     <input
                         type="number"
@@ -276,7 +277,7 @@ const PoImportModal = ({ grn, onClose, onImported }) => {
                     <td style={{ ...TD, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 700,
                         color: a.remaining <= 0 ? '#16a34a' : '#1e3a5f' }}>{a.remaining <= 0 ? <span title="Fully received">✓ Done</span> : fmt(a.remaining)}</td>
                     <td style={{ ...TD, color: '#475569' }}>{f.uomName || '—'}</td>
-                    <td style={{ ...TD, textAlign: 'right', color: '#64748b', fontVariantNumeric: 'tabular-nums' }}>{a.priceSame ? (f.unitPrice != null ? fmt(f.unitPrice) : '—') : <span style={{ fontSize: 10, fontStyle: 'italic', color: '#94a3b8' }}>mixed</span>}</td>
+                    <td style={{ ...TD, textAlign: 'right', color: '#64748b', fontVariantNumeric: 'tabular-nums' }}>{a.priceSame ? (f.unitPrice != null ? fmtPrice(f.unitPrice) : '—') : <span style={{ fontSize: 10, fontStyle: 'italic', color: '#94a3b8' }}>mixed</span>}</td>
                     <td style={{ ...TD, textAlign: 'right', color: '#475569', fontVariantNumeric: 'tabular-nums' }}>
                         <span style={{ fontWeight: 600 }}>{fmt(a.selQty)}</span>
                         <span style={{ fontSize: 9.5, color: '#94a3b8', marginLeft: 3 }}>total</span>
@@ -430,6 +431,26 @@ const GrnLinesTab = ({ grn, onRefresh }) => {
 
     useEffect(() => { loadLines(); }, [loadLines]);
 
+    // PO line prices, to warn when a GRN line price differs from its PO line (warning only, save is not blocked)
+    const [poPrices, setPoPrices] = useState({});
+    useEffect(() => {
+        if (!grn.poId) { setPoPrices({}); return; }
+        fetch(`${variables.API_URL}purchaseorder/lines/${grn.poId}`, { headers: authHeaders() })
+            .then(r => r.json())
+            .then(rows => {
+                const map = {};
+                (Array.isArray(rows) ? rows : []).forEach(l => { if (l.poLineId != null) map[l.poLineId] = Number(l.unitPrice) || 0; });
+                setPoPrices(map);
+            })
+            .catch(() => setPoPrices({}));
+    }, [grn.poId, lines]);
+    const poPriceOf = (poLineId) => (poLineId != null && poPrices[poLineId] !== undefined) ? poPrices[poLineId] : null;
+    const priceDiffers = (poLineId, price) => {
+        const p = poPriceOf(poLineId);
+        return p !== null && Math.abs((Number(price) || 0) - p) > 0.00005;
+    };
+    const priceDiffLines = lines.filter(l => priceDiffers(l.poLineId, l.unitPrice));
+
     const openEdit = (line) => {
         setEditLine(line);
         setForm({
@@ -500,7 +521,7 @@ const GrnLinesTab = ({ grn, onRefresh }) => {
                 rejectedQty:     Number(form.rejectedQty) || 0,
                 uomId:           form.uomId        ? Number(form.uomId)    : null,
                 uomName:         form.uomName      || null,
-                unitPrice:       Number(form.unitPrice) || 0,
+                unitPrice:       form.poLineId ? (poPriceOf(Number(form.poLineId)) ?? (Number(form.unitPrice) || 0)) : (Number(form.unitPrice) || 0),
                 taxPct:          Number(form.taxPct)    || 0,
                 batchNo:         form.batchNo.trim()         || null,
                 serialNo:        form.serialNo.trim()        || null,
@@ -606,6 +627,16 @@ const GrnLinesTab = ({ grn, onRefresh }) => {
                     </div>
                 )}
 
+                {priceDiffLines.length > 0 && (
+                    <div style={{ padding: '10px 14px', background: '#fffbeb', borderBottom: '1px solid #fde68a', fontSize: 12, color: '#92400e' }}>
+                        ⚠️ <strong>{priceDiffLines.length} line(s) have a unit price different from the PO price.</strong>{' '}
+                        {grn.status === 'Draft'
+                            ? 'The PO price is applied when the line is saved or the GRN is received.'
+                            : 'This GRN was received before the GRN price was locked to the PO price.'}
+                        Check: {priceDiffLines.map(l => `${l.itemCode || l.itemDesc} (GRN ${fmtPrice(l.unitPrice)}, PO ${fmtPrice(poPriceOf(l.poLineId))})`).join(', ')}.
+                    </div>
+                )}
+
                 {loading ? (
                     <div style={{ padding: 24, textAlign: 'center', color: '#64748b', fontSize: 12 }}>Loading…</div>
                 ) : (
@@ -667,7 +698,15 @@ const GrnLinesTab = ({ grn, onRefresh }) => {
                                                         </div>
                                                     )}
                                                 </td>
-                                                <td className="prd-num-cell">{fmt(l.unitPrice)}</td>
+                                                <td className="prd-num-cell">
+                                                    {fmtPrice(l.unitPrice)}
+                                                    {priceDiffers(l.poLineId, l.unitPrice) && (
+                                                        <div style={{ fontSize: 10, color: '#b45309', fontWeight: 600, marginTop: 2, whiteSpace: 'nowrap' }}
+                                                            title="This GRN price differs from the PO line price">
+                                                            ⚠ PO {fmtPrice(poPriceOf(l.poLineId))}
+                                                        </div>
+                                                    )}
+                                                </td>
                                                 <td className="prd-num-cell">{l.taxPct ? `${l.taxPct}%` : '—'}</td>
                                                 <td className="prd-num-cell" style={{ fontWeight: 500 }}>{fmt(l.lineTotal)}</td>
                                                 <td className="prd-num-cell" style={{ fontWeight: 500, color: '#1e40af' }}>{fmt(l.lineTotalWithTax)}</td>
@@ -776,7 +815,15 @@ const GrnLinesTab = ({ grn, onRefresh }) => {
                                     </div>
                                     <div className="prd-lf-field">
                                         <label>Unit Price</label>
-                                        <AmountInput className="prd-lf-input" value={form.unitPrice} onChange={v => handle({ target: { name: 'unitPrice', value: v } })} />
+                                        {form.poLineId ? (
+                                            <input className="prd-lf-input"
+                                                value={fmtPrice(poPriceOf(Number(form.poLineId)) ?? form.unitPrice)}
+                                                readOnly
+                                                style={{ background: '#f1f5f9', color: '#64748b', cursor: 'not-allowed', textAlign: 'right' }}
+                                                title="The GRN price is the PO line price. If the supplier's price is different, amend the PO line first." />
+                                        ) : (
+                                            <AmountInput decimals={4} minDecimals={2} className="prd-lf-input" value={form.unitPrice} onChange={v => handle({ target: { name: 'unitPrice', value: v } })} />
+                                        )}
                                     </div>
                                     <div className="prd-lf-field">
                                         <label>Tax %</label>

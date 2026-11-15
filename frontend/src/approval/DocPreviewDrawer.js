@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import ReactDOM from 'react-dom';
 import { variables, authHeaders } from '../Variable';
+import { fmtPrice } from '../common/fmtPrice';
 
 // ── Formatters ────────────────────────────────────────────────────────────
 const fmt  = v => v == null ? '—' : Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -137,7 +138,7 @@ const MODULE_CONFIG = {
                                 { label: 'Description', key: 'itemDesc' },
                                 { label: 'UOM', key: 'uomName' },
                                 { label: 'Qty', key: 'orderedQty', right: true, render: r => fmt(r.orderedQty) },
-                                { label: 'Unit Price', key: 'unitPrice', right: true, render: r => fmt(r.unitPrice) },
+                                { label: 'Unit Price', key: 'unitPrice', right: true, render: r => fmtPrice(r.unitPrice) },
                                 { label: 'Total', key: 'lineTotal', right: true, render: r => fmt(r.lineTotal) },
                             ]}
                             rows={lines}
@@ -320,7 +321,7 @@ const MODULE_CONFIG = {
                                     { label: 'Description', key: 'itemDesc' },
                                     { label: 'UOM', key: 'uomName' },
                                     { label: 'Qty', key: 'completedQty', right: true, render: r => fmt(r.completedQty) },
-                                    { label: 'Unit Price', key: 'unitCost', right: true, render: r => fmt(r.unitCost) },
+                                    { label: 'Unit Price', key: 'unitCost', right: true, render: r => fmtPrice(r.unitCost) },
                                     { label: 'Total', key: 'totalCost', right: true, render: r => fmt(r.totalCost) },
                                 ]}
                                 rows={lines}

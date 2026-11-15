@@ -6,6 +6,7 @@ import { variables, authHeaders } from '../../Variable';
 import { fmt, fmtDate } from '../inventoryConstants';
 import '../Inventory.css';
 import '../../procurement/Procurement.css';
+import { fmtPrice } from '../../common/fmtPrice';
 
 // ── Item typeahead (uses the existing item/search endpoint) ─────────────────
 // Scoped by itemTypeId + categoryId (categoryId = subcategory when chosen).
@@ -444,10 +445,10 @@ const ItemPriceAnalysis = () => {
                                             <td>{d.supplierName || '—'}</td>
                                             <td className="po-num-cell">{fmt(d.orderedQty, 4)}</td>
                                             <td style={{ color: '#64748b' }}>{d.uomName || '—'}</td>
-                                            <td className="po-num-cell">{fmt(d.unitPrice)}</td>
+                                            <td className="po-num-cell">{fmtPrice(d.unitPrice)}</td>
                                             <td style={{ color: '#64748b' }}>{d.currencyShort || '—'}</td>
                                             <td className="po-num-cell" style={{ color: '#94a3b8' }}>{fmt(d.exchangeRate)}</td>
-                                            <td className="po-num-cell" style={{ fontWeight: 700 }}>{fmt(d.unitPriceBase)}</td>
+                                            <td className="po-num-cell" style={{ fontWeight: 700 }}>{fmtPrice(d.unitPriceBase)}</td>
                                         </tr>
                                     ))}
                                 </tbody>

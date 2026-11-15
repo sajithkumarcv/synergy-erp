@@ -4,6 +4,7 @@ import { variables, authHeaders } from '../Variable';
 import { useLookup } from '../LookupContext';
 import { fmtDate, fmt, statusBadgeCfg } from '../procurement/procurementConstants';
 import './Reports.css';
+import { fmtPrice } from '../common/fmtPrice';
 
 const today        = () => new Date().toISOString().slice(0, 10);
 const firstOfMonth = () => { const d = new Date(); d.setDate(1); return d.toISOString().slice(0, 10); };
@@ -253,7 +254,7 @@ const IssueQuickView = ({ issueId, onClose }) => {
                                             <td style={{ padding: '7px 12px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>
                                                 {Number(l.qty).toLocaleString(undefined, { maximumFractionDigits: 4 })}
                                             </td>
-                                            <td style={{ padding: '7px 12px', textAlign: 'right', fontFamily: 'monospace', color: '#475569' }}>{fmt(l.unitCost)}</td>
+                                            <td style={{ padding: '7px 12px', textAlign: 'right', fontFamily: 'monospace', color: '#475569' }}>{fmtPrice(l.unitCost)}</td>
                                             <td style={{ padding: '7px 12px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: '#1e40af' }}>{fmt(l.totalCost)}</td>
                                         </tr>
                                     ))}
@@ -759,7 +760,7 @@ const IssueReport = () => {
                                             <td style={{ fontSize: 11.5, color: '#64748b' }}>{r.categoryName || <span className="muted">—</span>}</td>
                                             <td className="r" style={{ fontFamily: 'monospace', fontWeight: 600 }}>{r.qty}</td>
                                             <td style={{ fontSize: 11.5, color: '#64748b' }}>{r.uomName}</td>
-                                            <td className="r" style={{ fontFamily: 'monospace', color: '#475569' }}>{fmt(r.unitCost)}</td>
+                                            <td className="r" style={{ fontFamily: 'monospace', color: '#475569' }}>{fmtPrice(r.unitCost)}</td>
                                             <td className="r" style={{ fontFamily: 'monospace', fontWeight: 700, color: '#1e40af', fontSize: 12.5 }}>{fmt(r.lineTotal)}</td>
                                             <td>
                                                 <StatusBadge status={r.status} getStatusConfig={getStatusConfig} />

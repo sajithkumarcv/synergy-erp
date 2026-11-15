@@ -128,10 +128,9 @@ namespace ERPWEB.Controllers.Item
         {
             try
             {
-                // The code is never generated: a blank one used to be stored as '' (UQ_ITEM_CODE then allowed exactly one).
-                if (string.IsNullOrWhiteSpace(model.ItemCode))
-                    return BadRequest(new { message = "Item Code is required." });
-                model.ItemCode = model.ItemCode.Trim();
+                // A typed code is kept (sp_SetItem refuses one that another item already uses). A blank code is never stored as '':
+                // sp_SetItem generates ITM-nnnnnn for a new item and keeps the existing code on an edit.
+                model.ItemCode = string.IsNullOrWhiteSpace(model.ItemCode) ? null! : model.ItemCode.Trim();
 
                 // A NEW item must carry a Budget Header (TBL_JOB_EXPENSE_CATEGORY). Enforced here, not in the database
                 // (the column stays nullable), so existing items without one can still be edited.

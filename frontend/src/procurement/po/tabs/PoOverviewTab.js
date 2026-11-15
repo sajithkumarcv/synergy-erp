@@ -58,6 +58,7 @@ const PoOverviewTab = ({ po, onRefresh }) => {
             supplierContactId:   po.supplierContactId ? String(po.supplierContactId) : '',
             vendorName:          po.vendorName     || '',
             vendorRef:           po.vendorRef      || '',
+            vendorQuoteDate:     po.vendorQuoteDate ? po.vendorQuoteDate.slice(0, 10) : '',
             currencyId:     po.currencyId     ? String(po.currencyId)           : '',
             exchangeRate:   po.exchangeRate   != null ? String(po.exchangeRate) : '1',
             paymentTermsId: po.paymentTermsId ? String(po.paymentTermsId)       : '',
@@ -111,6 +112,7 @@ const PoOverviewTab = ({ po, onRefresh }) => {
                 jobId:             form.jobId             || null,
                 vendorName:        form.vendorName?.trim() || null,
                 vendorRef:         form.vendorRef.trim()   || null,
+                vendorQuoteDate:   form.vendorQuoteDate    || null,
                 currencyId:    form.currencyId   ? Number(form.currencyId)    : null,
                 exchangeRate:  form.exchangeRate ? Number(form.exchangeRate)  : 1,
                 paymentTermsId:form.paymentTermsId ? Number(form.paymentTermsId) : null,
@@ -254,6 +256,10 @@ const PoOverviewTab = ({ po, onRefresh }) => {
                         <label style={lbl}>Vendor / Quote Ref</label>
                         <input className="pf-input" type="text" name="vendorRef" value={form.vendorRef} onChange={handle} placeholder="Quotation or ref #" />
                     </div>
+                    <div style={field}>
+                        <label style={lbl}>Quote Date</label>
+                        <input className="pf-input" type="date" name="vendorQuoteDate" value={form.vendorQuoteDate} onChange={handle} />
+                    </div>
                 </div>
 
                 {/* Row 3: Currency + Exch. Rate + Payment Terms + Discount */}
@@ -371,6 +377,7 @@ const PoOverviewTab = ({ po, onRefresh }) => {
                     </Field>
                 )}
                 <Field label="Vendor Reference" mono>{po.vendorRef}</Field>
+                <Field label="Quote Date">{fmtDate(po.vendorQuoteDate)}</Field>
                 <Field label="Currency">
                     <span style={{
                         fontFamily: 'Courier New, monospace', fontSize: 13, fontWeight: 700,

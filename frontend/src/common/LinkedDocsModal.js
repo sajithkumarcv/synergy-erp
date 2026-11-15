@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { variables, authHeaders } from '../Variable';
 import { fmt, fmtDate } from '../inventory/inventoryConstants';
+import { fmtPrice } from './fmtPrice';
 
 // PRs / POs linked to one BOM line or PR line. `url` is the API path (relative to API_URL) returning
 // {docId, docNumber, docStatus, lineNum, qty, uomName, unitPrice, docDate}. A line can be covered by several PRs and POs; each row opens that document's Lines tab in a new window.
@@ -73,7 +74,7 @@ const LinkedDocsModal = ({ url, kind, heading, itemLabel, onClose }) => {
                                         <td style={{ padding: '7px 8px', textAlign: 'right', fontWeight: 600 }}>
                                             {fmt(r.qty, 4)}<span style={{ display: 'inline-block', width: 44, textAlign: 'left', marginLeft: 4, color: '#94a3b8', fontWeight: 400 }}>{r.uomName}</span>
                                         </td>
-                                        {!isPr && <td style={{ padding: '7px 8px', textAlign: 'right' }}>{r.unitPrice != null ? `${fmt(r.unitPrice)} ${r.currencyCode || ''}`.trim() : '—'}</td>}
+                                        {!isPr && <td style={{ padding: '7px 8px', textAlign: 'right' }}>{r.unitPrice != null ? `${fmtPrice(r.unitPrice)} ${r.currencyCode || ''}`.trim() : '—'}</td>}
                                     </tr>
                                 ))}
                             </tbody>

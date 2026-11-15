@@ -3,6 +3,7 @@ import { useLookup } from '../LookupContext';
 import { fmt } from '../procurement/procurementConstants';
 import { fetchItemHistory, evaluateVariance, usePriceVarianceSettings } from './PriceVarianceWarning';
 import LastPurchaseModal from './LastPurchaseModal';
+import { fmtPrice } from './fmtPrice';
 
 // ─────────────────────────────────────────────────────────────────────
 // The approver's half of the price-variance feature.
@@ -108,7 +109,7 @@ const PriceVarianceSummary = ({ lines = [], exchangeRate = 1, currencyCode = '' 
                             itemId:    line.itemId,
                             itemLabel: `[${line.itemCode || '—'}] ${line.itemDesc || ''}`.trim(),
                         })}
-                        title={`${cur}${fmt(line.unitPrice)} vs usual ${cur}${fmt(v.baseline)}`
+                        title={`${cur}${fmtPrice(line.unitPrice)} vs usual ${cur}${fmt(v.baseline)}`
                                + (v.last?.supplierName ? ` · last from ${v.last.supplierName}` : '')
                                + ' — click for price history'}
                         style={{

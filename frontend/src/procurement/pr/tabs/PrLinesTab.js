@@ -9,6 +9,7 @@ import { useFieldConfig } from '../../../FieldConfigContext';
 import AmountInput from '../../../common/AmountInput';
 import LastPurchaseModal from '../../../common/LastPurchaseModal';
 import LinkedDocsModal from '../../../common/LinkedDocsModal';
+import { fmtPrice } from '../../../common/fmtPrice';
 
 // ── Confirm Modal (delete / close / cancel line) ─────────────────
 const ConfirmModal = ({ title, titleColor = '#dc2626', icon = '🗑', detail, warning, error, confirmLabel, confirmColor = '#dc2626', onConfirm, onCancel, busy }) =>
@@ -389,7 +390,7 @@ const BomImportModal = ({ pr, onClose, onImported }) => {
                                             <td style={{ padding: '5px 8px', borderBottom: '1px solid #f0f4f8', background: isAdded ? 'transparent' : (isChecked ? '#eff6ff' : '#f8fafc') }}
                                                 onClick={e => e.stopPropagation()}>
                                                 {isAdded ? (
-                                                    <span style={{ color: '#94a3b8', fontSize: 11 }}>{b.unitPrice ? fmt(b.unitPrice) : '—'}</span>
+                                                    <span style={{ color: '#94a3b8', fontSize: 11 }}>{b.unitPrice ? fmtPrice(b.unitPrice) : '—'}</span>
                                                 ) : (
                                                     <input
                                                         type="number"
@@ -789,7 +790,7 @@ const PrLinesTab = ({ pr, onRefresh }) => {
                                     </td>
                                     <td>{l.uomName || '—'}</td>
                                     <td>{fmtDate(l.requiredDate)}</td>
-                                    <td className="prd-num-cell">{l.estUnitPrice != null ? fmt(l.estUnitPrice) : '—'}</td>
+                                    <td className="prd-num-cell">{l.estUnitPrice != null ? fmtPrice(l.estUnitPrice) : '—'}</td>
                                     <td>
                                         {(() => {
                                             const sc = PR_LINE_STATUS_CFG[l.lineStatus] || PR_LINE_STATUS_CFG.Open;
@@ -907,7 +908,7 @@ const PrLinesTab = ({ pr, onRefresh }) => {
                                         title="Price is set from the BOM line and cannot be changed here"
                                     />
                                 ) : (
-                                    <AmountInput className="prd-lf-input" value={form.estUnitPrice} onChange={v => handle({ target: { name: 'estUnitPrice', value: v } })} />
+                                    <AmountInput decimals={4} minDecimals={2} className="prd-lf-input" value={form.estUnitPrice} onChange={v => handle({ target: { name: 'estUnitPrice', value: v } })} />
                                 )}
                             </div>
                         </div>

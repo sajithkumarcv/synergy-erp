@@ -28,6 +28,8 @@ const ADJ_STATUS = {
 const OverviewTab = ({ job, onRefresh, currentUser }) => {
     const navigate       = useNavigate();
     const { canDo }      = usePermission();
+    // Money figures show only for roles with the View Financials action on Jobs; the API withholds them too.
+    const canFin         = canDo('/jobs', 'VIEW_FINANCIALS');
     const { lookups, baseCurrency, baseCurrencyCode } = useLookup();
     const { currencies } = lookups;
 
@@ -125,13 +127,14 @@ const OverviewTab = ({ job, onRefresh, currentUser }) => {
             .finally(() => setSaving(false));
     };
 
-    const allowFinEdit = canDo('/jobs', 'EDIT_FINANCE') && canEdit(job?.jobStatusId);
+    const allowFinEdit = canFin && canDo('/jobs', 'EDIT_FINANCE') && canEdit(job?.jobStatusId);
 
     return (
         <div className="ov-wrap">
             {/* ── KPI strip ── */}
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 0 }}>
                 <div className="ov-kpi-row" style={{ flex: 1 }}>
+                    {canFin && (<>
                     <div className="ov-kpi">
                         <div className="ov-kpi-label">Order Value</div>
                         <div className="ov-kpi-value">{fmt(budget)}</div>
@@ -170,6 +173,7 @@ const OverviewTab = ({ job, onRefresh, currentUser }) => {
                         <div className="ov-kpi-value">{fmt(advance)}</div>
                         <div className="ov-kpi-sub">Received</div>
                     </div>
+                    </>)}
                     <div className="ov-kpi">
                         <div className="ov-kpi-label">Status</div>
                         <div className="ov-kpi-status">
@@ -299,7 +303,7 @@ const OverviewTab = ({ job, onRefresh, currentUser }) => {
             )}
 
             {/* ── Progress bars ── */}
-            {budget > 0 && (
+            {canFin && budget > 0 && (
                 <div className="ov-progress-wrap">
                     <div className="ov-progress-label">
                         <span>Actual Cost</span>
@@ -453,7 +457,7 @@ const OverviewTab = ({ job, onRefresh, currentUser }) => {
                                             TOTAL ({additionalJobs.length} jobs)
                                         </td>
                                         <td style={{ padding: '7px 10px', textAlign: 'right', fontWeight: 700, fontFamily: 'Courier New', fontSize: 12.5, color: '#1e3a5f' }}>
-                                            {fmt(additionalJobs.reduce((s, r) => s + (r.orderValue || r.OrderValue || 0), 0))}
+                                            {canFin ? fmt(additionalJobs.reduce((s, r) => s + (r.orderValue || r.OrderValue || 0), 0)) : ''}
                                         </td>
                                         <td colSpan={3} />
                                     </tr>

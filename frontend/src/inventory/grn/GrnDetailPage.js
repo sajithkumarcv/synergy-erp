@@ -8,6 +8,7 @@ import { useFieldConfig } from '../../FieldConfigContext';
 import { InlineError } from '../../common/InlineError';
 import AmountInput from '../../common/AmountInput';
 import AlertModal from '../../common/AlertModal';
+import { fmtPrice } from '../../common/fmtPrice';
 
 // ── Helpers ────────────────────────────────────────────────────
 const StatusBadge = ({ status }) => {
@@ -240,7 +241,7 @@ const LinesTab = ({ receipt, lines, onRefresh, currentUser }) => {
                                     <td style={{ color: '#64748b', fontSize: 12 }}>{l.itemDesc || '—'}</td>
                                     <td className="right" style={{ fontWeight: 600 }}>{fmt(l.qty, 4)}</td>
                                     <td style={{ color: '#64748b', fontSize: 12 }}>{l.uomName || '—'}</td>
-                                    <td className="right">{fmt(l.unitCost)}</td>
+                                    <td className="right">{fmtPrice(l.unitCost)}</td>
                                     <td className="right" style={{ fontWeight: 600 }}>{fmt(l.qty * l.unitCost)}</td>
                                     <td>
                                         {l.isJobStock ? (
@@ -335,7 +336,7 @@ const LinesTab = ({ receipt, lines, onRefresh, currentUser }) => {
                         </div>
                         <div className="invd-field">
                             <label className="invd-label">Unit Cost {isReq('unitCost') && <span className="req">*</span>}</label>
-                            <AmountInput className={`invd-input${formErr.unitCost ? ' error' : ''}`} value={form.unitCost} onChange={v => set('unitCost', v)} />
+                            <AmountInput decimals={4} minDecimals={2} className={`invd-input${formErr.unitCost ? ' error' : ''}`} value={form.unitCost} onChange={v => set('unitCost', v)} />
                             {formErr.unitCost && <span style={{ color: '#dc2626', fontSize: 11 }}>{formErr.unitCost}</span>}
                         </div>
                         <div className="invd-field">

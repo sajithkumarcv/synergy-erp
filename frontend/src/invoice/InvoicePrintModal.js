@@ -5,6 +5,7 @@ import { useLookup } from '../LookupContext';
 import { CompanyHeaderBand, BankDetailsBlock, DraftWatermark, PreviewBanner } from '../components/print/PrintCompanyHeader';
 import { openPrintWindow } from '../utils/printWindow';
 import '../procurement/po/PoPrint.css';
+import { fmtPrice } from '../common/fmtPrice';
 
 const dash = (v) => (v != null && v !== '') ? v : '—';
 
@@ -206,7 +207,7 @@ const InvoicePrintModal = ({ invoice, lines = [], onClose, preview }) => {
                                             maximumFractionDigits: 4,
                                         })}
                                     </td>
-                                    <td className="num">{fmt(l.unitPrice)}</td>
+                                    <td className="num">{fmtPrice(l.unitPrice)}</td>
                                     <td className="num">{fmt(l.amount)}</td>
                                     <td className="num" style={{ color: '#64748b' }}>{l.vatPercent}%</td>
                                     <td className="num" style={{ color: '#64748b' }}>{fmt(l.taxAmount)}</td>

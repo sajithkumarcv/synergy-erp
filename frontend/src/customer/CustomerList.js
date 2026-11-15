@@ -38,12 +38,19 @@ const SortIcon = ({ col, sortCol, sortDir }) => {
 
 const csvEsc = v => { if (v == null) return ''; const s = String(v); return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
 
+// Long digit strings (phone, tax no.) are written as ="..." so Excel keeps every digit as text.
+const TEXT_COL = /phone|mobile|postal|tax number|vat number|customer code|customer ref/i;
+const csvCell = (header, v) => {
+    if (v == null) return '';
+    const s = String(v);
+    if (TEXT_COL.test(header) && /^[\d+\-\s]{6,}$/.test(s)) return `="${s}"`;
+    return csvEsc(s);
+};
+
 const downloadCustomersCsv = (rows) => {
-    const headers = ['Code', 'Customer Name', 'Type', 'Category', 'Mobile', 'Email', 'Credit Limit', 'Sales Person', 'Status', 'Credit Flag'];
-    const lines = [headers.join(','), ...rows.map(c => [
-        c.customerCode, c.customerName, c.customerType, c.customerCategoryName, c.mobile, c.email,
-        c.creditLimit, c.salesPerson, c.statusLabel || (c.isActive ? 'Active' : 'Inactive'), c.creditFlagLabel || c.creditFlag,
-    ].map(csvEsc).join(','))];
+    if (!rows.length) return;
+    const headers = Object.keys(rows[0]);
+    const lines = [headers.map(csvEsc).join(','), ...rows.map(r => headers.map(h => csvCell(h, r[h])).join(','))];
     const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -108,11 +115,11 @@ const CustomerCreateForm = ({ onClose, onCreated }) => {
     const currentUser = useCurrentUser();
     const { lookups, getVList } = useLookup();
     const { isReq } = useFieldConfig('CUSTOMER');
-    const { currencies, paymentTerms, customerCategories } = lookups;
+    const { currencies, paymentTerms, customerCategories, countries } = lookups;
     const customerTypes = getVList('Customer', 'CustomerType');
 
     const [form, setForm] = useState({
-        customerId: 0, customerName: '', customerShortName: '',
+        customerId: 0, customerName: '', customerShortName: '', countryId: '',
         customerRef: '', customerType: '', customerCategoryId: '', salesPerson: '',
         phone: '', mobile: '', email: '', web: '',
         currencyId: '', paymentTermsId: '', creditLimit: 0, creditDays: 0,
@@ -146,10 +153,11 @@ const CustomerCreateForm = ({ onClose, onCreated }) => {
         if (!form.currencyId)          errs.push('Currency is required.');
         if (!form.paymentTermsId)      errs.push('Payment Terms are required.');
         if (!form.customerType)        errs.push('Customer Type is required.');
+        if (!form.countryId)           errs.push('Country is required.');
         if (errs.length) { setValidErrors(errs); return; }
         setSaving(true);
         try {
-            const payload = { ...form, createdBy: currentUser, modifiedBy: null };
+            const payload = { ...form, countryId: parseInt(form.countryId), createdBy: currentUser, modifiedBy: null };
             const res = await fetch(variables.API_URL + 'customer/save', { method: 'POST', headers: authHeaders(), body: JSON.stringify(payload) });
             const d = await res.json();
             if (!res.ok) { setValidErrors([d?.message || 'Failed to create customer.']); return; }
@@ -218,6 +226,13 @@ const CustomerCreateForm = ({ onClose, onCreated }) => {
                             <select name="customerType" className="jf-input" value={form.customerType} onChange={handle}>
                                 <option value="">— Select —</option>
                                 {customerTypes.map(t => <option key={t.id} value={t.value}>{t.label}</option>)}
+                            </select>
+                        </div>
+                        <div className="jf-field">
+                            <label>Country <span className="req">*</span></label>
+                            <select name="countryId" className="jf-input" value={form.countryId} onChange={handle}>
+                                <option value="">— Select —</option>
+                                {(countries || []).map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
                             </select>
                         </div>
                     </div>
@@ -405,7 +420,18 @@ const CustomerList = () => {
                 pages = res.totalPages || 1;
                 pg++;
             } while (pg <= pages);
-            downloadCustomersCsv(all);
+            // full information (names instead of ids) for exactly the customers on the current filter
+            const ids = all.map(x => x.customerId).filter(Boolean);
+            const full = [];
+            for (let i = 0; i < ids.length; i += 500) {
+                const r = await fetch(`${variables.API_URL}customer/export`, {
+                    method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ customerIds: ids.slice(i, i + 500) }),
+                });
+                if (!r.ok) throw new Error('export failed');
+                full.push(...(await r.json()));
+            }
+            downloadCustomersCsv(full);
         } catch (e) { console.error(e); }
         finally { setExporting(false); }
     };
