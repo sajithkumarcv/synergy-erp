@@ -373,6 +373,33 @@ namespace ERPWEB.Controllers.Inventory
         }
 
         // ═══════════════════════════════════════════════════════
+        // ITEMS WITH STOCK TO ISSUE (2026-11-15g) - item list of an "Include in Costing" note
+        // GET: api/stockissue/stockitems?searchText=&requestId=&pageSize=
+        // ═══════════════════════════════════════════════════════
+        [HttpGet("stockitems")]
+        public async Task<IActionResult> GetStockItems(
+            [FromQuery] string? searchText = null,
+            [FromQuery] int?    requestId  = null,
+            [FromQuery] int     pageSize   = 20)
+        {
+            try
+            {
+                var rows = await _dbcon.QueryAsync<dynamic>("sp_SearchIssueItemsInStock", new
+                {
+                    SearchText = string.IsNullOrWhiteSpace(searchText) ? null : searchText.Trim(),
+                    RequestId  = requestId,
+                    PageSize   = pageSize
+                });
+                return Ok(DynamicRowJson.ToCamelRows(rows));   // picker reads itemId / itemCode / availableQty
+            }
+            catch (Exception ex)
+            {
+                await _dbcon.WriteLog(ex, controller: "StockIssue", action: "GetStockItems", requestPath: HttpContext.Request.Path);
+                return StatusCode(500, new { message = "Error retrieving items with stock." });
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════
         // FIFO LAYERS (2026-11-15c) - the FIFO walk for a quantity, one row per receipt batch price.
         // GET: api/stockissue/fifolayers/{itemId}?qty=   (qty in the item's BASE unit)
         // ═══════════════════════════════════════════════════════

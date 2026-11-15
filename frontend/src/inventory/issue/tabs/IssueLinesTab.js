@@ -11,8 +11,8 @@ import { fmtPrice } from '../../../common/fmtPrice';
 
 // ── Smart item search ─────────────────────────────────────────
 // EXC_COSTING → job-specific items only (api/stockissue/jobitems/{jobId})
-// INC_COSTING → all items             (api/item/search)
-const IssueItemSearch = ({ value, onSelect, costingType, jobId }) => {
+// INC_COSTING → only items with in-house / store stock to issue (api/stockissue/stockitems, 2026-11-15g)
+const IssueItemSearch = ({ value, onSelect, costingType, jobId, requestId }) => {
     const [q,   setQ]   = useState('');
     const [res, setRes] = useState([]);
     const timer         = useRef(null);
@@ -29,7 +29,8 @@ const IssueItemSearch = ({ value, onSelect, costingType, jobId }) => {
         timer.current = setTimeout(() => {
             const url = isJobMode
                 ? `${variables.API_URL}stockissue/jobitems/${encodeURIComponent(jobId)}?searchText=${encodeURIComponent(text)}&pageSize=20`
-                : `${variables.API_URL}item/search?searchText=${encodeURIComponent(text)}&pageSize=20`;
+                : `${variables.API_URL}stockissue/stockitems?searchText=${encodeURIComponent(text)}&pageSize=20`
+                    + (requestId ? `&requestId=${requestId}` : '');
             fetch(url, { headers: authHeaders() })
                 .then(r => r.json())
                 .then(d => {
@@ -63,7 +64,7 @@ const IssueItemSearch = ({ value, onSelect, costingType, jobId }) => {
             <input className="prd-lf-input"
                 placeholder={isJobMode
                     ? `Search items purchased for this job…`
-                    : `Search by item code or name…`}
+                    : `Search items with stock (by code or name)…`}
                 value={q}
                 onChange={e => search(e.target.value)}
                 onBlur={() => setTimeout(() => setRes([]), 200)} />
@@ -79,17 +80,18 @@ const IssueItemSearch = ({ value, onSelect, costingType, jobId }) => {
                                 <strong style={{ color: '#1e40af' }}>{it.itemCode}</strong>
                                 <span style={{ color: '#374151', marginLeft: 8 }}>{it.itemName}</span>
                             </span>
-                            {/* Show available qty for job mode */}
-                            {isJobMode && it.availableQty != null && (
+                            {/* Show available qty */}
+                            {it.availableQty != null && (
                                 <span style={{ fontSize: 10.5, fontWeight: 600, color: it.availableQty > 0 ? '#166534' : '#dc2626', background: it.availableQty > 0 ? '#dcfce7' : '#fee2e2', borderRadius: 4, padding: '1px 6px', marginLeft: 10, whiteSpace: 'nowrap' }}>
                                     {fmt(it.availableQty, 4)} avail.
                                 </span>
                             )}
                         </div>
                     ))}
-                    {res.length === 0 && isJobMode && (
+                    {res.length === 0 && (
                         <div style={{ padding: '10px 12px', color: '#94a3b8', fontSize: 12.5, fontStyle: 'italic' }}>
-                            No items purchased for this job matching your search.
+                            {isJobMode ? 'No items purchased for this job matching your search.'
+                                       : 'No item with stock to issue matches your search.'}
                         </div>
                     )}
                 </div>
@@ -659,6 +661,7 @@ const IssueLinesTab = ({ issue, lines, onRefresh }) => {
                                     onSelect={handleItemSelect}
                                     costingType={issue.costingType}
                                     jobId={issue.jobId}
+                                    requestId={issue.requestId}
                                 />
                             </div>
                             <div className="prd-lf-field prd-lf-f2">
